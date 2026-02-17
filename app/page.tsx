@@ -12,6 +12,7 @@ import { AccountPage } from "@/components/store/account-page"
 import { AdminLayout } from "@/components/admin/admin-layout"
 import { AdminDashboard } from "@/components/admin/admin-dashboard"
 import { AdminProducts } from "@/components/admin/admin-products"
+import { AdminCategories } from "@/components/admin/admin-categories"
 import { AdminOrders } from "@/components/admin/admin-orders"
 import { AdminCustomers } from "@/components/admin/admin-customers"
 import { AdminAnalytics } from "@/components/admin/admin-analytics"
@@ -31,6 +32,9 @@ function AppContent() {
         break
       case "admin-products":
         adminContent = <AdminProducts />
+        break
+      case "admin-categories":
+        adminContent = <AdminCategories />
         break
       case "admin-orders":
         adminContent = <AdminOrders />

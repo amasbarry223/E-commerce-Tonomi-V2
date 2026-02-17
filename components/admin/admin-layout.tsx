@@ -3,7 +3,7 @@
 import { useStore } from "@/lib/store-context"
 import { Button } from "@/components/ui/button"
 import {
-  LayoutDashboard, Package, ShoppingCart, Users,
+  LayoutDashboard, Package, FolderKanban, ShoppingCart, Users,
   BarChart3, Tag, Star, Settings, Store, Sun, Moon, Menu, X, ChevronRight,
 } from "lucide-react"
 import { useState } from "react"
@@ -11,6 +11,7 @@ import { useState } from "react"
 const navItems = [
   { id: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
   { id: "admin-products", label: "Produits", icon: Package },
+  { id: "admin-categories", label: "Catégories", icon: FolderKanban },
   { id: "admin-orders", label: "Commandes", icon: ShoppingCart },
   { id: "admin-customers", label: "Clients", icon: Users },
   { id: "admin-analytics", label: "Analytics", icon: BarChart3 },
