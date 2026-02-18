@@ -8,7 +8,7 @@ import { useCartStore } from '../../../lib/stores/cart-store'
 import { useWishlistStore } from '../../../lib/stores/wishlist-store'
 import { useUIStore } from '../../../lib/stores/ui-store'
 import { categories } from '@/lib/data'
-import { Search, ShoppingBag, Heart, Sun, Moon, Menu, X, User, LayoutDashboard } from 'lucide-react'
+import { Search, ShoppingBag, Heart, Sun, Moon, Menu, X, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
@@ -71,22 +71,17 @@ export function Header() {
                 >
                   Catalogue
                 </button>
-                <div className="border-t border-border pt-4 mt-2">
-                  <button 
-                    onClick={() => { setCurrentView('admin'); setMobileMenuOpen(false) }} 
-                    className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <LayoutDashboard className="h-4 w-4" />
-                    Back-office
-                  </button>
-                </div>
               </nav>
             </SheetContent>
           </Sheet>
           
           {/* Logo */}
           <button onClick={() => navigate('home')} className="flex items-center gap-2">
-            <span className="font-serif text-2xl tracking-widest font-bold">LUXE</span>
+            <img 
+              src="/images/logo.png" 
+              alt="TONOMI ACCESSOIRES" 
+              className="h-14 md:h-16 w-auto object-contain"
+            />
           </button>
           
           {/* Desktop nav */}
@@ -161,11 +156,6 @@ export function Header() {
                 </span>
               )}
               <span className="sr-only">Panier</span>
-            </Button>
-            
-            <Button variant="ghost" size="icon" className="hidden md:flex" onClick={() => setCurrentView('admin')}>
-              <LayoutDashboard className="h-5 w-5" />
-              <span className="sr-only">Admin</span>
             </Button>
           </div>
         </div>

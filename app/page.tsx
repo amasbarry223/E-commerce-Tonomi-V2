@@ -1,6 +1,8 @@
 "use client"
 
+import { useEffect } from "react"
 import { StoreProvider, useStore } from "@/lib/store-context"
+import { useAuthStore } from "@/lib/stores/auth-store"
 import { StoreHeader } from "@/components/store/header"
 import { StoreFooter } from "@/components/store/footer"
 import { HomePage } from "@/components/store/home-page"
@@ -10,6 +12,7 @@ import { CartPage } from "@/components/store/cart-page"
 import { CheckoutPage } from "@/components/store/checkout-page"
 import { AccountPage } from "@/components/store/account-page"
 import { AdminLayout } from "@/components/admin/admin-layout"
+import { AdminLogin } from "@/components/admin/admin-login"
 import { AdminDashboard } from "@/components/admin/admin-dashboard"
 import { AdminProducts } from "@/components/admin/admin-products"
 import { AdminCategories } from "@/components/admin/admin-categories"
@@ -21,10 +24,23 @@ import { AdminReviews } from "@/components/admin/admin-reviews"
 import { AdminSettings } from "@/components/admin/admin-settings"
 
 function AppContent() {
-  const { currentView, currentPage } = useStore()
+  const { currentView, currentPage, setCurrentView, navigate } = useStore()
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
 
-  // Admin view
-  if (currentView === "admin") {
+  // Si authentifié mais currentView n'est pas admin, forcer le passage en mode admin
+  useEffect(() => {
+    if (isAuthenticated && currentView !== "admin") {
+      setCurrentView("admin")
+      navigate("dashboard")
+    }
+  }, [isAuthenticated, currentView, setCurrentView, navigate])
+
+  // Admin view - vérification de l'authentification
+  if (currentView === "admin" || isAuthenticated) {
+    // Si non authentifié, afficher la page de login
+    if (!isAuthenticated) {
+      return <AdminLogin />
+    }
     let adminContent
     switch (currentPage) {
       case "dashboard":

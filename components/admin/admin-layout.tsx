@@ -1,10 +1,11 @@
 "use client"
 
 import { useStore } from "@/lib/store-context"
+import { useAuthStore } from "@/lib/stores/auth-store"
 import { Button } from "@/components/ui/button"
 import {
   LayoutDashboard, Package, FolderKanban, ShoppingCart, Users,
-  BarChart3, Tag, Star, Settings, Store, Sun, Moon, Menu, X, ChevronRight,
+  BarChart3, Tag, Star, Settings, Store, Sun, Moon, Menu, X, ChevronRight, LogOut,
 } from "lucide-react"
 import { useState } from "react"
 
@@ -22,7 +23,13 @@ const navItems = [
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const { currentPage, navigate, setCurrentView, darkMode, toggleDarkMode } = useStore()
+  const { user, logout } = useAuthStore()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  const handleLogout = () => {
+    logout()
+    setCurrentView("store")
+  }
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -33,10 +40,13 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
       {/* Sidebar */}
       <aside className={`fixed z-50 lg:static inset-y-0 left-0 w-64 bg-card border-r border-border flex flex-col transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-        <div className="flex items-center justify-between h-16 px-4 border-b border-border">
+        <div className="flex items-center justify-between h-20 px-4 border-b border-border">
           <button onClick={() => setCurrentView("store")} className="flex items-center gap-2 text-foreground hover:text-accent transition-colors">
-            <Store className="h-5 w-5" />
-            <span className="font-serif text-lg tracking-widest font-bold">LUXE</span>
+            <img 
+              src="/images/logo.png" 
+              alt="TONOMI ACCESSOIRES" 
+              className="h-20 w-auto object-contain"
+            />
           </button>
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(false)}>
             <X className="h-4 w-4" />
@@ -64,7 +74,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div className="p-3 border-t border-border">
+        <div className="p-3 border-t border-border space-y-2">
           <Button
             variant="ghost"
             size="sm"
@@ -74,6 +84,15 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             <Store className="h-4 w-4" />
             Voir la boutique
             <ChevronRight className="h-3 w-3 ml-auto" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start gap-2 text-muted-foreground hover:text-destructive"
+            onClick={handleLogout}
+          >
+            <LogOut className="h-4 w-4" />
+            Déconnexion
           </Button>
         </div>
       </aside>
@@ -90,7 +109,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               {navItems.find(n => n.id === currentPage)?.label || "Back-Office"}
             </h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <div className="hidden md:flex flex-col items-end">
+              <span className="text-xs text-muted-foreground">Connecté en tant que</span>
+              <span className="text-sm font-medium">{user?.email || "Admin"}</span>
+            </div>
             <Button variant="ghost" size="icon" onClick={toggleDarkMode}>
               {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
@@ -100,7 +123,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+        <main className="flex-1 overflow-y-auto p-6 md:p-8 lg:p-10">
           {children}
         </main>
       </div>

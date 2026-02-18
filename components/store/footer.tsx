@@ -52,7 +52,11 @@ export function StoreFooter() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Brand */}
           <div>
-            <h3 className="font-serif text-xl tracking-widest font-bold mb-4">LUXE</h3>
+            <img 
+              src="/images/logo.png" 
+              alt="TONOMI ACCESSOIRES" 
+              className="h-16 md:h-20 w-auto object-contain mb-4"
+            />
             <p className="text-sm text-primary-foreground/70 leading-relaxed mb-4">
               Maroquinerie et accessoires de mode haut de gamme. Des produits soigneusement sélectionnés pour leur qualité et leur élégance.
             </p>
