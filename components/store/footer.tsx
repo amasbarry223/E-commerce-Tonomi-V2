@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useStore } from "@/lib/store-context"
+import { SECTION_CONTAINER } from "@/lib/layout"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Mail, MapPin, Phone, Truck, ShieldCheck, RotateCcw, CreditCard } from "lucide-react"
@@ -22,7 +23,7 @@ export function StoreFooter() {
     <footer className="bg-primary text-primary-foreground">
       {/* Trust badges */}
       <div className="border-b border-primary-foreground/10">
-        <div className="mx-auto max-w-7xl px-4 py-8">
+        <div className={`${SECTION_CONTAINER} py-8`}>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div className="flex flex-col items-center text-center gap-2">
               <Truck className="h-6 w-6 text-accent" />
@@ -48,7 +49,7 @@ export function StoreFooter() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-7xl px-4 py-12">
+      <div className={`${SECTION_CONTAINER} py-12`}>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Brand */}
           <div>
@@ -115,7 +116,7 @@ export function StoreFooter() {
       </div>
 
       <div className="border-t border-primary-foreground/10">
-        <div className="mx-auto max-w-7xl px-4 py-4 text-center text-xs text-primary-foreground/50">
+        <div className={`${SECTION_CONTAINER} py-4 text-center text-xs text-primary-foreground/50`}>
           &copy; 2026 LUXE Paris. Tous droits réservés.
         </div>
       </div>

@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import { useStore } from "@/lib/store-context"
 import { products, categories, formatPrice } from "@/lib/data"
+import { SECTION_CONTAINER } from "@/lib/layout"
 import { ProductCard } from "./product-card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -11,37 +12,43 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { SlidersHorizontal, X, Grid3X3, LayoutGrid } from "lucide-react"
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 
-const materials = ["Cuir véritable", "Cuir grainé", "Cuir saffiano", "Cuir d'agneau", "Canvas & Cuir", "Nylon imperméable", "Similicuir", "Toile & Cuir"]
-const brands = ["Maison Élégance", "Bohème Paris", "Cristal de Paris", "Urban Mode", "Riviera Mode", "Artisan Paris"]
+const MATERIALS = ["Cuir véritable", "Cuir grainé", "Cuir saffiano", "Cuir d'agneau", "Canvas & Cuir", "Nylon imperméable", "Similicuir", "Toile & Cuir"] as const
+const BRANDS = ["Maison Élégance", "Bohème Paris", "Cristal de Paris", "Urban Mode", "Riviera Mode", "Artisan Paris"] as const
+const PRICE_RANGE_DEFAULT: [number, number] = [0, 300]
 
 export function CatalogPage() {
-  const { searchQuery } = useStore()
+  const { searchQuery, selectedCategorySlug, selectCategory, navigate } = useStore()
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
-  const [priceRange, setPriceRange] = useState<number[]>([0, 300])
+  const [priceRange, setPriceRange] = useState<number[]>([...PRICE_RANGE_DEFAULT])
   const [selectedBrands, setSelectedBrands] = useState<string[]>([])
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([])
   const [sortBy, setSortBy] = useState<string>("popularity")
   const [gridCols, setGridCols] = useState<3 | 4>(4)
   const [filtersOpen, setFiltersOpen] = useState(false)
 
-  const toggleBrand = (brand: string) => {
+  useEffect(() => {
+    setSelectedCategory(selectedCategorySlug ?? "all")
+  }, [selectedCategorySlug])
+
+  const toggleBrand = useCallback((brand: string) => {
     setSelectedBrands(prev =>
       prev.includes(brand) ? prev.filter(b => b !== brand) : [...prev, brand]
     )
-  }
+  }, [])
 
-  const toggleMaterial = (material: string) => {
+  const toggleMaterial = useCallback((material: string) => {
     setSelectedMaterials(prev =>
       prev.includes(material) ? prev.filter(m => m !== material) : [...prev, material]
     )
-  }
+  }, [])
 
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
+    selectCategory(null)
     setSelectedCategory("all")
-    setPriceRange([0, 300])
+    setPriceRange([...PRICE_RANGE_DEFAULT])
     setSelectedBrands([])
     setSelectedMaterials([])
-  }
+  }, [selectCategory])
 
   const filteredProducts = useMemo(() => {
     let result = products.filter(p => p.status === "published")
@@ -81,7 +88,14 @@ export function CatalogPage() {
     return result
   }, [searchQuery, selectedCategory, priceRange, selectedBrands, selectedMaterials, sortBy])
 
-  const activeFilterCount = (selectedCategory !== "all" ? 1 : 0) + selectedBrands.length + selectedMaterials.length + (priceRange[0] > 0 || priceRange[1] < 300 ? 1 : 0)
+  const activeFilterCount = useMemo(
+    () =>
+      (selectedCategory !== "all" ? 1 : 0) +
+      selectedBrands.length +
+      selectedMaterials.length +
+      (priceRange[0] > PRICE_RANGE_DEFAULT[0] || priceRange[1] < PRICE_RANGE_DEFAULT[1] ? 1 : 0),
+    [selectedCategory, selectedBrands.length, selectedMaterials.length, priceRange]
+  )
 
   const FilterContent = () => (
     <div className="flex flex-col gap-6">
@@ -128,7 +142,7 @@ export function CatalogPage() {
       <div>
         <h4 className="font-semibold mb-3 text-sm">Marques</h4>
         <div className="flex flex-col gap-2">
-          {brands.map(brand => (
+          {BRANDS.map(brand => (
             <label key={brand} className="flex items-center gap-2 text-sm cursor-pointer">
               <Checkbox
                 checked={selectedBrands.includes(brand)}
@@ -144,7 +158,7 @@ export function CatalogPage() {
       <div>
         <h4 className="font-semibold mb-3 text-sm">Matière</h4>
         <div className="flex flex-col gap-2">
-          {materials.slice(0, 6).map(material => (
+          {MATERIALS.slice(0, 6).map(material => (
             <label key={material} className="flex items-center gap-2 text-sm cursor-pointer">
               <Checkbox
                 checked={selectedMaterials.includes(material)}
@@ -165,10 +179,10 @@ export function CatalogPage() {
   )
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
+    <div className={`${SECTION_CONTAINER} py-8`}>
       {/* Breadcrumb */}
       <div className="text-sm text-muted-foreground mb-6">
-        <button onClick={() => {}} className="hover:text-foreground">Accueil</button>
+        <button type="button" onClick={() => navigate("home")} className="hover:text-foreground">Accueil</button>
         <span className="mx-2">/</span>
         <span className="text-foreground">Catalogue</span>
       </div>
@@ -245,8 +259,8 @@ export function CatalogPage() {
             </div>
           ) : (
             <div className={`grid grid-cols-2 ${gridCols === 3 ? "lg:grid-cols-3" : "lg:grid-cols-4"} gap-4 md:gap-6`}>
-              {filteredProducts.map(product => (
-                <ProductCard key={product.id} product={product} />
+              {filteredProducts.map((product, index) => (
+                <ProductCard key={product.id} product={product} index={index} />
               ))}
             </div>
           )}

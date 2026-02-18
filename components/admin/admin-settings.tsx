@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Store, Truck, CreditCard, Bell, Shield, Users, FileText, Plus, Trash2, Edit, Search, Filter } from "lucide-react"
 import { useUsersStore, type AdminUser } from "@/lib/stores/users-store"
-import { useLogsStore, type LogEntry, type LogAction } from "@/lib/stores/logs-store"
+import { useLogsStore, type LogAction } from "@/lib/stores/logs-store"
 import { useAuthStore } from "@/lib/stores/auth-store"
 
 export function AdminSettings() {
@@ -433,8 +433,8 @@ function UsersManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id}>
+                {users.map((user, index) => (
+                  <TableRow key={user.id} index={index}>
                     <TableCell className="font-medium">{user.name}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>
@@ -481,7 +481,7 @@ function UsersManagement() {
 
 // Composant pour la gestion des logs
 function LogsManagement() {
-  const { logs, getLogs, clearLogs, deleteLog } = useLogsStore()
+  const { getLogs, clearLogs, deleteLog } = useLogsStore()
   const [filterAction, setFilterAction] = useState<LogAction | "all">("all")
   const [searchQuery, setSearchQuery] = useState("")
 
@@ -568,8 +568,8 @@ function LogsManagement() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredLogs.map((log) => (
-                        <TableRow key={log.id}>
+                      filteredLogs.map((log, index) => (
+                        <TableRow key={log.id} index={index}>
                           <TableCell className="text-sm">
                             {new Date(log.timestamp).toLocaleString("fr-FR")}
                           </TableCell>

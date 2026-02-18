@@ -16,7 +16,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 export function Header() {
   const cartCount = useCartStore((state) => state.getCount())
   const wishlistCount = useWishlistStore((state) => state.items.length)
-  const { darkMode, toggleDarkMode, navigate, setCurrentView, searchQuery, setSearchQuery } = useUIStore()
+  const { darkMode, toggleDarkMode, navigate, searchQuery, setSearchQuery, selectCategory } = useUIStore()
   
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -59,17 +59,27 @@ export function Header() {
                 {mainCategories.map((cat) => (
                   <button 
                     key={cat.id} 
-                    onClick={() => { navigate('catalog'); setMobileMenuOpen(false) }} 
+                    onClick={() => { 
+                      selectCategory(cat.id); 
+                      navigate('catalog'); 
+                      setMobileMenuOpen(false); 
+                    }} 
                     className="text-left text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {cat.name}
                   </button>
                 ))}
                 <button 
-                  onClick={() => { navigate('catalog'); setMobileMenuOpen(false) }} 
+                  onClick={() => { selectCategory(null); navigate('catalog'); setMobileMenuOpen(false) }} 
                   className="text-left text-lg font-medium hover:text-accent transition-colors"
                 >
                   Catalogue
+                </button>
+                <button 
+                  onClick={() => { selectCategory(null); navigate('promotions'); setMobileMenuOpen(false) }} 
+                  className="text-left text-lg font-medium text-red-500 hover:text-red-600 transition-colors"
+                >
+                  Promotions
                 </button>
               </nav>
             </SheetContent>
@@ -89,19 +99,22 @@ export function Header() {
             <button onClick={() => navigate('home')} className="text-sm tracking-wide hover:text-accent transition-colors">
               Accueil
             </button>
-            <button onClick={() => navigate('catalog')} className="text-sm tracking-wide hover:text-accent transition-colors">
+            <button onClick={() => { selectCategory(null); navigate('catalog'); }} className="text-sm tracking-wide hover:text-accent transition-colors">
               Catalogue
             </button>
             {mainCategories.slice(0, 4).map((cat) => (
               <button
                 key={cat.id}
-                onClick={() => navigate('catalog')}
+                onClick={() => { 
+                  selectCategory(cat.id); 
+                  navigate('catalog'); 
+                }}
                 className="text-sm tracking-wide text-muted-foreground hover:text-foreground transition-colors"
               >
                 {cat.name}
               </button>
             ))}
-            <button onClick={() => navigate('catalog')} className="text-sm tracking-wide text-red-500 font-medium hover:text-red-600 transition-colors">
+            <button onClick={() => { selectCategory(null); navigate('promotions'); }} className="text-sm tracking-wide text-red-500 font-medium hover:text-red-600 transition-colors">
               Promotions
             </button>
           </nav>

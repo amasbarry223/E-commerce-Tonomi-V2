@@ -8,10 +8,13 @@ import { categories } from '@/lib/data'
 import { Button } from '@/components/ui/button'
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 
-// Lazy load ProductCard
-const ProductCard = dynamic(() => import('@/components/store/product/ProductCard').then(m => ({ default: m.ProductCard })), {
-  loading: () => <div className="aspect-square bg-muted animate-pulse rounded-lg" />,
-})
+// Lazy load ProductCard (composant dans src/)
+const ProductCard = dynamic(
+  () => import('@/src/components/store/product/ProductCard').then((m) => ({ default: m.ProductCard })),
+  {
+    loading: () => <div className="aspect-square bg-muted animate-pulse rounded-lg" />,
+  }
+)
 
 const heroSlides = [
   {

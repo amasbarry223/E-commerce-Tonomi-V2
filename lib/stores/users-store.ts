@@ -61,7 +61,7 @@ export const useUsersStore = create<UsersStore>()(
             userEmail: authStore.user?.email || 'system',
             description: `Création de l'utilisateur ${userData.name} (${userData.email})`,
           })
-        } catch (e) {
+        } catch {
           // Ignorer si les stores ne sont pas disponibles
         }
       },

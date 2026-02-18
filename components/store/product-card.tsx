@@ -4,8 +4,12 @@ import { useStore } from "@/lib/store-context"
 import { type Product, formatPrice, getBadgeColor, getStatusLabel } from "@/lib/data"
 import { Heart, ShoppingBag, Star, Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { motion } from "framer-motion"
+import { cardVariants, getReducedMotionConfig, fastTransition } from "@/lib/animations"
 
-export function ProductCard({ product }: { product: Product }) {
+const cardAnimationVariants = getReducedMotionConfig(cardVariants)
+
+export function ProductCard({ product, index = 0 }: { product: Product; index?: number }) {
   const { addToCart, toggleWishlist, isInWishlist, navigate, selectProduct } = useStore()
   const wishlisted = isInWishlist(product.id)
 
@@ -28,13 +32,26 @@ export function ProductCard({ product }: { product: Product }) {
   }
 
   return (
-    <div className="group relative bg-card rounded-lg overflow-hidden border border-border hover:shadow-lg transition-all duration-300">
+    <motion.div
+      className="group relative bg-card rounded-lg overflow-hidden border border-border"
+      variants={cardAnimationVariants}
+      initial="hidden"
+      animate="visible"
+      whileHover="hover"
+      transition={{
+        ...fastTransition,
+        delay: index * 0.05,
+      }}
+      style={{ willChange: 'transform' }}
+    >
       {/* Image */}
       <div className="relative aspect-square overflow-hidden cursor-pointer" onClick={handleView}>
-        <img
+        <motion.img
           src={product.images[0]}
           alt={product.name}
-          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+          className="h-full w-full object-cover"
+          whileHover={{ scale: 1.05 }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
           crossOrigin="anonymous"
         />
 
@@ -56,7 +73,12 @@ export function ProductCard({ product }: { product: Product }) {
         </button>
 
         {/* Quick actions overlay */}
-        <div className="absolute inset-x-0 bottom-0 p-3 flex gap-2 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+        <motion.div
+          className="absolute inset-x-0 bottom-0 p-3 flex gap-2"
+          initial={{ y: "100%" }}
+          whileHover={{ y: 0 }}
+          transition={fastTransition}
+        >
           <Button onClick={handleAddToCart} size="sm" className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 text-xs gap-1.5">
             <ShoppingBag className="h-3.5 w-3.5" />
             Ajouter
@@ -64,7 +86,7 @@ export function ProductCard({ product }: { product: Product }) {
           <Button onClick={(e) => { e.stopPropagation(); handleView() }} size="sm" variant="secondary" className="gap-1.5 text-xs">
             <Eye className="h-3.5 w-3.5" />
           </Button>
-        </div>
+        </motion.div>
       </div>
 
       {/* Info */}
@@ -107,6 +129,6 @@ export function ProductCard({ product }: { product: Product }) {
           ))}
         </div>
       </div>
-    </div>
+    </motion.div>
   )
 }

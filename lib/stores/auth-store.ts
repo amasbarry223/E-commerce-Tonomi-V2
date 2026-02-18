@@ -58,7 +58,7 @@ export const useAuthStore = create<AuthStore>()(
                     userEmail: user.email,
                     description: `Connexion de ${user.name} (${user.email})`,
                   })
-                } catch (e) {
+                } catch {
                   // Ignorer si le store n'est pas disponible
                 }
               }, 0)
@@ -66,7 +66,7 @@ export const useAuthStore = create<AuthStore>()(
             
             return true
           }
-        } catch (e) {
+        } catch {
           // Fallback vers l'authentification par défaut
         }
         
@@ -98,7 +98,7 @@ export const useAuthStore = create<AuthStore>()(
                 userEmail: currentUser.email,
                 description: `Déconnexion de ${currentUser.email}`,
               })
-            } catch (e) {
+            } catch {
               // Ignorer si le store n'est pas disponible
             }
           }, 0)

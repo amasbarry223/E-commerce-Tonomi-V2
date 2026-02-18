@@ -1,7 +1,7 @@
 "use client"
 
-import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react"
-import { products as initialProducts, type Product } from "./data"
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from "react"
+import { products as initialProducts, promoCodes, type Product } from "./data"
 
 // ==========================================
 // TYPES
@@ -129,8 +129,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setAppliedPromo(null)
   }, [])
 
-  const cartTotal = state.cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  const cartCount = state.cart.reduce((sum, item) => sum + item.quantity, 0)
+  const cartTotal = useMemo(
+    () => state.cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
+    [state.cart]
+  )
+  const cartCount = useMemo(
+    () => state.cart.reduce((sum, item) => sum + item.quantity, 0),
+    [state.cart]
+  )
 
   const toggleWishlist = useCallback((productId: string) => {
     setState(prev => {
@@ -203,8 +209,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const applyPromoCode = useCallback((code: string): { success: boolean; discount: number; message: string } => {
-    const { promoCodes } = require("./data")
-    const promo = promoCodes.find((p: { code: string; active: boolean }) => p.code === code.toUpperCase() && p.active)
+    const promo = promoCodes.find(p => p.code === code.toUpperCase() && p.active)
     if (!promo) return { success: false, discount: 0, message: "Code promo invalide" }
     if (promo.usedCount >= promo.maxUses) return { success: false, discount: 0, message: "Code promo expiré" }
     if (promo.minAmount && cartTotal < promo.minAmount) return { success: false, discount: 0, message: `Montant minimum de ${promo.minAmount}€ requis` }

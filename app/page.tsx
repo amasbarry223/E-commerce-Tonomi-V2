@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import { AnimatePresence, motion } from "framer-motion"
 import { StoreProvider, useStore } from "@/lib/store-context"
 import { useAuthStore } from "@/lib/stores/auth-store"
 import { StoreHeader } from "@/components/store/header"
@@ -22,6 +23,9 @@ import { AdminAnalytics } from "@/components/admin/admin-analytics"
 import { AdminPromos } from "@/components/admin/admin-promos"
 import { AdminReviews } from "@/components/admin/admin-reviews"
 import { AdminSettings } from "@/components/admin/admin-settings"
+import { pageVariants, getReducedMotionConfig, defaultTransition } from "@/lib/animations"
+
+const pageAnimationVariants = getReducedMotionConfig(pageVariants)
 
 function AppContent() {
   const { currentView, currentPage, setCurrentView, navigate } = useStore()
@@ -35,7 +39,7 @@ function AppContent() {
     }
   }, [isAuthenticated, currentView, setCurrentView, navigate])
 
-  // Admin view - vérification de l'authentification
+  // Admin view - vérification de l'authentification (sans Framer Motion)
   if (currentView === "admin" || isAuthenticated) {
     // Si non authentifié, afficher la page de login
     if (!isAuthenticated) {
@@ -112,10 +116,22 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col w-full">
       <StoreHeader />
-      <main className="flex-1">
-        {pageContent}
+      <main className="flex-1 w-full">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentPage}
+            variants={pageAnimationVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={defaultTransition}
+            className="w-full"
+          >
+            {pageContent}
+          </motion.div>
+        </AnimatePresence>
       </main>
       <StoreFooter />
     </div>

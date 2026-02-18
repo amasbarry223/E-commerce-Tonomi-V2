@@ -188,8 +188,8 @@ export function AdminCategories() {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredCategories.map(category => (
-                <TableRow key={category.id}>
+              filteredCategories.map((category, index) => (
+                <TableRow key={category.id} index={index}>
                   <TableCell>
                     <img src={category.image} alt={category.name} className="h-10 w-10 rounded object-cover" crossOrigin="anonymous" />
                   </TableCell>

@@ -3,13 +3,14 @@
 import { useState } from "react"
 import { useStore } from "@/lib/store-context"
 import { categories } from "@/lib/data"
+import { SECTION_PADDING, EXCLUDED_CATEGORY_IDS } from "@/lib/layout"
 import { Search, ShoppingBag, Heart, Sun, Moon, Menu, X, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 
 export function StoreHeader() {
-  const { cartCount, wishlist, darkMode, toggleDarkMode, navigate, setCurrentView, setSearchQuery, searchQuery } = useStore()
+  const { cartCount, wishlist, darkMode, toggleDarkMode, navigate, setSearchQuery, searchQuery, selectCategory } = useStore()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
 
@@ -21,7 +22,7 @@ export function StoreHeader() {
     }
   }
 
-  const mainCategories = categories.filter(c => !["cat-5", "cat-6"].includes(c.id))
+  const mainCategories = categories.filter(c => !EXCLUDED_CATEGORY_IDS.includes(c.id))
 
   return (
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
@@ -30,7 +31,7 @@ export function StoreHeader() {
         Livraison gratuite pour toute commande de plus de 100&euro; | Code BIENVENUE10 = -10%
       </div>
 
-      <div className="mx-auto max-w-7xl px-4">
+      <div className={`w-full ${SECTION_PADDING}`}>
         <div className="flex items-center justify-between h-16">
           {/* Mobile menu */}
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
@@ -44,12 +45,20 @@ export function StoreHeader() {
               <nav className="flex flex-col gap-4 mt-8">
                 <button onClick={() => { navigate("home"); setMobileMenuOpen(false) }} className="text-left text-lg font-medium hover:text-accent transition-colors">Accueil</button>
                 {mainCategories.map(cat => (
-                  <button key={cat.id} onClick={() => { navigate("category"); setMobileMenuOpen(false); }} className="text-left text-muted-foreground hover:text-foreground transition-colors">
+                  <button 
+                    key={cat.id} 
+                    onClick={() => { 
+                      selectCategory(cat.id); 
+                      navigate("catalog"); 
+                      setMobileMenuOpen(false); 
+                    }} 
+                    className="text-left text-muted-foreground hover:text-foreground transition-colors"
+                  >
                     {cat.name}
                   </button>
                 ))}
-                <button onClick={() => { navigate("catalog"); setMobileMenuOpen(false) }} className="text-left text-lg font-medium hover:text-accent transition-colors">Catalogue</button>
-                <button onClick={() => { navigate("promotions"); setMobileMenuOpen(false) }} className="text-left text-lg font-medium text-red-500 hover:text-red-600 transition-colors">Promotions</button>
+                <button onClick={() => { selectCategory(null); navigate("catalog"); setMobileMenuOpen(false) }} className="text-left text-lg font-medium hover:text-accent transition-colors">Catalogue</button>
+                <button onClick={() => { selectCategory(null); navigate("promotions"); setMobileMenuOpen(false) }} className="text-left text-lg font-medium text-red-500 hover:text-red-600 transition-colors">Promotions</button>
               </nav>
             </SheetContent>
           </Sheet>
@@ -66,17 +75,20 @@ export function StoreHeader() {
           {/* Desktop nav */}
           <nav className="hidden lg:flex items-center gap-8">
             <button onClick={() => navigate("home")} className="text-sm tracking-wide hover:text-accent transition-colors">Accueil</button>
-            <button onClick={() => navigate("catalog")} className="text-sm tracking-wide hover:text-accent transition-colors">Catalogue</button>
+            <button onClick={() => { selectCategory(null); navigate("catalog"); }} className="text-sm tracking-wide hover:text-accent transition-colors">Catalogue</button>
             {mainCategories.slice(0, 4).map(cat => (
               <button
                 key={cat.id}
-                onClick={() => { navigate("catalog"); }}
+                onClick={() => { 
+                  selectCategory(cat.id); 
+                  navigate("catalog"); 
+                }}
                 className="text-sm tracking-wide text-muted-foreground hover:text-foreground transition-colors"
               >
                 {cat.name}
               </button>
             ))}
-            <button onClick={() => navigate("catalog")} className="text-sm tracking-wide text-red-500 font-medium hover:text-red-600 transition-colors">Promotions</button>
+            <button onClick={() => { selectCategory(null); navigate("promotions"); }} className="text-sm tracking-wide text-red-500 font-medium hover:text-red-600 transition-colors">Promotions</button>
           </nav>
 
           {/* Actions */}
