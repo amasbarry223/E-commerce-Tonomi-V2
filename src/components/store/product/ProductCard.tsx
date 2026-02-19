@@ -5,12 +5,12 @@
 
 import React, { useCallback, useMemo } from 'react'
 import Image from 'next/image'
-import { useCartStore } from '../../lib/stores/cart-store'
-import { useWishlistStore } from '../../lib/stores/wishlist-store'
-import { useUIStore } from '../../lib/stores/ui-store'
-import { formatPrice, getBadgeColor, getStatusLabel } from '../../lib/utils'
-import { cn } from '../../lib/utils/cn'
-import type { Product } from '../../lib/types'
+import { useCartStore } from '@/src/lib/stores/cart-store'
+import { useWishlistStore } from '@/src/lib/stores/wishlist-store'
+import { useUIStore } from '@/src/lib/stores/ui-store'
+import { formatPrice, getBadgeColor, getStatusLabel } from '@/src/lib/utils'
+import { cn } from '@/src/lib/utils/cn'
+import type { Product } from '@/src/lib/types'
 import { Heart, ShoppingBag, Star, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 

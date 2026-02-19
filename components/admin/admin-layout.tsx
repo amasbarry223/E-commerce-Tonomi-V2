@@ -1,5 +1,7 @@
 "use client"
 
+import { useState } from "react"
+import Image from "next/image"
 import { useStore } from "@/lib/store-context"
 import { useAuthStore } from "@/lib/stores/auth-store"
 import { Button } from "@/components/ui/button"
@@ -7,7 +9,6 @@ import {
   LayoutDashboard, Package, FolderKanban, ShoppingCart, Users,
   BarChart3, Tag, Star, Settings, Store, Sun, Moon, Menu, X, ChevronRight, LogOut,
 } from "lucide-react"
-import { useState } from "react"
 
 const navItems = [
   { id: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
@@ -40,15 +41,18 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
       {/* Sidebar */}
       <aside className={`fixed z-50 lg:static inset-y-0 left-0 w-64 bg-card border-r border-border flex flex-col transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-        <div className="flex items-center justify-between h-20 px-4 border-b border-border">
-          <button onClick={() => setCurrentView("store")} className="flex items-center gap-2 text-foreground hover:text-accent transition-colors">
-            <img 
+        <div className="relative flex items-center justify-center h-20 px-4 border-b border-border">
+          <button onClick={() => setCurrentView("store")} className="flex items-center justify-center text-foreground hover:text-accent transition-colors w-full">
+            <Image 
               src="/images/logo.png" 
               alt="TONOMI ACCESSOIRES" 
-              className="h-20 w-auto object-contain"
+              width={120}
+              height={64}
+              className="h-16 w-auto object-contain"
+              priority
             />
           </button>
-          <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(false)}>
+          <Button variant="ghost" size="icon" className="absolute right-4 lg:hidden" onClick={() => setSidebarOpen(false)}>
             <X className="h-4 w-4" />
           </Button>
         </div>

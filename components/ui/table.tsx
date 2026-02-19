@@ -57,7 +57,7 @@ interface TableRowProps extends React.ComponentProps<'tr'> {
   index?: number
 }
 
-function TableRow({ className, index, ...props }: TableRowProps) {
+function TableRow({ className, index: _index, ...props }: TableRowProps) {
   return (
     <tr
       data-slot="table-row"

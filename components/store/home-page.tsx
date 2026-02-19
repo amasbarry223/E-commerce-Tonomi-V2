@@ -1,10 +1,12 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
+import Image from "next/image"
 import { AnimatePresence, motion } from "framer-motion"
 import { useStore } from "@/lib/store-context"
 import { products, categories } from "@/lib/data"
 import { ProductCard } from "./product-card"
+import { ProductCardSkeletonGrid } from "./product-card-skeleton"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react"
 import { defaultTransition } from "@/lib/animations"
@@ -35,6 +37,7 @@ export function HomePage() {
   const { navigate } = useStore()
   const [currentSlide, setCurrentSlide] = useState(0)
   const [direction, setDirection] = useState(0)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -42,6 +45,12 @@ export function HomePage() {
       setDirection(1)
     }, 5000)
     return () => clearInterval(timer)
+  }, [])
+
+  // Simuler le chargement initial pour démontrer les skeleton loaders
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 500)
+    return () => clearTimeout(timer)
   }, [])
 
   const slideVariants = {
@@ -113,15 +122,21 @@ export function HomePage() {
             transition={defaultTransition}
             className="absolute inset-0"
           >
-            <motion.img
-              src={heroSlides[currentSlide].image}
-              alt={heroSlides[currentSlide].title}
-              className="h-full w-full object-cover"
-              crossOrigin="anonymous"
+            <motion.div
+              className="h-full w-full"
               initial={{ scale: 1.1 }}
               animate={{ scale: 1 }}
               transition={{ duration: 5, ease: "easeOut" }}
-            />
+            >
+              <Image
+                src={heroSlides[currentSlide].image}
+                alt={heroSlides[currentSlide].title}
+                fill
+                className="object-cover"
+                sizes="100vw"
+                priority={currentSlide === 0}
+              />
+            </motion.div>
             <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
             <div className="absolute inset-0 flex items-center">
               <div className={`w-full ${SECTION_PADDING}`}>
@@ -193,8 +208,18 @@ export function HomePage() {
               key={cat.id}
               onClick={() => navigate("catalog")}
               className="group relative aspect-[4/3] rounded-lg overflow-hidden"
+              aria-label={`Voir les produits de la catégorie ${cat.name}`}
             >
-              <img src={cat.image} alt={cat.name} className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-500" crossOrigin="anonymous" />
+              <div className="h-full w-full group-hover:scale-110 transition-transform duration-500">
+                <Image 
+                  src={cat.image} 
+                  alt={cat.name} 
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 50vw, 25vw"
+                  loading="lazy"
+                />
+              </div>
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
               <div className="absolute bottom-4 left-4 text-white">
                 <h3 className="font-semibold text-lg">{cat.name}</h3>
@@ -217,11 +242,15 @@ export function HomePage() {
               Tout voir <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-            {featured.map((product, index) => (
-              <ProductCard key={product.id} product={product} index={index} />
-            ))}
-          </div>
+          {isLoading ? (
+            <ProductCardSkeletonGrid count={8} />
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+              {featured.map((product, index) => (
+                <ProductCard key={product.id} product={product} index={index} />
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -236,11 +265,15 @@ export function HomePage() {
             Tout voir <ArrowRight className="h-4 w-4" />
           </Button>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-          {newProducts.map((product, index) => (
-            <ProductCard key={product.id} product={product} index={index} />
-          ))}
-        </div>
+        {isLoading ? (
+          <ProductCardSkeletonGrid count={4} />
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+            {newProducts.map((product, index) => (
+              <ProductCard key={product.id} product={product} index={index} />
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Bandeau promo - plein écran */}
@@ -267,11 +300,15 @@ export function HomePage() {
             Tout voir <ArrowRight className="h-4 w-4" />
           </Button>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-          {bestSellers.map((product, index) => (
-            <ProductCard key={product.id} product={product} index={index} />
-          ))}
-        </div>
+        {isLoading ? (
+          <ProductCardSkeletonGrid count={4} />
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+            {bestSellers.map((product, index) => (
+              <ProductCard key={product.id} product={product} index={index} />
+            ))}
+          </div>
+        )}
       </section>
     </div>
   )

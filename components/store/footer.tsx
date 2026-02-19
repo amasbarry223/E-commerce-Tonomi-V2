@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { useStore } from "@/lib/store-context"
 import { SECTION_CONTAINER } from "@/lib/layout"
 import { Input } from "@/components/ui/input"
@@ -53,9 +54,11 @@ export function StoreFooter() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Brand */}
           <div>
-            <img 
+            <Image 
               src="/images/logo.png" 
               alt="TONOMI ACCESSOIRES" 
+              width={120}
+              height={80}
               className="h-16 md:h-20 w-auto object-contain mb-4"
             />
             <p className="text-sm text-primary-foreground/70 leading-relaxed mb-4">

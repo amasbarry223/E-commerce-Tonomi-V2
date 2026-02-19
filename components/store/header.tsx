@@ -1,33 +1,27 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { useStore } from "@/lib/store-context"
 import { categories } from "@/lib/data"
 import { SECTION_PADDING, EXCLUDED_CATEGORY_IDS } from "@/lib/layout"
-import { Search, ShoppingBag, Heart, Sun, Moon, Menu, X, User } from "lucide-react"
+import { Search, Heart, Sun, Moon, Menu, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
+import { VisuallyHidden } from "@/components/ui/visually-hidden"
+import { SearchAutocomplete } from "./search-autocomplete"
+import { MiniCart } from "./mini-cart"
 
 export function StoreHeader() {
-  const { cartCount, wishlist, darkMode, toggleDarkMode, navigate, setSearchQuery, searchQuery, selectCategory } = useStore()
+  const { wishlist, darkMode, toggleDarkMode, navigate, selectCategory } = useStore()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [searchOpen, setSearchOpen] = useState(false)
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (searchQuery.trim()) {
-      navigate("catalog")
-      setSearchOpen(false)
-    }
-  }
 
   const mainCategories = categories.filter(c => !EXCLUDED_CATEGORY_IDS.includes(c.id))
 
   return (
-    <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
+    <header role="banner" className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
       {/* Top bar */}
-      <div className="bg-primary text-primary-foreground text-center py-1.5 text-xs tracking-wider">
+      <div className="bg-primary text-primary-foreground text-center py-1.5 text-xs tracking-wider" role="region" aria-label="Information promotionnelle">
         Livraison gratuite pour toute commande de plus de 100&euro; | Code BIENVENUE10 = -10%
       </div>
 
@@ -42,8 +36,17 @@ export function StoreHeader() {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-72 bg-background text-foreground">
-              <nav className="flex flex-col gap-4 mt-8">
-                <button onClick={() => { navigate("home"); setMobileMenuOpen(false) }} className="text-left text-lg font-medium hover:text-accent transition-colors">Accueil</button>
+              <VisuallyHidden>
+                <SheetTitle>Menu de navigation</SheetTitle>
+              </VisuallyHidden>
+              <nav role="navigation" aria-label="Menu mobile" className="flex flex-col gap-4 mt-8">
+                <button 
+                  onClick={() => { navigate("home"); setMobileMenuOpen(false) }} 
+                  className="text-left text-lg font-medium hover:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
+                  aria-label="Aller à la page d'accueil"
+                >
+                  Accueil
+                </button>
                 {mainCategories.map(cat => (
                   <button 
                     key={cat.id} 
@@ -52,30 +55,62 @@ export function StoreHeader() {
                       navigate("catalog"); 
                       setMobileMenuOpen(false); 
                     }} 
-                    className="text-left text-muted-foreground hover:text-foreground transition-colors"
+                    className="text-left text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
+                    aria-label={`Voir les produits de la catégorie ${cat.name}`}
                   >
                     {cat.name}
                   </button>
                 ))}
-                <button onClick={() => { selectCategory(null); navigate("catalog"); setMobileMenuOpen(false) }} className="text-left text-lg font-medium hover:text-accent transition-colors">Catalogue</button>
-                <button onClick={() => { selectCategory(null); navigate("promotions"); setMobileMenuOpen(false) }} className="text-left text-lg font-medium text-red-500 hover:text-red-600 transition-colors">Promotions</button>
+                <button 
+                  onClick={() => { selectCategory(null); navigate("catalog"); setMobileMenuOpen(false) }} 
+                  className="text-left text-lg font-medium hover:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
+                  aria-label="Voir le catalogue complet"
+                >
+                  Catalogue
+                </button>
+                <button 
+                  onClick={() => { selectCategory(null); navigate("promotions"); setMobileMenuOpen(false) }} 
+                  className="text-left text-lg font-medium text-red-500 hover:text-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
+                  aria-label="Voir les promotions"
+                >
+                  Promotions
+                </button>
               </nav>
             </SheetContent>
           </Sheet>
 
           {/* Logo */}
-          <button onClick={() => navigate("home")} className="flex items-center gap-2">
-            <img 
+          <button 
+            onClick={() => navigate("home")} 
+            className="flex items-center gap-2"
+            aria-label="Retour à l'accueil - TONOMI ACCESSOIRES"
+          >
+            <Image 
               src="/images/logo.png" 
               alt="TONOMI ACCESSOIRES" 
+              width={120}
+              height={64}
               className="h-14 md:h-16 w-auto object-contain"
+              priority
             />
           </button>
 
           {/* Desktop nav */}
-          <nav className="hidden lg:flex items-center gap-8">
-            <button onClick={() => navigate("home")} className="text-sm tracking-wide hover:text-accent transition-colors">Accueil</button>
-            <button onClick={() => { selectCategory(null); navigate("catalog"); }} className="text-sm tracking-wide hover:text-accent transition-colors">Catalogue</button>
+          <nav role="navigation" aria-label="Navigation principale" className="hidden lg:flex items-center gap-8">
+            <button 
+              onClick={() => navigate("home")} 
+              className="text-sm tracking-wide hover:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
+              aria-label="Aller à la page d'accueil"
+            >
+              Accueil
+            </button>
+            <button 
+              onClick={() => { selectCategory(null); navigate("catalog"); }} 
+              className="text-sm tracking-wide hover:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
+              aria-label="Voir le catalogue complet"
+            >
+              Catalogue
+            </button>
             {mainCategories.slice(0, 4).map(cat => (
               <button
                 key={cat.id}
@@ -83,65 +118,78 @@ export function StoreHeader() {
                   selectCategory(cat.id); 
                   navigate("catalog"); 
                 }}
-                className="text-sm tracking-wide text-muted-foreground hover:text-foreground transition-colors"
+                className="text-sm tracking-wide text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
+                aria-label={`Voir les produits de la catégorie ${cat.name}`}
               >
                 {cat.name}
               </button>
             ))}
-            <button onClick={() => { selectCategory(null); navigate("promotions"); }} className="text-sm tracking-wide text-red-500 font-medium hover:text-red-600 transition-colors">Promotions</button>
+            <button 
+              onClick={() => { selectCategory(null); navigate("promotions"); }} 
+              className="text-sm tracking-wide text-red-500 font-medium hover:text-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
+              aria-label="Voir les promotions"
+            >
+              Promotions
+            </button>
           </nav>
 
           {/* Actions */}
           <div className="flex items-center gap-1">
-            {searchOpen ? (
-              <form onSubmit={handleSearch} className="flex items-center gap-2">
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Rechercher..."
-                  className="w-40 md:w-64 h-9 text-sm"
-                  autoFocus
-                />
-                <Button variant="ghost" size="icon" type="button" onClick={() => setSearchOpen(false)}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </form>
-            ) : (
-              <Button variant="ghost" size="icon" onClick={() => setSearchOpen(true)}>
-                <Search className="h-5 w-5" />
-                <span className="sr-only">Rechercher</span>
-              </Button>
-            )}
-
-            <Button variant="ghost" size="icon" onClick={toggleDarkMode}>
-              {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-              <span className="sr-only">Theme</span>
+            {/* Recherche avec autocomplétion */}
+            <div className="hidden md:block">
+              <SearchAutocomplete />
+            </div>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="md:hidden"
+              onClick={() => navigate("catalog")}
+              aria-label="Rechercher"
+            >
+              <Search className="h-5 w-5" />
+              <span className="sr-only">Rechercher</span>
             </Button>
 
-            <Button variant="ghost" size="icon" className="relative" onClick={() => navigate("wishlist")}>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={toggleDarkMode}
+              aria-label={darkMode ? "Passer en mode clair" : "Passer en mode sombre"}
+            >
+              {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              <span className="sr-only">Changer le thème</span>
+            </Button>
+
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="relative" 
+              onClick={() => navigate("wishlist")}
+              aria-label={`Voir mes favoris${wishlist.length > 0 ? ` (${wishlist.length} article${wishlist.length > 1 ? 's' : ''})` : ''}`}
+            >
               <Heart className="h-5 w-5" />
               {wishlist.length > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-accent text-accent-foreground text-[10px] flex items-center justify-center font-bold">
+                <span 
+                  className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-accent text-accent-foreground text-[10px] flex items-center justify-center font-bold"
+                  aria-hidden="true"
+                >
                   {wishlist.length}
                 </span>
               )}
               <span className="sr-only">Favoris</span>
             </Button>
 
-            <Button variant="ghost" size="icon" onClick={() => navigate("account")}>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => navigate("account")}
+              aria-label="Voir mon compte"
+            >
               <User className="h-5 w-5" />
               <span className="sr-only">Compte</span>
             </Button>
 
-            <Button variant="ghost" size="icon" className="relative" onClick={() => navigate("cart")}>
-              <ShoppingBag className="h-5 w-5" />
-              {cartCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-accent text-accent-foreground text-[10px] flex items-center justify-center font-bold">
-                  {cartCount}
-                </span>
-              )}
-              <span className="sr-only">Panier</span>
-            </Button>
+            <MiniCart />
           </div>
         </div>
       </div>

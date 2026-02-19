@@ -15,6 +15,10 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', 'recharts'],
   },
+  // Configuration Turbopack pour éviter le warning sur les lockfiles multiples
+  turbopack: {
+    root: process.cwd(),
+  },
 }
 
 export default nextConfig

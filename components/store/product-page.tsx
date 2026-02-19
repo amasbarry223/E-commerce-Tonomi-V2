@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { useStore } from "@/lib/store-context"
 import { products, reviews, formatPrice, formatDate, categories } from "@/lib/data"
 import { ProductCard } from "./product-card"
@@ -8,10 +9,15 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Heart, ShoppingBag, Star, Minus, Plus, Truck, RotateCcw, ShieldCheck } from "lucide-react"
+import { ImageZoom } from "./image-zoom"
+import { CartAnimation, useCartAnimation } from "./cart-animation"
+import { useCartToast } from "@/hooks/use-cart-toast"
 
 export function ProductPage() {
   const { selectedProductId, addToCart, toggleWishlist, isInWishlist, navigate } = useStore()
   const product = products.find(p => p.id === selectedProductId)
+  const { showAddToCartToast } = useCartToast()
+  const { animation, triggerAnimation, clearAnimation } = useCartAnimation()
 
   const [selectedColor, setSelectedColor] = useState(0)
   const [selectedSize, setSelectedSize] = useState(0)
@@ -33,6 +39,20 @@ export function ProductPage() {
   const category = categories.find(c => c.id === product.category)
 
   const handleAddToCart = () => {
+    // Trouver l'élément du panier dans le header
+    const cartButton = document.querySelector('[aria-label*="panier"]') as HTMLElement
+    const imageElement = document.querySelector(`[data-product-image="${product.id}"]`) as HTMLElement
+    
+    // Déclencher l'animation
+    if (imageElement && cartButton) {
+      triggerAnimation(
+        product.images[selectedImage],
+        product.name,
+        imageElement,
+        cartButton
+      )
+    }
+    
     addToCart({
       productId: product.id,
       name: product.name,
@@ -42,6 +62,8 @@ export function ProductPage() {
       size: product.sizes[selectedSize],
       quantity,
     })
+    
+    showAddToCartToast(product.name)
   }
 
   return (
@@ -64,15 +86,16 @@ export function ProductPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
         {/* Image Gallery */}
         <div>
-          <div className="relative aspect-square rounded-lg overflow-hidden bg-secondary mb-4">
-            <img
+          <div className="relative mb-4">
+            <ImageZoom
               src={product.images[selectedImage]}
               alt={product.name}
-              className="h-full w-full object-cover"
-              crossOrigin="anonymous"
+              zoomLevel={2.5}
+              enableHoverZoom={true}
+              enableClickZoom={true}
             />
             {product.badge && (
-              <Badge className="absolute top-4 left-4 bg-red-500 text-white hover:bg-red-500">
+              <Badge className="absolute top-4 left-4 bg-red-500 text-white hover:bg-red-500 z-30 pointer-events-none">
                 {product.badge === "promo" && product.originalPrice
                   ? `-${Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%`
                   : product.badge === "new" ? "Nouveau" : product.badge === "coup-de-coeur" ? "Coup de coeur" : "Stock limité"}
@@ -84,9 +107,17 @@ export function ProductPage() {
               <button
                 key={i}
                 onClick={() => setSelectedImage(i)}
-                className={`h-20 w-20 rounded-lg overflow-hidden border-2 transition-colors ${i === selectedImage ? "border-accent" : "border-transparent"}`}
+                className={`relative h-20 w-20 rounded-lg overflow-hidden border-2 transition-colors ${i === selectedImage ? "border-accent" : "border-transparent"}`}
+                aria-label={`Voir l'image ${i + 1} de ${product.name}`}
               >
-                <img src={img} alt={`${product.name} ${i + 1}`} className="h-full w-full object-cover" crossOrigin="anonymous" />
+                <Image 
+                  src={img} 
+                  alt={`${product.name} ${i + 1}`} 
+                  fill
+                  className="object-cover"
+                  sizes="80px"
+                  loading="lazy"
+                />
               </button>
             ))}
           </div>
@@ -276,6 +307,18 @@ export function ProductPage() {
             ))}
           </div>
         </section>
+      )}
+
+
+      {/* Cart Animation */}
+      {animation && (
+        <CartAnimation
+          imageUrl={animation.imageUrl}
+          productName={animation.productName}
+          startPosition={animation.startPosition}
+          endPosition={animation.endPosition}
+          onComplete={clearAnimation}
+        />
       )}
     </div>
   )

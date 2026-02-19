@@ -1,13 +1,18 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { useStore } from "@/lib/store-context"
 import { formatPrice } from "@/lib/data"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Field, FieldError } from "@/components/ui/field"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { CheckCircle2, CreditCard, Truck, ShieldCheck } from "lucide-react"
+import { CheckCircle2, CreditCard, Truck, ShieldCheck, MapPin, Package } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import { useCheckoutForm } from "@/hooks/use-checkout-form"
+import { logger } from "@/lib/utils/logger"
 
 export function CheckoutPage() {
   const { cart, cartTotal, promoDiscount, clearCart, navigate } = useStore()
@@ -17,10 +22,43 @@ export function CheckoutPage() {
   const shippingCost = shipping === "express" ? 9.99 : cartTotal >= 100 ? 0 : 5.99
   const total = cartTotal - promoDiscount + shippingCost
 
-  const handlePlaceOrder = (e: React.FormEvent) => {
-    e.preventDefault()
-    setOrderPlaced(true)
-    clearCart()
+  const { form, handleSubmit, isSubmitting, errors, trigger } = useCheckoutForm({
+    onSubmit: async (_data) => {
+      // Simuler le traitement de la commande
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      setOrderPlaced(true)
+      clearCart()
+    },
+    onError: (error) => {
+      // Log l'erreur de manière centralisée
+      logger.logError(error, "CheckoutPage", {
+        step,
+        cartTotal,
+        promoDiscount,
+      })
+    },
+  })
+
+  const handlePlaceOrder = handleSubmit
+
+  const handleNextStep = async () => {
+    if (step === 1) {
+      // Valider les champs de l'étape 1 avant de continuer
+      const isValid = await trigger(["firstName", "lastName", "email", "phone", "address", "city", "zip"])
+      if (isValid) {
+        setStep(2)
+      } else {
+        // Scroll vers le premier champ en erreur
+        const firstErrorField = Object.keys(errors)[0]
+        if (firstErrorField) {
+          const element = document.getElementById(firstErrorField)
+          element?.scrollIntoView({ behavior: "smooth", block: "center" })
+          element?.focus()
+        }
+      }
+    } else if (step === 2) {
+      setStep(3)
+    }
   }
 
   if (orderPlaced) {
@@ -52,18 +90,69 @@ export function CheckoutPage() {
       <h1 className="font-serif text-2xl md:text-3xl font-bold mb-8">Passer commande</h1>
 
       {/* Steps indicator */}
-      <div className="flex items-center gap-4 mb-8">
-        {["Adresse", "Livraison", "Paiement"].map((label, i) => (
-          <div key={label} className="flex items-center gap-2">
-            <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${
-              step > i + 1 ? "bg-emerald-500 text-white" : step === i + 1 ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
-            }`}>
-              {step > i + 1 ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
+      <div className="flex items-center gap-2 md:gap-4 mb-8">
+        {[
+          { label: "Adresse", icon: MapPin },
+          { label: "Livraison", icon: Package },
+          { label: "Paiement", icon: CreditCard },
+        ].map((stepInfo, i) => {
+          const Icon = stepInfo.icon
+          const stepNumber = i + 1
+          const isCompleted = step > stepNumber
+          const isActive = step === stepNumber
+          const isUpcoming = step < stepNumber
+
+          return (
+            <div key={stepInfo.label} className="flex items-center flex-1">
+              <div className="flex items-center gap-2 flex-1">
+                <motion.div
+                  className={`relative h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
+                    isCompleted
+                      ? "bg-emerald-500 text-white"
+                      : isActive
+                      ? "bg-primary text-primary-foreground ring-2 ring-primary/20"
+                      : "bg-secondary text-muted-foreground"
+                  }`}
+                  initial={false}
+                  animate={{
+                    scale: isActive ? 1.05 : 1,
+                  }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {isCompleted ? (
+                    <CheckCircle2 className="h-5 w-5" />
+                  ) : (
+                    <>
+                      <Icon className={`h-4 w-4 ${isActive ? "block" : "hidden md:block"}`} />
+                      <span className={`${isActive ? "hidden" : "block md:hidden"}`}>{stepNumber}</span>
+                    </>
+                  )}
+                </motion.div>
+                <div className="flex-1 hidden md:block">
+                  <p className={`text-xs text-muted-foreground mb-0.5 ${isActive ? "text-foreground" : ""}`}>
+                    Étape {stepNumber}
+                  </p>
+                  <p className={`text-sm font-medium ${isActive ? "text-foreground" : "text-muted-foreground"}`}>
+                    {stepInfo.label}
+                  </p>
+                </div>
+              </div>
+              {i < 2 && (
+                <div className="flex-1 mx-2 md:mx-4">
+                  <div className="relative h-px bg-border overflow-hidden">
+                    <motion.div
+                      className="absolute inset-0 bg-emerald-500"
+                      initial={{ scaleX: 0 }}
+                      animate={{ scaleX: isCompleted ? 1 : 0 }}
+                      transition={{ duration: 0.3, ease: "easeOut" }}
+                      style={{ transformOrigin: "left" }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
-            <span className={`text-sm hidden md:block ${step === i + 1 ? "font-medium" : "text-muted-foreground"}`}>{label}</span>
-            {i < 2 && <div className="h-px w-8 md:w-16 bg-border" />}
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -74,36 +163,134 @@ export function CheckoutPage() {
               <div className="bg-card border border-border rounded-lg p-6">
                 <h2 className="font-semibold text-lg mb-4">Adresse de livraison</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
+                  <Field>
                     <Label htmlFor="firstName" className="text-sm">Prénom</Label>
-                    <Input id="firstName" defaultValue="Marie" className="mt-1" required />
-                  </div>
-                  <div>
+                    <Input 
+                      id="firstName" 
+                      {...form.register("firstName")}
+                      className="mt-1"
+                      autoComplete="given-name"
+                      aria-invalid={errors.firstName ? "true" : "false"}
+                      aria-describedby={errors.firstName ? "firstName-error" : undefined}
+                    />
+                    {errors.firstName && (
+                      <FieldError id="firstName-error" className="mt-1">
+                        {errors.firstName.message}
+                      </FieldError>
+                    )}
+                  </Field>
+
+                  <Field>
                     <Label htmlFor="lastName" className="text-sm">Nom</Label>
-                    <Input id="lastName" defaultValue="Dupont" className="mt-1" required />
-                  </div>
-                  <div className="md:col-span-2">
+                    <Input 
+                      id="lastName" 
+                      {...form.register("lastName")}
+                      className="mt-1"
+                      autoComplete="family-name"
+                      aria-invalid={errors.lastName ? "true" : "false"}
+                      aria-describedby={errors.lastName ? "lastName-error" : undefined}
+                    />
+                    {errors.lastName && (
+                      <FieldError id="lastName-error" className="mt-1">
+                        {errors.lastName.message}
+                      </FieldError>
+                    )}
+                  </Field>
+
+                  <Field className="md:col-span-2">
                     <Label htmlFor="email" className="text-sm">Email</Label>
-                    <Input id="email" type="email" defaultValue="marie.dupont@email.com" className="mt-1" required />
-                  </div>
-                  <div className="md:col-span-2">
+                    <Input 
+                      id="email" 
+                      type="email" 
+                      {...form.register("email")}
+                      className="mt-1"
+                      autoComplete="email"
+                      aria-invalid={errors.email ? "true" : "false"}
+                      aria-describedby={errors.email ? "email-error" : undefined}
+                    />
+                    {errors.email && (
+                      <FieldError id="email-error" className="mt-1">
+                        {errors.email.message}
+                      </FieldError>
+                    )}
+                  </Field>
+
+                  <Field className="md:col-span-2">
                     <Label htmlFor="address" className="text-sm">Adresse</Label>
-                    <Input id="address" defaultValue="12 Rue de Rivoli" className="mt-1" required />
-                  </div>
-                  <div>
+                    <Input 
+                      id="address" 
+                      {...form.register("address")}
+                      className="mt-1"
+                      autoComplete="street-address"
+                      aria-invalid={errors.address ? "true" : "false"}
+                      aria-describedby={errors.address ? "address-error" : undefined}
+                    />
+                    {errors.address && (
+                      <FieldError id="address-error" className="mt-1">
+                        {errors.address.message}
+                      </FieldError>
+                    )}
+                  </Field>
+
+                  <Field>
                     <Label htmlFor="city" className="text-sm">Ville</Label>
-                    <Input id="city" defaultValue="Paris" className="mt-1" required />
-                  </div>
-                  <div>
+                    <Input 
+                      id="city" 
+                      {...form.register("city")}
+                      className="mt-1"
+                      autoComplete="address-level2"
+                      aria-invalid={errors.city ? "true" : "false"}
+                      aria-describedby={errors.city ? "city-error" : undefined}
+                    />
+                    {errors.city && (
+                      <FieldError id="city-error" className="mt-1">
+                        {errors.city.message}
+                      </FieldError>
+                    )}
+                  </Field>
+
+                  <Field>
                     <Label htmlFor="zip" className="text-sm">Code postal</Label>
-                    <Input id="zip" defaultValue="75001" className="mt-1" required />
-                  </div>
-                  <div>
+                    <Input 
+                      id="zip" 
+                      {...form.register("zip")}
+                      className="mt-1"
+                      maxLength={5}
+                      autoComplete="postal-code"
+                      aria-invalid={errors.zip ? "true" : "false"}
+                      aria-describedby={errors.zip ? "zip-error" : undefined}
+                    />
+                    {errors.zip && (
+                      <FieldError id="zip-error" className="mt-1">
+                        {errors.zip.message}
+                      </FieldError>
+                    )}
+                  </Field>
+
+                  <Field>
                     <Label htmlFor="phone" className="text-sm">Téléphone</Label>
-                    <Input id="phone" defaultValue="+33 6 12 34 56 78" className="mt-1" required />
-                  </div>
+                    <Input 
+                      id="phone" 
+                      {...form.register("phone")}
+                      className="mt-1"
+                      placeholder="+33 6 12 34 56 78"
+                      autoComplete="tel"
+                      aria-invalid={errors.phone ? "true" : "false"}
+                      aria-describedby={errors.phone ? "phone-error" : undefined}
+                    />
+                    {errors.phone && (
+                      <FieldError id="phone-error" className="mt-1">
+                        {errors.phone.message}
+                      </FieldError>
+                    )}
+                  </Field>
                 </div>
-                <Button type="button" onClick={() => setStep(2)} className="mt-6">
+                <Button 
+                  type="button" 
+                  onClick={handleNextStep} 
+                  className="mt-6"
+                  aria-label="Continuer vers l'étape de livraison"
+                >
                   Continuer
                 </Button>
               </div>
@@ -132,8 +319,21 @@ export function CheckoutPage() {
                   </label>
                 </RadioGroup>
                 <div className="flex gap-3 mt-6">
-                  <Button type="button" variant="outline" onClick={() => setStep(1)}>Retour</Button>
-                  <Button type="button" onClick={() => setStep(3)}>Continuer</Button>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setStep(1)}
+                    aria-label="Retour à l'étape précédente"
+                  >
+                    Retour
+                  </Button>
+                  <Button 
+                    type="button" 
+                    onClick={handleNextStep}
+                    aria-label="Continuer vers l'étape de paiement"
+                  >
+                    Continuer
+                  </Button>
                 </div>
               </div>
             )}
@@ -163,8 +363,21 @@ export function CheckoutPage() {
                   </div>
                 </div>
                 <div className="flex gap-3 mt-6">
-                  <Button type="button" variant="outline" onClick={() => setStep(2)}>Retour</Button>
-                  <Button type="submit" className="flex-1 gap-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setStep(2)}
+                    disabled={isSubmitting}
+                  >
+                    Retour
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    className="flex-1 gap-2"
+                    loading={isSubmitting}
+                    disabled={isSubmitting}
+                    aria-label={`Payer ${formatPrice(total)}`}
+                  >
                     <CreditCard className="h-4 w-4" />
                     Payer {formatPrice(total)}
                   </Button>
@@ -176,12 +389,20 @@ export function CheckoutPage() {
 
         {/* Order Summary */}
         <div>
-          <div className="bg-card border border-border rounded-lg p-6 sticky top-24">
+          <div className="bg-card border border-border rounded-lg p-6 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
             <h3 className="font-semibold mb-4">Votre commande</h3>
             <div className="flex flex-col gap-3 mb-4">
               {cart.map(item => (
                 <div key={`${item.productId}-${item.color}-${item.size}`} className="flex gap-3">
-                  <img src={item.image} alt={item.name} className="h-12 w-12 rounded object-cover" crossOrigin="anonymous" />
+                  <div className="relative h-12 w-12 rounded overflow-hidden shrink-0">
+                    <Image 
+                      src={item.image} 
+                      alt={item.name} 
+                      fill
+                      className="object-cover"
+                      sizes="48px"
+                    />
+                  </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm truncate">{item.name}</p>
                     <p className="text-xs text-muted-foreground">x{item.quantity}</p>

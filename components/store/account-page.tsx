@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { useStore } from "@/lib/store-context"
 import { customers, orders, products, formatPrice, formatDate, getStatusColor, getStatusLabel } from "@/lib/data"
 import { Button } from "@/components/ui/button"
@@ -18,7 +19,15 @@ export function AccountPage() {
     <div className="mx-auto max-w-5xl px-4 py-8">
       {/* Header */}
       <div className="flex items-center gap-4 mb-8">
-        <img src={customer.avatar} alt={customer.firstName} className="h-16 w-16 rounded-full object-cover" crossOrigin="anonymous" />
+        <div className="relative h-16 w-16 rounded-full overflow-hidden shrink-0">
+          <Image 
+            src={customer.avatar} 
+            alt={`${customer.firstName} ${customer.lastName}`} 
+            fill
+            className="object-cover"
+            sizes="64px"
+          />
+        </div>
         <div>
           <h1 className="font-serif text-2xl font-bold">{customer.firstName} {customer.lastName}</h1>
           <p className="text-sm text-muted-foreground">{customer.email}</p>
@@ -62,7 +71,15 @@ export function AccountPage() {
                   <div className="flex flex-col gap-3">
                     {order.items.map((item, i) => (
                       <div key={i} className="flex gap-3 items-center">
-                        <img src={item.image} alt={item.name} className="h-12 w-12 rounded object-cover" crossOrigin="anonymous" />
+                        <div className="relative h-12 w-12 rounded overflow-hidden shrink-0">
+                          <Image 
+                            src={item.image} 
+                            alt={item.name} 
+                            fill
+                            className="object-cover"
+                            sizes="48px"
+                          />
+                        </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm truncate">{item.name}</p>
                           <p className="text-xs text-muted-foreground">x{item.quantity}</p>

@@ -1,34 +1,73 @@
 "use client"
 
+import { useState, useRef } from "react"
+import Image from "next/image"
 import { useStore } from "@/lib/store-context"
 import { type Product, formatPrice, getBadgeColor, getStatusLabel } from "@/lib/data"
 import { Heart, ShoppingBag, Star, Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { motion } from "framer-motion"
 import { cardVariants, getReducedMotionConfig, fastTransition } from "@/lib/animations"
+import { useCartToast } from "@/hooks/use-cart-toast"
+import { CartAnimation, useCartAnimation } from "./cart-animation"
+import { ProductQuickView } from "./product-quick-view"
 
 const cardAnimationVariants = getReducedMotionConfig(cardVariants)
 
 export function ProductCard({ product, index = 0 }: { product: Product; index?: number }) {
   const { addToCart, toggleWishlist, isInWishlist, navigate, selectProduct } = useStore()
+  const { showAddToCartToast } = useCartToast()
+  const [isAddingToCart, setIsAddingToCart] = useState(false)
+  const [quickViewOpen, setQuickViewOpen] = useState(false)
   const wishlisted = isInWishlist(product.id)
+  const imageRef = useRef<HTMLDivElement>(null)
+  const { animation, triggerAnimation, clearAnimation } = useCartAnimation()
 
   const handleView = () => {
     selectProduct(product.id)
     navigate("product")
   }
 
-  const handleAddToCart = (e: React.MouseEvent) => {
+  const handleQuickView = (e: React.MouseEvent) => {
     e.stopPropagation()
-    addToCart({
-      productId: product.id,
-      name: product.name,
-      price: product.price,
-      image: product.images[0],
-      color: product.colors[0]?.name,
-      size: product.sizes[0],
-      quantity: 1,
-    })
+    setQuickViewOpen(true)
+  }
+
+  const handleAddToCart = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsAddingToCart(true)
+    
+    try {
+      // Trouver l'élément du panier dans le header
+      const cartButton = document.querySelector('[aria-label*="panier"]') as HTMLElement
+      
+      // Déclencher l'animation
+      if (imageRef.current && cartButton) {
+        triggerAnimation(
+          product.images[0],
+          product.name,
+          imageRef.current,
+          cartButton
+        )
+      }
+      
+      // Simuler un délai pour montrer le loading state
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      
+      addToCart({
+        productId: product.id,
+        name: product.name,
+        price: product.price,
+        image: product.images[0],
+        color: product.colors[0]?.name,
+        size: product.sizes[0],
+        quantity: 1,
+      })
+      
+      showAddToCartToast(product.name)
+    } finally {
+      setIsAddingToCart(false)
+    }
   }
 
   return (
@@ -45,15 +84,25 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
       style={{ willChange: 'transform' }}
     >
       {/* Image */}
-      <div className="relative aspect-square overflow-hidden cursor-pointer" onClick={handleView}>
-        <motion.img
-          src={product.images[0]}
-          alt={product.name}
-          className="h-full w-full object-cover"
+      <div 
+        ref={imageRef}
+        className="relative aspect-square overflow-hidden cursor-pointer" 
+        onClick={handleView}
+      >
+        <motion.div
           whileHover={{ scale: 1.05 }}
           transition={{ duration: 0.3, ease: "easeOut" }}
-          crossOrigin="anonymous"
-        />
+          className="h-full w-full"
+        >
+          <Image
+            src={product.images[0]}
+            alt={product.name}
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+            loading="lazy"
+          />
+        </motion.div>
 
         {/* Badge */}
         {product.badge && (
@@ -68,6 +117,7 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
           className={`absolute top-3 right-3 h-9 w-9 rounded-full flex items-center justify-center transition-all ${
             wishlisted ? "bg-red-500 text-white" : "bg-card/80 backdrop-blur-sm text-foreground hover:bg-card"
           }`}
+          aria-label={wishlisted ? `Retirer ${product.name} des favoris` : `Ajouter ${product.name} aux favoris`}
         >
           <Heart className={`h-4 w-4 ${wishlisted ? "fill-current" : ""}`} />
         </button>
@@ -79,11 +129,24 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
           whileHover={{ y: 0 }}
           transition={fastTransition}
         >
-          <Button onClick={handleAddToCart} size="sm" className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 text-xs gap-1.5">
+          <Button 
+            onClick={handleAddToCart} 
+            size="sm" 
+            className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 text-xs gap-1.5"
+            loading={isAddingToCart}
+            disabled={isAddingToCart}
+            aria-label={`Ajouter ${product.name} au panier`}
+          >
             <ShoppingBag className="h-3.5 w-3.5" />
             Ajouter
           </Button>
-          <Button onClick={(e) => { e.stopPropagation(); handleView() }} size="sm" variant="secondary" className="gap-1.5 text-xs">
+          <Button 
+            onClick={handleQuickView} 
+            size="sm" 
+            variant="secondary" 
+            className="gap-1.5 text-xs"
+            aria-label={`Voir rapidement ${product.name}`}
+          >
             <Eye className="h-3.5 w-3.5" />
           </Button>
         </motion.div>
@@ -92,7 +155,19 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
       {/* Info */}
       <div className="p-4">
         <p className="text-xs text-muted-foreground mb-1">{product.brand}</p>
-        <h3 className="font-medium text-sm leading-tight mb-2 cursor-pointer hover:text-accent transition-colors line-clamp-2" onClick={handleView}>
+        <h3 
+          className="font-medium text-sm leading-tight mb-2 cursor-pointer hover:text-accent transition-colors line-clamp-2" 
+          onClick={handleView}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault()
+              handleView()
+            }
+          }}
+          aria-label={`Voir les détails de ${product.name}`}
+        >
           {product.name}
         </h3>
 
@@ -129,6 +204,24 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
           ))}
         </div>
       </div>
+
+      {/* Cart Animation */}
+      {animation && (
+        <CartAnimation
+          imageUrl={animation.imageUrl}
+          productName={animation.productName}
+          startPosition={animation.startPosition}
+          endPosition={animation.endPosition}
+          onComplete={clearAnimation}
+        />
+      )}
+
+      {/* Quick View Modal */}
+      <ProductQuickView
+        product={product}
+        open={quickViewOpen}
+        onOpenChange={setQuickViewOpen}
+      />
     </motion.div>
   )
 }

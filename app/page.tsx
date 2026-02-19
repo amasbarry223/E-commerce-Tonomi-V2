@@ -118,7 +118,7 @@ function AppContent() {
   return (
     <div className="min-h-screen flex flex-col w-full">
       <StoreHeader />
-      <main className="flex-1 w-full">
+      <main id="main-content" className="flex-1 w-full" role="main" tabIndex={-1}>
         <AnimatePresence mode="wait">
           <motion.div
             key={currentPage}

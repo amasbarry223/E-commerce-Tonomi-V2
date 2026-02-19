@@ -36,6 +36,9 @@ function SheetOverlay({
   className,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Overlay>) {
+  // Exclure les props HTML qui entrent en conflit avec Framer Motion
+  const { onDrag: _onDrag, onDragStart: _onDragStart, onDragEnd: _onDragEnd, ...motionProps } = props as any
+  
   return (
     <SheetPrimitive.Overlay asChild>
       <motion.div
@@ -48,7 +51,7 @@ function SheetOverlay({
         initial="hidden"
         animate="visible"
         exit="exit"
-        {...props}
+        {...(motionProps as any)}
       />
     </SheetPrimitive.Overlay>
   )
@@ -86,6 +89,9 @@ function SheetContent({
 
   const dragDirection = side === 'right' || side === 'left' ? 'x' : 'y'
 
+  // Exclure les props HTML qui entrent en conflit avec Framer Motion
+  const { onDrag: _onDrag, onDragStart: _onDragStart, ...motionProps } = props as any
+
   return (
     <SheetPortal>
       <SheetOverlay />
@@ -113,7 +119,7 @@ function SheetContent({
           dragConstraints={dragConstraints}
           dragElastic={0.2}
           onDragEnd={handleDragEnd}
-          {...props}
+          {...(motionProps as any)}
         >
           {children}
           <SheetPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-secondary absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none">

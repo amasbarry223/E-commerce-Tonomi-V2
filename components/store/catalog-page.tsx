@@ -5,16 +5,27 @@ import { useStore } from "@/lib/store-context"
 import { products, categories, formatPrice } from "@/lib/data"
 import { SECTION_CONTAINER } from "@/lib/layout"
 import { ProductCard } from "./product-card"
+import { ProductCardSkeletonGrid } from "./product-card-skeleton"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import { Checkbox } from "@/components/ui/checkbox"
-import { SlidersHorizontal, X, Grid3X3, LayoutGrid } from "lucide-react"
+import { SlidersHorizontal, X, Grid3X3, LayoutGrid, Search } from "lucide-react"
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { 
+  Pagination, 
+  PaginationContent, 
+  PaginationItem, 
+  PaginationLink, 
+  PaginationNext, 
+  PaginationPrevious,
+  PaginationEllipsis
+} from "@/components/ui/pagination"
 
 const MATERIALS = ["Cuir véritable", "Cuir grainé", "Cuir saffiano", "Cuir d'agneau", "Canvas & Cuir", "Nylon imperméable", "Similicuir", "Toile & Cuir"] as const
 const BRANDS = ["Maison Élégance", "Bohème Paris", "Cristal de Paris", "Urban Mode", "Riviera Mode", "Artisan Paris"] as const
 const PRICE_RANGE_DEFAULT: [number, number] = [0, 300]
+const PRODUCTS_PER_PAGE = 12
 
 export function CatalogPage() {
   const { searchQuery, selectedCategorySlug, selectCategory, navigate } = useStore()
@@ -25,10 +36,19 @@ export function CatalogPage() {
   const [sortBy, setSortBy] = useState<string>("popularity")
   const [gridCols, setGridCols] = useState<3 | 4>(4)
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
 
   useEffect(() => {
     setSelectedCategory(selectedCategorySlug ?? "all")
-  }, [selectedCategorySlug])
+    setCurrentPage(1) // Reset à la page 1 quand les filtres changent
+  }, [selectedCategorySlug, searchQuery])
+
+  // Simuler le chargement initial pour démontrer les skeleton loaders
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 500)
+    return () => clearTimeout(timer)
+  }, [])
 
   const toggleBrand = useCallback((brand: string) => {
     setSelectedBrands(prev =>
@@ -48,6 +68,7 @@ export function CatalogPage() {
     setPriceRange([...PRICE_RANGE_DEFAULT])
     setSelectedBrands([])
     setSelectedMaterials([])
+    setCurrentPage(1)
   }, [selectCategory])
 
   const filteredProducts = useMemo(() => {
@@ -87,6 +108,18 @@ export function CatalogPage() {
 
     return result
   }, [searchQuery, selectedCategory, priceRange, selectedBrands, selectedMaterials, sortBy])
+
+  // Calcul de la pagination
+  const totalPages = Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE)
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * PRODUCTS_PER_PAGE
+    return filteredProducts.slice(startIndex, startIndex + PRODUCTS_PER_PAGE)
+  }, [filteredProducts, currentPage])
+
+  // Scroll vers le haut lors du changement de page
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }, [currentPage])
 
   const activeFilterCount = useMemo(
     () =>
@@ -252,17 +285,122 @@ export function CatalogPage() {
           </div>
 
           {/* Products Grid */}
-          {filteredProducts.length === 0 ? (
-            <div className="text-center py-20">
-              <p className="text-muted-foreground text-lg mb-4">Aucun produit trouvé</p>
-              <Button variant="outline" onClick={clearFilters}>Réinitialiser les filtres</Button>
+          {isLoading ? (
+            <ProductCardSkeletonGrid count={8} />
+          ) : filteredProducts.length === 0 ? (
+            <div className="text-center py-20 px-4">
+              <div className="max-w-md mx-auto">
+                <div className="mb-6 flex justify-center">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-muted rounded-full blur-2xl opacity-50" />
+                    <Search className="h-20 w-20 text-muted-foreground relative" />
+                  </div>
+                </div>
+                <h2 className="font-serif text-2xl font-bold mb-2">Aucun produit trouvé</h2>
+                <p className="text-muted-foreground mb-6">
+                  {activeFilterCount > 0
+                    ? "Essayez de modifier vos critères de recherche ou de réinitialiser les filtres pour voir plus de résultats."
+                    : "Nous n'avons pas trouvé de produits correspondant à votre recherche. Essayez d'autres mots-clés."}
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  {activeFilterCount > 0 && (
+                    <Button onClick={clearFilters} className="gap-2">
+                      <X className="h-4 w-4" />
+                      Réinitialiser les filtres
+                    </Button>
+                  )}
+                  <Button variant="outline" onClick={() => navigate("catalog")} className="gap-2">
+                    Voir tout le catalogue
+                  </Button>
+                </div>
+                {searchQuery && (
+                  <p className="text-sm text-muted-foreground mt-4">
+                    Recherche : <span className="font-medium text-foreground">"{searchQuery}"</span>
+                  </p>
+                )}
+              </div>
             </div>
           ) : (
-            <div className={`grid grid-cols-2 ${gridCols === 3 ? "lg:grid-cols-3" : "lg:grid-cols-4"} gap-4 md:gap-6`}>
-              {filteredProducts.map((product, index) => (
-                <ProductCard key={product.id} product={product} index={index} />
-              ))}
-            </div>
+            <>
+              <div className={`grid grid-cols-2 ${gridCols === 3 ? "lg:grid-cols-3" : "lg:grid-cols-4"} gap-4 md:gap-6`}>
+                {paginatedProducts.map((product, index) => (
+                  <ProductCard key={product.id} product={product} index={index} />
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="mt-8 flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    Affichage de {(currentPage - 1) * PRODUCTS_PER_PAGE + 1} à {Math.min(currentPage * PRODUCTS_PER_PAGE, filteredProducts.length)} sur {filteredProducts.length} produits
+                  </p>
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            if (currentPage > 1) setCurrentPage(currentPage - 1)
+                          }}
+                          className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                          aria-label="Page précédente"
+                        />
+                      </PaginationItem>
+
+                      {/* Pages */}
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                        // Afficher la première page, la dernière, la page actuelle et quelques pages autour
+                        if (
+                          page === 1 ||
+                          page === totalPages ||
+                          (page >= currentPage - 1 && page <= currentPage + 1)
+                        ) {
+                          return (
+                            <PaginationItem key={page}>
+                              <PaginationLink
+                                href="#"
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  setCurrentPage(page)
+                                }}
+                                isActive={currentPage === page}
+                                aria-label={`Page ${page}`}
+                                aria-current={currentPage === page ? "page" : undefined}
+                              >
+                                {page}
+                              </PaginationLink>
+                            </PaginationItem>
+                          )
+                        } else if (
+                          page === currentPage - 2 ||
+                          page === currentPage + 2
+                        ) {
+                          return (
+                            <PaginationItem key={page}>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          )
+                        }
+                        return null
+                      })}
+
+                      <PaginationItem>
+                        <PaginationNext
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            if (currentPage < totalPages) setCurrentPage(currentPage + 1)
+                          }}
+                          className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                          aria-label="Page suivante"
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
