@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Search, Download, Eye, Printer, Package, Truck } from "lucide-react"
 import { toast } from "sonner"
+import { PaginationSimple as Pagination } from "@/components/ui/pagination"
+import { usePagination } from "@/hooks/use-pagination"
 
 export function AdminOrders() {
   const [search, setSearch] = useState("")
@@ -37,6 +39,15 @@ export function AdminOrders() {
       return dateB - dateA !== 0 ? dateB - dateA : a.id.localeCompare(b.id)
     })
   }, [search, statusFilter, orderUpdates])
+
+  const {
+    paginatedData,
+    currentPage,
+    totalPages,
+    totalItems,
+    itemsPerPage,
+    goToPage,
+  } = usePagination(filtered, { itemsPerPage: 10 })
 
   const viewOrder = orders.find(o => o.id === selectedOrder)
   const viewCustomer = viewOrder ? customers.find(c => c.id === viewOrder.customerId) : null
@@ -141,7 +152,7 @@ export function AdminOrders() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(order => {
+              {paginatedData.map(order => {
                 const customer = customers.find(c => c.id === order.customerId)
                 return (
                   <tr key={order.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
@@ -181,6 +192,17 @@ export function AdminOrders() {
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {filtered.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          onPageChange={goToPage}
+        />
+      )}
 
       {/* Order Detail Dialog */}
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>

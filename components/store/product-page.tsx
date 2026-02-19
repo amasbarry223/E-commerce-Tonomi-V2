@@ -12,6 +12,8 @@ import { Heart, ShoppingBag, Star, Minus, Plus, Truck, RotateCcw, ShieldCheck } 
 import { ImageZoom } from "./image-zoom"
 import { CartAnimation, useCartAnimation } from "./cart-animation"
 import { useCartToast } from "@/hooks/use-cart-toast"
+import { useCartButtonRef } from "@/hooks/use-cart-button-ref"
+import { REVIEW_STATUS, PRODUCT_BADGE } from "@/lib/status-types"
 
 export function ProductPage() {
   const { selectedProductId, addToCart, toggleWishlist, isInWishlist, navigate } = useStore()
@@ -33,17 +35,19 @@ export function ProductPage() {
     )
   }
 
-  const productReviews = reviews.filter(r => r.productId === product.id && r.status === "approved")
+  const productReviews = reviews.filter(r => r.productId === product.id && r.status === REVIEW_STATUS.APPROVED)
   const similar = products.filter(p => p.category === product.category && p.id !== product.id).slice(0, 4)
   const wishlisted = isInWishlist(product.id)
   const category = categories.find(c => c.id === product.category)
 
+  const cartButtonRef = useCartButtonRef()
+  
   const handleAddToCart = () => {
-    // Trouver l'élément du panier dans le header
-    const cartButton = document.querySelector('[aria-label*="panier"]') as HTMLElement
-    const imageElement = document.querySelector(`[data-product-image="${product.id}"]`) as HTMLElement
+    // Use cached cart button ref and find image element with null checks
+    const cartButton = cartButtonRef.current
+    const imageElement = document.querySelector(`[data-product-image="${product.id}"]`) as HTMLElement | null
     
-    // Déclencher l'animation
+    // Déclencher l'animation only if both elements exist
     if (imageElement && cartButton) {
       triggerAnimation(
         product.images[selectedImage],
@@ -96,9 +100,9 @@ export function ProductPage() {
             />
             {product.badge && (
               <Badge className="absolute top-4 left-4 bg-red-500 text-white hover:bg-red-500 z-30 pointer-events-none">
-                {product.badge === "promo" && product.originalPrice
+                {product.badge === PRODUCT_BADGE.PROMO && product.originalPrice
                   ? `-${Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%`
-                  : product.badge === "new" ? "Nouveau" : product.badge === "coup-de-coeur" ? "Coup de coeur" : "Stock limité"}
+                  : product.badge === PRODUCT_BADGE.NEW ? "Nouveau" : product.badge === PRODUCT_BADGE.COUP_DE_COEUR ? "Coup de coeur" : "Stock limité"}
               </Badge>
             )}
           </div>

@@ -12,6 +12,8 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
 import { Search, Users, Eye, Mail, ShoppingBag, MapPin, Download } from "lucide-react"
 import { toast } from "sonner"
+import { PaginationSimple as Pagination } from "@/components/ui/pagination"
+import { usePagination } from "@/hooks/use-pagination"
 
 const segmentColors: Record<string, string> = {
   vip: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
@@ -38,6 +40,15 @@ export function AdminCustomers() {
     if (segmentFilter !== "all") result = result.filter(c => c.segment === segmentFilter)
     return result
   }, [search, segmentFilter])
+
+  const {
+    paginatedData,
+    currentPage,
+    totalPages,
+    totalItems,
+    itemsPerPage,
+    goToPage,
+  } = usePagination(filtered, { itemsPerPage: 10 })
 
   const viewCustomer = customers.find(c => c.id === selectedCustomer)
   const customerOrders = viewCustomer ? orders.filter(o => o.customerId === viewCustomer.id) : []
@@ -225,7 +236,7 @@ export function AdminCustomers() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(customer => (
+              {paginatedData.map(customer => (
                 <tr key={customer.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-3">
@@ -264,6 +275,17 @@ export function AdminCustomers() {
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {filtered.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          onPageChange={goToPage}
+        />
+      )}
 
       {/* Customer Detail Dialog */}
       <Dialog open={!!selectedCustomer} onOpenChange={() => setSelectedCustomer(null)}>

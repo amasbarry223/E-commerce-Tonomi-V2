@@ -4,6 +4,7 @@ import { useState } from "react"
 import Image from "next/image"
 import { useStore } from "@/lib/store-context"
 import { type Product, formatPrice, getBadgeColor, getStatusLabel } from "@/lib/data"
+import { PRODUCT_BADGE } from "@/lib/status-types"
 import { Heart, ShoppingBag, Star, Minus, Plus, Truck, RotateCcw, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -99,9 +100,9 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
               />
               {product.badge && (
                 <Badge className="absolute top-3 left-3 bg-red-500 text-white hover:bg-red-500 z-10">
-                  {product.badge === "promo" && product.originalPrice
+                  {product.badge === PRODUCT_BADGE.PROMO && product.originalPrice
                     ? `-${Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%`
-                    : product.badge === "new" ? "Nouveau" : product.badge === "coup-de-coeur" ? "Coup de coeur" : "Stock limité"}
+                    : product.badge === PRODUCT_BADGE.NEW ? "Nouveau" : product.badge === PRODUCT_BADGE.COUP_DE_COEUR ? "Coup de coeur" : "Stock limité"}
                 </Badge>
               )}
             </div>

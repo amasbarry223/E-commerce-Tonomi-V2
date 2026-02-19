@@ -62,7 +62,7 @@ interface StoreContextType extends StoreState {
   appliedPromo: string | null
 }
 
-const StoreContext = createContext<StoreContextType | undefined>(undefined)
+export const StoreContext = createContext<StoreContextType | undefined>(undefined)
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<StoreState>({
@@ -209,16 +209,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const applyPromoCode = useCallback((code: string): { success: boolean; discount: number; message: string } => {
+    // Calculate current cart total from state to avoid stale closure
+    const currentCartTotal = state.cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
     const promo = promoCodes.find(p => p.code === code.toUpperCase() && p.active)
     if (!promo) return { success: false, discount: 0, message: "Code promo invalide" }
     if (promo.usedCount >= promo.maxUses) return { success: false, discount: 0, message: "Code promo expiré" }
-    if (promo.minAmount && cartTotal < promo.minAmount) return { success: false, discount: 0, message: `Montant minimum de ${promo.minAmount}€ requis` }
+    if (promo.minAmount && currentCartTotal < promo.minAmount) return { success: false, discount: 0, message: `Montant minimum de ${promo.minAmount}€ requis` }
 
-    const discount = promo.type === "percentage" ? (cartTotal * promo.value) / 100 : promo.value
+    const discount = promo.type === "percentage" ? (currentCartTotal * promo.value) / 100 : promo.value
     setPromoDiscount(discount)
     setAppliedPromo(promo.code)
     return { success: true, discount, message: `Code ${promo.code} appliqué !` }
-  }, [cartTotal])
+  }, [state.cart])
 
   return (
     <StoreContext.Provider value={{

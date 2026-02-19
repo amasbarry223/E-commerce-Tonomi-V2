@@ -229,3 +229,4 @@ Le projet respecte déjà les **anti-patterns** et les **patterns UX critiques**
 
 **Score final : 78%** - Projet de qualité professionnelle avec quelques ajustements mineurs à prévoir.
 
+

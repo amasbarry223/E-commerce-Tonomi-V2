@@ -338,12 +338,10 @@ export function CatalogPage() {
                     <PaginationContent>
                       <PaginationItem>
                         <PaginationPrevious
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault()
+                          onClick={() => {
                             if (currentPage > 1) setCurrentPage(currentPage - 1)
                           }}
-                          className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                          disabled={currentPage === 1}
                           aria-label="Page précédente"
                         />
                       </PaginationItem>
@@ -387,12 +385,10 @@ export function CatalogPage() {
 
                       <PaginationItem>
                         <PaginationNext
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault()
+                          onClick={() => {
                             if (currentPage < totalPages) setCurrentPage(currentPage + 1)
                           }}
-                          className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                          disabled={currentPage === totalPages}
                           aria-label="Page suivante"
                         />
                       </PaginationItem>

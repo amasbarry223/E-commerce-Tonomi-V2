@@ -8,6 +8,20 @@ import { useStore } from "@/lib/store-context"
 /**
  * Hook personnalisé pour gérer les notifications toast liées au panier
  * Fournit des feedbacks visuels cohérents pour toutes les actions du panier
+ * 
+ * @returns Un objet contenant toutes les fonctions de notification toast pour le panier
+ * 
+ * @example
+ * ```tsx
+ * function ProductCard({ product }) {
+ *   const { showAddToCartToast } = useCartToast()
+ *   
+ *   const handleAddToCart = () => {
+ *     addToCart(product)
+ *     showAddToCartToast(product.name)
+ *   }
+ * }
+ * ```
  */
 export function useCartToast() {
   const { navigate } = useStore()

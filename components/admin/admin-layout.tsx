@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { useStore } from "@/lib/store-context"
 import { useAuthStore } from "@/lib/stores/auth-store"
@@ -26,10 +27,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const { currentPage, navigate, setCurrentView, darkMode, toggleDarkMode } = useStore()
   const { user, logout } = useAuthStore()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const router = useRouter()
 
   const handleLogout = () => {
     logout()
-    setCurrentView("store")
+    router.push("/login")
   }
 
   return (

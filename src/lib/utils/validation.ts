@@ -37,3 +37,44 @@ export const promoCodeSchema = z.object({
   endDate: z.string(),
 })
 
+/**
+ * Schéma de validation pour les catégories
+ */
+export const categorySchema = z.object({
+  name: z
+    .string()
+    .min(1, 'Le nom est requis')
+    .max(100, 'Le nom ne peut pas dépasser 100 caractères')
+    .regex(/^[a-zA-ZÀ-ÿ0-9\s'-]+$/, 'Le nom contient des caractères invalides'),
+  
+  slug: z
+    .string()
+    .min(1, 'Le slug est requis')
+    .max(100, 'Le slug ne peut pas dépasser 100 caractères')
+    .regex(/^[a-z0-9-]+$/, 'Le slug doit contenir uniquement des lettres minuscules, chiffres et tirets'),
+  
+  description: z
+    .string()
+    .max(1000, 'La description ne peut pas dépasser 1000 caractères')
+    .optional(),
+  
+  image: z
+    .string()
+    .url('L\'URL de l\'image doit être valide')
+    .min(1, 'L\'URL de l\'image est requise'),
+  
+  metaTitle: z
+    .string()
+    .max(60, 'Le meta title ne peut pas dépasser 60 caractères')
+    .optional(),
+  
+  metaDescription: z
+    .string()
+    .max(160, 'La meta description ne peut pas dépasser 160 caractères')
+    .optional(),
+  
+  parentId: z
+    .string()
+    .optional(),
+})
+

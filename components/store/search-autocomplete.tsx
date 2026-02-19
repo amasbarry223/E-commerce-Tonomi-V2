@@ -89,8 +89,7 @@ export function SearchAutocomplete() {
     inputRef.current?.blur()
   }, [selectProduct, navigate, setSearchQuery])
 
-  const handleSubmit = useCallback((e: React.FormEvent) => {
-    e.preventDefault()
+  const performSearch = useCallback(() => {
     if (searchQuery.trim()) {
       navigate("catalog")
       setIsOpen(false)
@@ -98,10 +97,16 @@ export function SearchAutocomplete() {
     }
   }, [searchQuery, navigate])
 
+  const handleSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault()
+    performSearch()
+  }, [performSearch])
+
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (!isOpen || suggestions.length === 0) {
       if (e.key === "Enter") {
-        handleSubmit(e as any)
+        e.preventDefault()
+        performSearch()
       }
       return
     }
@@ -122,7 +127,7 @@ export function SearchAutocomplete() {
         if (highlightedIndex >= 0 && highlightedIndex < suggestions.length) {
           handleSelectProduct(suggestions[highlightedIndex].product)
         } else {
-          handleSubmit(e as any)
+          performSearch()
         }
         break
       case "Escape":
@@ -265,7 +270,7 @@ export function SearchAutocomplete() {
                   variant="outline"
                   size="sm"
                   className="mt-3"
-                  onClick={handleSubmit as any}
+                  onClick={performSearch}
                 >
                   Voir tous les résultats
                 </Button>
@@ -277,4 +282,5 @@ export function SearchAutocomplete() {
     </div>
   )
 }
+
 

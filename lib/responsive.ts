@@ -69,3 +69,26 @@ export const container = {
   desktop: 'lg:px-8 xl:px-12',
   maxWidth: 'max-w-7xl mx-auto',
 } as const
+
+/**
+ * Configuration pour les items par vue dans les carrousels
+ */
+export type ItemsPerViewConfig = {
+  mobile: number
+  tablet: number
+  desktop: number
+}
+
+/**
+ * Configuration par défaut pour les carrousels de produits
+ */
+export const CAROUSEL_ITEMS_PER_VIEW: ItemsPerViewConfig = {
+  mobile: 1,
+  tablet: 2,
+  desktop: 4,
+} as const
+
+/**
+ * Délai de debounce pour les handlers de resize (en ms)
+ */
+export const RESIZE_DEBOUNCE_DELAY = 150

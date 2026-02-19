@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { PaginationSimple as Pagination } from "@/components/ui/pagination"
 import {
   Search, Plus, Edit, Trash2, Eye, Copy, Download, Upload,
   MoreHorizontal, Package,
@@ -18,6 +19,8 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { toast } from "sonner"
+import { usePagination } from "@/hooks/use-pagination"
 
 export function AdminProducts() {
   const [search, setSearch] = useState("")
@@ -25,6 +28,8 @@ export function AdminProducts() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [editingProduct, setEditingProduct] = useState<string | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
+  const [productToDelete, setProductToDelete] = useState<string | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   const filtered = useMemo(() => {
     let result = [...products]
@@ -36,6 +41,61 @@ export function AdminProducts() {
     if (statusFilter !== "all") result = result.filter(p => p.status === statusFilter)
     return result
   }, [search, categoryFilter, statusFilter])
+
+  const {
+    paginatedData,
+    currentPage,
+    totalPages,
+    totalItems,
+    itemsPerPage,
+    goToPage,
+  } = usePagination(filtered, { itemsPerPage: 10 })
+
+  const handleViewProduct = (productId: string) => {
+    const product = products.find(p => p.id === productId)
+    if (product) {
+      toast.info(`Affichage du produit: ${product.name}`)
+      // Ici vous pouvez naviguer vers la page produit ou ouvrir un modal
+    }
+  }
+
+  const handleEditProduct = (productId: string) => {
+    setEditingProduct(productId)
+    toast.info("Ouverture de l'éditeur de produit")
+  }
+
+  const handleDuplicateProduct = (productId: string) => {
+    const product = products.find(p => p.id === productId)
+    if (product) {
+      toast.success(`Produit "${product.name}" dupliqué avec succès`)
+    }
+  }
+
+  const handleDeleteClick = (productId: string) => {
+    setProductToDelete(productId)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDeleteProduct = () => {
+    if (productToDelete) {
+      const product = products.find(p => p.id === productToDelete)
+      if (product) {
+        toast.success(`Produit "${product.name}" supprimé avec succès`)
+      }
+      setProductToDelete(null)
+      setDeleteDialogOpen(false)
+    }
+  }
+
+  const handleProductSaved = (isNew: boolean) => {
+    if (isNew) {
+      toast.success("Produit créé avec succès")
+    } else {
+      toast.success("Produit modifié avec succès")
+    }
+    setShowAddDialog(false)
+    setEditingProduct(null)
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -119,7 +179,7 @@ export function AdminProducts() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(product => {
+              {paginatedData.map(product => {
                 const category = categories.find(c => c.id === product.category)
                 return (
                   <tr key={product.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
@@ -159,10 +219,18 @@ export function AdminProducts() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem className="gap-2"><Eye className="h-3.5 w-3.5" /> Voir</DropdownMenuItem>
-                          <DropdownMenuItem className="gap-2" onClick={() => setEditingProduct(product.id)}><Edit className="h-3.5 w-3.5" /> Modifier</DropdownMenuItem>
-                          <DropdownMenuItem className="gap-2"><Copy className="h-3.5 w-3.5" /> Dupliquer</DropdownMenuItem>
-                          <DropdownMenuItem className="gap-2 text-destructive"><Trash2 className="h-3.5 w-3.5" /> Supprimer</DropdownMenuItem>
+                          <DropdownMenuItem className="gap-2" onClick={() => handleViewProduct(product.id)}>
+                            <Eye className="h-3.5 w-3.5" /> Voir
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="gap-2" onClick={() => handleEditProduct(product.id)}>
+                            <Edit className="h-3.5 w-3.5" /> Modifier
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="gap-2" onClick={() => handleDuplicateProduct(product.id)}>
+                            <Copy className="h-3.5 w-3.5" /> Dupliquer
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="gap-2 text-destructive" onClick={() => handleDeleteClick(product.id)}>
+                            <Trash2 className="h-3.5 w-3.5" /> Supprimer
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>
@@ -180,6 +248,39 @@ export function AdminProducts() {
         )}
       </div>
 
+      {/* Pagination */}
+      {filtered.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          onPageChange={goToPage}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Supprimer le produit</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              Êtes-vous sûr de vouloir supprimer ce produit ? Cette action est irréversible.
+            </p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} size="sm">
+              Annuler
+            </Button>
+            <Button variant="destructive" onClick={confirmDeleteProduct} size="sm">
+              Supprimer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit Dialog */}
       {editingProduct && (
         <Dialog open={!!editingProduct} onOpenChange={() => setEditingProduct(null)}>
@@ -187,7 +288,16 @@ export function AdminProducts() {
             <DialogHeader>
               <DialogTitle>Modifier le produit</DialogTitle>
             </DialogHeader>
-            <ProductForm productId={editingProduct} onClose={() => setEditingProduct(null)} />
+            <ProductForm 
+              productId={editingProduct} 
+              onClose={() => {
+                setEditingProduct(null)
+                if (editingProduct) {
+                  toast.success("Produit modifié avec succès")
+                }
+              }}
+              onSave={handleProductSaved}
+            />
           </DialogContent>
         </Dialog>
       )}
@@ -195,8 +305,17 @@ export function AdminProducts() {
   )
 }
 
-function ProductForm({ productId, onClose }: { productId?: string; onClose: () => void }) {
+function ProductForm({ 
+  productId, 
+  onClose,
+  onSave 
+}: { 
+  productId?: string
+  onClose: () => void
+  onSave?: (isNew: boolean) => void
+}) {
   const product = productId ? products.find(p => p.id === productId) : null
+  const isNew = !productId
 
   return (
     <div className="flex flex-col gap-4">
@@ -239,7 +358,7 @@ function ProductForm({ productId, onClose }: { productId?: string; onClose: () =
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label className="text-sm">Categorie</Label>
-          <Select defaultValue={product?.category || ""}>
+          <Select defaultValue={product?.category || undefined}>
             <SelectTrigger className="mt-1"><SelectValue placeholder="Choisir" /></SelectTrigger>
             <SelectContent>
               {categories.map(c => (
@@ -290,7 +409,15 @@ function ProductForm({ productId, onClose }: { productId?: string; onClose: () =
 
       <div className="flex justify-end gap-3 pt-4 border-t border-border">
         <Button variant="outline" onClick={onClose}>Annuler</Button>
-        <Button onClick={onClose}>{product ? "Enregistrer" : "Creer le produit"}</Button>
+        <Button onClick={() => {
+          if (onSave) {
+            onSave(isNew)
+          } else {
+            onClose()
+          }
+        }}>
+          {product ? "Enregistrer" : "Creer le produit"}
+        </Button>
       </div>
     </div>
   )

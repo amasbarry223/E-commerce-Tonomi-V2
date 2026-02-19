@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import React, { useState, useRef } from "react"
 import Image from "next/image"
 import { useStore } from "@/lib/store-context"
 import { type Product, formatPrice, getBadgeColor, getStatusLabel } from "@/lib/data"
@@ -8,19 +8,22 @@ import { Heart, ShoppingBag, Star, Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { motion } from "framer-motion"
 import { cardVariants, getReducedMotionConfig, fastTransition } from "@/lib/animations"
+import { ANIMATION_DELAYS } from "@/lib/constants"
 import { useCartToast } from "@/hooks/use-cart-toast"
 import { CartAnimation, useCartAnimation } from "./cart-animation"
 import { ProductQuickView } from "./product-quick-view"
+import { useCartButtonRef } from "@/hooks/use-cart-button-ref"
 
 const cardAnimationVariants = getReducedMotionConfig(cardVariants)
 
-export function ProductCard({ product, index = 0 }: { product: Product; index?: number }) {
+export const ProductCard = React.memo(function ProductCard({ product, index = 0 }: { product: Product; index?: number }) {
   const { addToCart, toggleWishlist, isInWishlist, navigate, selectProduct } = useStore()
   const { showAddToCartToast } = useCartToast()
   const [isAddingToCart, setIsAddingToCart] = useState(false)
   const [quickViewOpen, setQuickViewOpen] = useState(false)
   const wishlisted = isInWishlist(product.id)
   const imageRef = useRef<HTMLDivElement>(null)
+  const cartButtonRef = useCartButtonRef()
   const { animation, triggerAnimation, clearAnimation } = useCartAnimation()
 
   const handleView = () => {
@@ -38,8 +41,8 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
     setIsAddingToCart(true)
     
     try {
-      // Trouver l'élément du panier dans le header
-      const cartButton = document.querySelector('[aria-label*="panier"]') as HTMLElement
+      // Use cached cart button ref
+      const cartButton = cartButtonRef.current
       
       // Déclencher l'animation
       if (imageRef.current && cartButton) {
@@ -52,7 +55,7 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
       }
       
       // Simuler un délai pour montrer le loading state
-      await new Promise((resolve) => setTimeout(resolve, 300))
+      await new Promise((resolve) => setTimeout(resolve, ANIMATION_DELAYS.CART_ANIMATION_DELAY))
       
       addToCart({
         productId: product.id,
@@ -224,4 +227,4 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
       />
     </motion.div>
   )
-}
+})

@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
+import { logger } from "@/lib/utils/logger"
 
 /**
  * Schéma de validation Zod pour le formulaire de checkout
@@ -113,7 +114,9 @@ export function useCheckoutForm(options: UseCheckoutFormOptions = {}) {
       }
       
       // Ne pas re-throw l'erreur pour éviter de bloquer l'UI
-      console.error("Erreur lors de la soumission du formulaire:", error)
+      logger.logError(error instanceof Error ? error : new Error(String(error)), "useCheckoutForm", {
+        formData: data,
+      })
     } finally {
       setIsSubmitting(false)
     }

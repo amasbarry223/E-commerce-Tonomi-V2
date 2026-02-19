@@ -12,11 +12,51 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Plus, Tag, Copy, Trash2, MoreHorizontal, Percent, Calendar, Settings, Eye } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useState } from "react"
+import { toast } from "sonner"
+import { PaginationSimple as Pagination } from "@/components/ui/pagination"
+import { usePagination } from "@/hooks/use-pagination"
 
 export function AdminPromos() {
   const [showAdd, setShowAdd] = useState(false)
+  const [promoToDelete, setPromoToDelete] = useState<string | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   const activeCount = promoCodes.filter(p => p.active && new Date(p.endDate) > new Date()).length
+
+  const {
+    paginatedData,
+    currentPage,
+    totalPages,
+    totalItems,
+    itemsPerPage,
+    goToPage,
+  } = usePagination(promoCodes, { itemsPerPage: 10 })
+
+  const handleCopyCode = (code: string) => {
+    navigator.clipboard.writeText(code)
+    toast.success(`Code "${code}" copié dans le presse-papiers`)
+  }
+
+  const handleDeleteClick = (promoId: string) => {
+    setPromoToDelete(promoId)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDeletePromo = () => {
+    if (promoToDelete) {
+      const promo = promoCodes.find(p => p.id === promoToDelete)
+      if (promo) {
+        toast.success(`Code promo "${promo.code}" supprimé avec succès`)
+      }
+      setPromoToDelete(null)
+      setDeleteDialogOpen(false)
+    }
+  }
+
+  const handleCreatePromo = () => {
+    toast.success("Code promo créé avec succès")
+    setShowAdd(false)
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -187,7 +227,7 @@ export function AdminPromos() {
               <Button variant="outline" onClick={() => setShowAdd(false)} size="sm">
                 Annuler
               </Button>
-              <Button onClick={() => setShowAdd(false)} size="sm" className="gap-1.5">
+              <Button onClick={handleCreatePromo} size="sm" className="gap-1.5">
                 <Plus className="h-3.5 w-3.5" />
                 Créer
               </Button>
@@ -197,7 +237,7 @@ export function AdminPromos() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {promoCodes.map(promo => {
+        {paginatedData.map(promo => {
           const isExpired = new Date(promo.endDate) < new Date()
           const isActive = promo.active && !isExpired
 
@@ -223,8 +263,12 @@ export function AdminPromos() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem className="gap-2"><Copy className="h-3.5 w-3.5" /> Copier le code</DropdownMenuItem>
-                        <DropdownMenuItem className="gap-2 text-destructive"><Trash2 className="h-3.5 w-3.5" /> Supprimer</DropdownMenuItem>
+                        <DropdownMenuItem className="gap-2" onClick={() => handleCopyCode(promo.code)}>
+                          <Copy className="h-3.5 w-3.5" /> Copier le code
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="gap-2 text-destructive" onClick={() => handleDeleteClick(promo.id)}>
+                          <Trash2 className="h-3.5 w-3.5" /> Supprimer
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -246,6 +290,44 @@ export function AdminPromos() {
           )
         })}
       </div>
+
+      {/* Pagination */}
+      {promoCodes.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          onPageChange={goToPage}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Supprimer le code promo</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              {promoToDelete && (() => {
+                const promo = promoCodes.find(p => p.id === promoToDelete)
+                return promo
+                  ? `Êtes-vous sûr de vouloir supprimer le code promo "${promo.code}" ? Cette action est irréversible.`
+                  : "Êtes-vous sûr de vouloir supprimer ce code promo ? Cette action est irréversible."
+              })()}
+            </p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} size="sm">
+              Annuler
+            </Button>
+            <Button variant="destructive" onClick={confirmDeletePromo} size="sm">
+              Supprimer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Star, Check, X, MessageSquare, Clock } from "lucide-react"
+import { toast } from "sonner"
+import { PaginationSimple as Pagination } from "@/components/ui/pagination"
+import { usePagination } from "@/hooks/use-pagination"
 
 const statusColors: Record<string, string> = {
   approved: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
@@ -28,8 +31,31 @@ export function AdminReviews() {
     return result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   }, [statusFilter, ratingFilter])
 
+  const {
+    paginatedData,
+    currentPage,
+    totalPages,
+    totalItems,
+    itemsPerPage,
+    goToPage,
+  } = usePagination(filtered, { itemsPerPage: 10 })
+
   const pendingCount = reviews.filter(r => r.status === "pending").length
   const avgRating = (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
+
+  const handleApproveReview = (reviewId: string) => {
+    const review = reviews.find(r => r.id === reviewId)
+    if (review) {
+      toast.success(`Avis de "${review.customerName}" approuvé avec succès`)
+    }
+  }
+
+  const handleRejectReview = (reviewId: string) => {
+    const review = reviews.find(r => r.id === reviewId)
+    if (review) {
+      toast.success(`Avis de "${review.customerName}" rejeté`)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -83,7 +109,7 @@ export function AdminReviews() {
       </div>
 
       <div className="flex flex-col gap-4">
-        {filtered.map(review => {
+        {paginatedData.map(review => {
           const product = products.find(p => p.id === review.productId)
           return (
             <div key={review.id} className="bg-card border border-border rounded-lg p-4 md:p-6">
@@ -112,8 +138,21 @@ export function AdminReviews() {
 
               {review.status === "pending" && (
                 <div className="flex gap-2 mt-4 pt-3 border-t border-border">
-                  <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"><Check className="h-3.5 w-3.5" /> Approuver</Button>
-                  <Button size="sm" variant="outline" className="gap-1.5 text-destructive"><X className="h-3.5 w-3.5" /> Rejeter</Button>
+                  <Button 
+                    size="sm" 
+                    className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={() => handleApproveReview(review.id)}
+                  >
+                    <Check className="h-3.5 w-3.5" /> Approuver
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="gap-1.5 text-destructive"
+                    onClick={() => handleRejectReview(review.id)}
+                  >
+                    <X className="h-3.5 w-3.5" /> Rejeter
+                  </Button>
                 </div>
               )}
             </div>
@@ -126,6 +165,17 @@ export function AdminReviews() {
           <MessageSquare className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
           <p className="text-muted-foreground">Aucun avis trouve</p>
         </div>
+      )}
+
+      {/* Pagination */}
+      {filtered.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          onPageChange={goToPage}
+        />
       )}
     </div>
   )

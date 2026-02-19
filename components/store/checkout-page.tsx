@@ -10,22 +10,23 @@ import { Label } from "@/components/ui/label"
 import { Field, FieldError } from "@/components/ui/field"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { CheckCircle2, CreditCard, Truck, ShieldCheck, MapPin, Package } from "lucide-react"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion } from "framer-motion"
 import { useCheckoutForm } from "@/hooks/use-checkout-form"
 import { logger } from "@/lib/utils/logger"
+import { LAYOUT_CONSTANTS, ANIMATION_DELAYS, ORDER_CONSTANTS } from "@/lib/constants"
 
 export function CheckoutPage() {
   const { cart, cartTotal, promoDiscount, clearCart, navigate } = useStore()
   const [step, setStep] = useState(1)
   const [orderPlaced, setOrderPlaced] = useState(false)
   const [shipping, setShipping] = useState("standard")
-  const shippingCost = shipping === "express" ? 9.99 : cartTotal >= 100 ? 0 : 5.99
+  const shippingCost = shipping === "express" ? LAYOUT_CONSTANTS.EXPRESS_SHIPPING_COST : cartTotal >= LAYOUT_CONSTANTS.FREE_SHIPPING_THRESHOLD ? 0 : LAYOUT_CONSTANTS.STANDARD_SHIPPING_COST
   const total = cartTotal - promoDiscount + shippingCost
 
   const { form, handleSubmit, isSubmitting, errors, trigger } = useCheckoutForm({
     onSubmit: async (_data) => {
       // Simuler le traitement de la commande
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      await new Promise(resolve => setTimeout(resolve, ANIMATION_DELAYS.CHECKOUT_PROCESSING_DELAY))
       setOrderPlaced(true)
       clearCart()
     },
@@ -68,7 +69,7 @@ export function CheckoutPage() {
         <h1 className="font-serif text-2xl font-bold mb-2">Commande confirmée !</h1>
         <p className="text-muted-foreground mb-2">Merci pour votre commande.</p>
         <p className="text-sm text-muted-foreground mb-6">Vous recevrez un email de confirmation avec les détails de suivi.</p>
-        <p className="font-mono text-lg font-bold mb-6">CMD-2026-{String(Math.floor(Math.random() * 900) + 100).padStart(3, '0')}</p>
+        <p className="font-mono text-lg font-bold mb-6">{ORDER_CONSTANTS.ORDER_NUMBER_PREFIX}{Date.now().toString(36).toUpperCase().slice(-6)}</p>
         <Button onClick={() => navigate("home")} className="gap-2">
           {'Retour à l\'accueil'}
         </Button>
@@ -100,7 +101,6 @@ export function CheckoutPage() {
           const stepNumber = i + 1
           const isCompleted = step > stepNumber
           const isActive = step === stepNumber
-          const isUpcoming = step < stepNumber
 
           return (
             <div key={stepInfo.label} className="flex items-center flex-1">

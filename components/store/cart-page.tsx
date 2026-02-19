@@ -8,37 +8,43 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Tag } from "lucide-react"
 import { useCartToast } from "@/hooks/use-cart-toast"
+import { useErrorHandler } from "@/hooks/use-error-handler"
+import { LAYOUT_CONSTANTS, ANIMATION_DELAYS } from "@/lib/constants"
 
 export function CartPage() {
   const { cart, removeFromCart, updateCartQuantity, cartTotal, navigate, applyPromoCode, promoDiscount, appliedPromo } = useStore()
   const { showRemoveFromCartToast, showUpdateCartToast, showPromoAppliedToast, showPromoErrorToast } = useCartToast()
+  const { safeAsync } = useErrorHandler({ context: "CartPage" })
   const [promoCode, setPromoCode] = useState("")
   const [promoMessage, setPromoMessage] = useState("")
   const [promoSuccess, setPromoSuccess] = useState(false)
   const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set())
   const [isApplyingPromo, setIsApplyingPromo] = useState(false)
 
-  const shipping = cartTotal >= 100 ? 0 : 5.99
+  const shipping = cartTotal >= LAYOUT_CONSTANTS.FREE_SHIPPING_THRESHOLD ? 0 : LAYOUT_CONSTANTS.STANDARD_SHIPPING_COST
   const total = cartTotal - promoDiscount + shipping
 
   const handlePromo = async () => {
     if (!promoCode.trim()) return
     
     setIsApplyingPromo(true)
-    try {
-      const result = applyPromoCode(promoCode)
-      setPromoMessage(result.message)
-      setPromoSuccess(result.success)
-      
-      if (result.success) {
-        showPromoAppliedToast(promoCode, result.discount)
-        setPromoCode("")
-      } else {
-        showPromoErrorToast(result.message)
-      }
-    } finally {
-      setIsApplyingPromo(false)
-    }
+    await safeAsync(
+      async () => {
+        const promoResult = applyPromoCode(promoCode)
+        setPromoMessage(promoResult.message)
+        setPromoSuccess(promoResult.success)
+        
+        if (promoResult.success) {
+          showPromoAppliedToast(promoCode, promoResult.discount)
+          setPromoCode("")
+        } else {
+          showPromoErrorToast(promoResult.message)
+        }
+        return promoResult
+      },
+      { context: "CartPage.handlePromo", showToast: false }
+    )
+    setIsApplyingPromo(false)
   }
 
   const handleRemoveFromCart = (item: typeof cart[0]) => {
@@ -51,7 +57,7 @@ export function CartPage() {
     setUpdatingItems(prev => new Set(prev).add(itemKey))
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 200))
+      await new Promise(resolve => setTimeout(resolve, ANIMATION_DELAYS.QUANTITY_UPDATE_DELAY))
       updateCartQuantity(item.productId, newQuantity, item.color, item.size)
       showUpdateCartToast(item.name, newQuantity)
     } finally {

@@ -3,7 +3,7 @@
 import React, { Component, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { AlertCircle, RefreshCw, Home } from "lucide-react"
-import { useStore } from "@/lib/store-context"
+import { logger } from "@/lib/utils/logger"
 
 interface ErrorBoundaryProps {
   children: ReactNode
@@ -46,11 +46,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // Log l'erreur de manière centralisée
-    // Note: On ne peut pas utiliser le logger ici car c'est une classe
-    // Le logger sera utilisé dans le callback onError si fourni
-    if (process.env.NODE_ENV === 'development') {
-      console.error("ErrorBoundary caught an error:", error, errorInfo)
-    }
+    logger.logError(error, "ErrorBoundary", {
+      componentStack: errorInfo.componentStack,
+      errorBoundary: true,
+    })
     
     // Appelle le callback personnalisé si fourni
     this.props.onError?.(error, errorInfo)
@@ -101,7 +100,12 @@ function ErrorFallback({
   error: Error | null
   onReset: () => void 
 }) {
-  const { navigate } = useStore()
+  const handleGoHome = () => {
+    onReset()
+    // Utiliser window.location comme fallback universel
+    // Le navigate du store pourrait ne pas être disponible dans un ErrorBoundary
+    window.location.href = "/"
+  }
 
   return (
     <div 
@@ -144,10 +148,7 @@ function ErrorFallback({
           Réessayer
         </Button>
         <Button
-          onClick={() => {
-            onReset()
-            navigate("home")
-          }}
+          onClick={handleGoHome}
           className="gap-2"
           aria-label="Retour à l'accueil"
         >
@@ -165,8 +166,9 @@ function ErrorFallback({
  */
 export function useErrorHandler() {
   const handleError = React.useCallback((error: Error, errorInfo?: React.ErrorInfo) => {
-    console.error("Error caught by useErrorHandler:", error, errorInfo)
-    // Ici vous pouvez envoyer l'erreur à un service de logging
+    logger.logError(error, "useErrorHandler", {
+      errorInfo,
+    })
   }, [])
 
   return { handleError }
