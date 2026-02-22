@@ -1,29 +1,35 @@
 "use client"
 
 import { useEffect } from "react"
+import dynamic from "next/dynamic"
 import { AnimatePresence, motion } from "framer-motion"
 import { StoreProvider, useStore } from "@/lib/store-context"
 import { useAuthStore } from "@/lib/stores/auth-store"
 import { StoreHeader } from "@/components/store/header"
 import { StoreFooter } from "@/components/store/footer"
 import { HomePage } from "@/components/store/home-page"
-import { CatalogPage } from "@/components/store/catalog-page"
-import { ProductPage } from "@/components/store/product-page"
-import { CartPage } from "@/components/store/cart-page"
-import { CheckoutPage } from "@/components/store/checkout-page"
-import { AccountPage } from "@/components/store/account-page"
-import { AdminLayout } from "@/components/admin/admin-layout"
-import { AdminLogin } from "@/components/admin/admin-login"
-import { AdminDashboard } from "@/components/admin/admin-dashboard"
-import { AdminProducts } from "@/components/admin/admin-products"
-import { AdminCategories } from "@/components/admin/admin-categories"
-import { AdminOrders } from "@/components/admin/admin-orders"
-import { AdminCustomers } from "@/components/admin/admin-customers"
-import { AdminAnalytics } from "@/components/admin/admin-analytics"
-import { AdminPromos } from "@/components/admin/admin-promos"
-import { AdminReviews } from "@/components/admin/admin-reviews"
-import { AdminSettings } from "@/components/admin/admin-settings"
 import { pageVariants, getReducedMotionConfig, defaultTransition } from "@/lib/animations"
+import { PAGES } from "@/lib/routes"
+import { ProtectedRoute } from "@/lib/guards"
+import { PageSkeleton } from "@/components/ui/page-skeleton"
+
+const CatalogPage = dynamic(() => import("@/components/store/catalog-page").then((m) => ({ default: m.CatalogPage })), { loading: () => <PageSkeleton /> })
+const ProductPage = dynamic(() => import("@/components/store/product-page").then((m) => ({ default: m.ProductPage })), { loading: () => <PageSkeleton /> })
+const CartPage = dynamic(() => import("@/components/store/cart-page").then((m) => ({ default: m.CartPage })), { loading: () => <PageSkeleton /> })
+const CheckoutPage = dynamic(() => import("@/components/store/checkout-page").then((m) => ({ default: m.CheckoutPage })), { loading: () => <PageSkeleton /> })
+const WishlistPage = dynamic(() => import("@/components/store/wishlist-page").then((m) => ({ default: m.WishlistPage })), { loading: () => <PageSkeleton /> })
+const AccountPage = dynamic(() => import("@/components/store/account-page").then((m) => ({ default: m.AccountPage })), { loading: () => <PageSkeleton /> })
+const AdminLayout = dynamic(() => import("@/components/admin/admin-layout").then((m) => ({ default: m.AdminLayout })), { loading: () => <PageSkeleton /> })
+const AdminLogin = dynamic(() => import("@/components/admin/admin-login").then((m) => ({ default: m.AdminLogin })), { loading: () => <PageSkeleton /> })
+const AdminDashboard = dynamic(() => import("@/components/admin/admin-dashboard").then((m) => ({ default: m.AdminDashboard })), { loading: () => <PageSkeleton /> })
+const AdminProducts = dynamic(() => import("@/components/admin/admin-products").then((m) => ({ default: m.AdminProducts })), { loading: () => <PageSkeleton /> })
+const AdminCategories = dynamic(() => import("@/components/admin/admin-categories").then((m) => ({ default: m.AdminCategories })), { loading: () => <PageSkeleton /> })
+const AdminOrders = dynamic(() => import("@/components/admin/admin-orders").then((m) => ({ default: m.AdminOrders })), { loading: () => <PageSkeleton /> })
+const AdminCustomers = dynamic(() => import("@/components/admin/admin-customers").then((m) => ({ default: m.AdminCustomers })), { loading: () => <PageSkeleton /> })
+const AdminAnalytics = dynamic(() => import("@/components/admin/admin-analytics").then((m) => ({ default: m.AdminAnalytics })), { loading: () => <PageSkeleton /> })
+const AdminPromos = dynamic(() => import("@/components/admin/admin-promos").then((m) => ({ default: m.AdminPromos })), { loading: () => <PageSkeleton /> })
+const AdminReviews = dynamic(() => import("@/components/admin/admin-reviews").then((m) => ({ default: m.AdminReviews })), { loading: () => <PageSkeleton /> })
+const AdminSettings = dynamic(() => import("@/components/admin/admin-settings").then((m) => ({ default: m.AdminSettings })), { loading: () => <PageSkeleton /> })
 
 const pageAnimationVariants = getReducedMotionConfig(pageVariants)
 
@@ -35,80 +41,80 @@ function AppContent() {
   useEffect(() => {
     if (isAuthenticated && currentView !== "admin") {
       setCurrentView("admin")
-      navigate("dashboard")
+      navigate(PAGES.admin.dashboard)
     }
   }, [isAuthenticated, currentView, setCurrentView, navigate])
 
-  // Admin view - vérification de l'authentification (sans Framer Motion)
+  // Admin view - protection par guard (fallback = page login)
   if (currentView === "admin" || isAuthenticated) {
-    // Si non authentifié, afficher la page de login
-    if (!isAuthenticated) {
-      return <AdminLogin />
-    }
     let adminContent
     switch (currentPage) {
-      case "dashboard":
+      case PAGES.admin.dashboard:
         adminContent = <AdminDashboard />
         break
-      case "admin-products":
+      case PAGES.admin.products:
         adminContent = <AdminProducts />
         break
-      case "admin-categories":
+      case PAGES.admin.categories:
         adminContent = <AdminCategories />
         break
-      case "admin-orders":
+      case PAGES.admin.orders:
         adminContent = <AdminOrders />
         break
-      case "admin-customers":
+      case PAGES.admin.customers:
         adminContent = <AdminCustomers />
         break
-      case "admin-analytics":
+      case PAGES.admin.analytics:
         adminContent = <AdminAnalytics />
         break
-      case "admin-promos":
+      case PAGES.admin.promos:
         adminContent = <AdminPromos />
         break
-      case "admin-reviews":
+      case PAGES.admin.reviews:
         adminContent = <AdminReviews />
         break
-      case "admin-settings":
+      case PAGES.admin.settings:
         adminContent = <AdminSettings />
         break
       default:
         adminContent = <AdminDashboard />
     }
 
-    return <AdminLayout>{adminContent}</AdminLayout>
+    return (
+      <ProtectedRoute fallback={<AdminLogin />}>
+        <AdminLayout>{adminContent}</AdminLayout>
+      </ProtectedRoute>
+    )
   }
 
   // Store view
   let pageContent
   switch (currentPage) {
-    case "home":
+    case PAGES.store.home:
       pageContent = <HomePage />
       break
-    case "catalog":
+    case PAGES.store.catalog:
       pageContent = <CatalogPage />
       break
-    case "product":
+    case PAGES.store.product:
       pageContent = <ProductPage />
       break
-    case "cart":
+    case PAGES.store.cart:
       pageContent = <CartPage />
       break
-    case "checkout":
+    case PAGES.store.checkout:
       pageContent = <CheckoutPage />
       break
-    case "account":
+    case PAGES.store.account:
       pageContent = <AccountPage />
       break
-    case "wishlist":
+    case PAGES.store.wishlist:
+      pageContent = <WishlistPage />
+      break
+    case PAGES.store.category:
       pageContent = <CatalogPage />
       break
-    case "category":
-      pageContent = <CatalogPage />
-      break
-    case "promotions":
+    case PAGES.store.promotions:
       pageContent = <CatalogPage />
       break
     default:

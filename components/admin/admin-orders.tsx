@@ -9,15 +9,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Search, Download, Eye, Printer, Package, Truck } from "lucide-react"
 import { toast } from "sonner"
+import { TOAST_MESSAGES } from "@/lib/constants"
 import { PaginationSimple as Pagination } from "@/components/ui/pagination"
 import { usePagination } from "@/hooks/use-pagination"
+import { TableSkeleton } from "@/components/ui/table-skeleton"
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 
 export function AdminOrders() {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null)
   const [orderUpdates, setOrderUpdates] = useState<Record<string, { status?: Order["status"]; trackingNumber?: string }>>({})
-
+  const [loading, _setLoading] = useState(false)
   const filtered = useMemo(() => {
     let result = [...orders]
     if (search) {
@@ -102,7 +105,7 @@ export function AdminOrders() {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-    toast.success("Export réussi")
+    toast.success(TOAST_MESSAGES.EXPORT_SUCCESS)
   }
 
   return (
@@ -138,6 +141,12 @@ export function AdminOrders() {
       </div>
 
       <div className="bg-card border border-border rounded-lg overflow-hidden">
+        {loading ? (
+          <div className="p-4">
+            <TableSkeleton rowCount={10} columnCount={7} />
+          </div>
+        ) : (
+        <>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -162,7 +171,14 @@ export function AdminOrders() {
                     </td>
                     <td className="py-3 px-4 hidden md:table-cell">
                       <div className="flex items-center gap-2">
-                        {customer && <img src={customer.avatar} alt="" className="h-6 w-6 rounded-full object-cover" crossOrigin="anonymous" />}
+                        {customer && (
+                        <img
+                          src={customer.avatar}
+                          alt={`Avatar de ${customer.firstName} ${customer.lastName}`}
+                          className="h-6 w-6 rounded-full object-cover"
+                          crossOrigin="anonymous"
+                        />
+                      )}
                         <span>{customer?.firstName} {customer?.lastName}</span>
                       </div>
                     </td>
@@ -175,7 +191,7 @@ export function AdminOrders() {
                     <td className="py-3 px-4 text-xs hidden md:table-cell">{order.paymentMethod}</td>
                     <td className="py-3 px-4 text-right font-medium">{formatPrice(order.total)}</td>
                     <td className="py-3 px-4 text-right">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedOrder(order.id)}>
+                      <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-8 sm:w-8" onClick={() => setSelectedOrder(order.id)}>
                         <Eye className="h-4 w-4" />
                       </Button>
                     </td>
@@ -186,23 +202,33 @@ export function AdminOrders() {
           </table>
         </div>
         {filtered.length === 0 && (
-          <div className="py-12 text-center">
-            <Package className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-            <p className="text-muted-foreground">Aucune commande trouvee</p>
+          <Empty className="py-12 border-0">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Package className="size-6" />
+              </EmptyMedia>
+              <EmptyTitle>Aucune commande trouvée</EmptyTitle>
+              <EmptyDescription>Les commandes apparaîtront ici.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        )}
+        </>
+        )}
+        {/* Pagination dans la carte : toujours visible sous le tableau */}
+        {!loading && filtered.length > 0 && (
+          <div className="border-t border-border bg-muted/20 px-4 py-3 sm:px-6">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              itemsPerPage={itemsPerPage}
+              onPageChange={goToPage}
+              itemLabel="commandes"
+              className="w-full"
+            />
           </div>
         )}
       </div>
-
-      {/* Pagination */}
-      {filtered.length > 0 && (
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          totalItems={totalItems}
-          itemsPerPage={itemsPerPage}
-          onPageChange={goToPage}
-        />
-      )}
 
       {/* Order Detail Dialog */}
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
@@ -217,7 +243,14 @@ export function AdminOrders() {
             <div className="flex flex-col gap-6">
               {/* Client info */}
               <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                {viewCustomer && <img src={viewCustomer.avatar} alt="" className="h-10 w-10 rounded-full object-cover" crossOrigin="anonymous" />}
+                {viewCustomer && (
+                <img
+                  src={viewCustomer.avatar}
+                  alt={`Avatar de ${viewCustomer.firstName} ${viewCustomer.lastName}`}
+                  className="h-10 w-10 rounded-full object-cover"
+                  crossOrigin="anonymous"
+                />
+              )}
                 <div>
                   <p className="font-medium">{viewCustomer?.firstName} {viewCustomer?.lastName}</p>
                   <p className="text-sm text-muted-foreground">{viewCustomer?.email}</p>

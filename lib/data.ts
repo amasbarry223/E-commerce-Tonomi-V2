@@ -659,7 +659,7 @@ export function formatDateShort(dateStr: string): string {
   return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(dateStr))
 }
 
-import { PRODUCT_STATUS, ORDER_STATUS, REVIEW_STATUS, PRODUCT_BADGE } from "./status-types"
+import { PRODUCT_STATUS, ORDER_STATUS, REVIEW_STATUS, PRODUCT_BADGE, CUSTOMER_SEGMENT } from "./status-types"
 
 /**
  * Obtient la classe CSS de couleur pour un statut donné
@@ -746,4 +746,30 @@ export function getBadgeColor(badge: string): string {
     [PRODUCT_BADGE.STOCK_LIMITE]: "bg-amber-500 text-white",
   }
   return colors[badge] || "bg-gray-500 text-white"
+}
+
+/**
+ * Obtient le label en français pour un segment client
+ */
+export function getSegmentLabel(segment: string): string {
+  const labels: Record<string, string> = {
+    [CUSTOMER_SEGMENT.VIP]: "VIP",
+    [CUSTOMER_SEGMENT.NEW]: "Nouveau",
+    [CUSTOMER_SEGMENT.REGULAR]: "Régulier",
+    [CUSTOMER_SEGMENT.INACTIVE]: "Inactif",
+  }
+  return labels[segment] || segment
+}
+
+/**
+ * Obtient la classe CSS de couleur pour un segment client
+ */
+export function getSegmentColor(segment: string): string {
+  const colors: Record<string, string> = {
+    [CUSTOMER_SEGMENT.VIP]: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+    [CUSTOMER_SEGMENT.NEW]: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
+    [CUSTOMER_SEGMENT.REGULAR]: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+    [CUSTOMER_SEGMENT.INACTIVE]: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400",
+  }
+  return colors[segment] || "bg-gray-100 text-gray-800"
 }

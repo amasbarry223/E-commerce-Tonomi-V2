@@ -91,7 +91,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 }
 
 /**
- * Composant de fallback pour afficher les erreurs
+ * Composant de fallback pour afficher les erreurs.
+ * Ne doit jamais utiliser useStore ni aucun contexte du sous-arbre remplacé
+ * (StoreProvider est démonté quand l'erreur est capturée). Utiliser uniquement
+ * window.location ou des éléments HTML pour la navigation.
  */
 function ErrorFallback({ 
   error, 

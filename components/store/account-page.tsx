@@ -2,11 +2,13 @@
 
 import Image from "next/image"
 import { useStore } from "@/lib/store-context"
+import { PAGES } from "@/lib/routes"
 import { customers, orders, products, formatPrice, formatDate, getStatusColor, getStatusLabel } from "@/lib/data"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Package, Heart, MapPin, User, ShoppingBag } from "lucide-react"
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import { ProductCard } from "./product-card"
 
 export function AccountPage() {
@@ -53,10 +55,15 @@ export function AccountPage() {
         {/* Orders */}
         <TabsContent value="orders" className="pt-6">
           {customerOrders.length === 0 ? (
-            <div className="text-center py-12">
-              <ShoppingBag className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-              <p className="text-muted-foreground">Aucune commande pour le moment</p>
-            </div>
+            <Empty className="py-12 border-0">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <ShoppingBag className="size-6" aria-hidden />
+                </EmptyMedia>
+                <EmptyTitle>Aucune commande pour le moment</EmptyTitle>
+                <EmptyDescription>Vos commandes apparaîtront ici une fois passées.</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
             <div className="flex flex-col gap-4">
               {customerOrders.map(order => (
@@ -106,7 +113,7 @@ export function AccountPage() {
             <div className="text-center py-12">
               <Heart className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
               <p className="text-muted-foreground mb-4">Votre liste de favoris est vide</p>
-              <Button onClick={() => navigate("catalog")} variant="outline">Découvrir nos articles</Button>
+              <Button onClick={() => navigate(PAGES.store.catalog)} variant="outline">Découvrir nos articles</Button>
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

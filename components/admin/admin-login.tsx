@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Lock, Mail, Loader2 } from "lucide-react"
 import { defaultTransition } from "@/lib/animations"
+import { loginSchema } from "@/src/lib/utils/validation"
 
 export function AdminLogin() {
   const [email, setEmail] = useState("admin@tonomi.com")
@@ -27,10 +28,15 @@ export function AdminLogin() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    const parsed = loginSchema.safeParse({ email, password })
+    if (!parsed.success) {
+      setError(parsed.error.errors.map((e) => e.message).join(". ") || "Vérifiez les champs.")
+      return
+    }
     setLoading(true)
 
     try {
-      const success = await login(email, password)
+      const success = await login(parsed.data.email, parsed.data.password)
       if (success) {
         // Ajouter un log de connexion
         const user = useAuthStore.getState().user

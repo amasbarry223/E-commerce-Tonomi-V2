@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { orders, products, customers, formatPrice } from "@/lib/data"
+import { orders, products, customers, formatPrice, getSegmentLabel } from "@/lib/data"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -167,16 +167,9 @@ export function AdminAnalytics() {
       }
     })
 
-    const segmentLabels: Record<string, string> = {
-      vip: "VIP",
-      new: "Nouveau",
-      regular: "Régulier",
-      inactive: "Inactif"
-    }
-
     return Object.entries(segmentRevenue)
       .map(([segment, revenue]) => ({
-        segment: segmentLabels[segment] || segment,
+        segment: getSegmentLabel(segment),
         revenue: Math.round(revenue)
       }))
       .sort((a, b) => {

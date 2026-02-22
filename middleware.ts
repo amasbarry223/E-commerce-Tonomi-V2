@@ -3,17 +3,14 @@
  */
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { ROUTES } from '@/lib/routes'
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   
-  // Protection des routes admin (à implémenter avec auth réelle)
+  // TODO: Protection routes admin — vérifier l'authentification (cookie auth-token) et rediriger vers ROUTES.login si absent
   if (pathname.startsWith('/admin')) {
-    // TODO: Vérifier l'authentification
-    // const token = request.cookies.get('auth-token')
-    // if (!token) {
-    //   return NextResponse.redirect(new URL('/login', request.url))
-    // }
+    // Auth à brancher quand le backend sera en place
   }
   
   // Headers de sécurité

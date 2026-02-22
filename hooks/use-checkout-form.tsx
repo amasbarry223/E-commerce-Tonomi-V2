@@ -3,64 +3,11 @@
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
 import { toast } from "sonner"
 import { logger } from "@/lib/utils/logger"
+import { checkoutSchema, type CheckoutFormData } from "@/src/lib/utils/validation"
 
-/**
- * Schéma de validation Zod pour le formulaire de checkout
- * Conforme aux standards français (code postal, téléphone)
- */
-const checkoutSchema = z.object({
-  firstName: z
-    .string()
-    .min(2, "Le prénom doit contenir au moins 2 caractères")
-    .max(50, "Le prénom ne peut pas dépasser 50 caractères")
-    .regex(/^[a-zA-ZÀ-ÿ\s'-]+$/, "Le prénom ne peut contenir que des lettres"),
-  
-  lastName: z
-    .string()
-    .min(2, "Le nom doit contenir au moins 2 caractères")
-    .max(50, "Le nom ne peut pas dépasser 50 caractères")
-    .regex(/^[a-zA-ZÀ-ÿ\s'-]+$/, "Le nom ne peut contenir que des lettres"),
-  
-  email: z
-    .string()
-    .min(1, "L'email est requis")
-    .email("Format d'email invalide"),
-  
-  phone: z
-    .string()
-    .min(1, "Le numéro de téléphone est requis")
-    .regex(
-      /^(?:(?:\+|00)33|0)\s*[1-9](?:[\s.-]*\d{2}){4}$/,
-      "Format de téléphone invalide (ex: +33 6 12 34 56 78 ou 06 12 34 56 78)"
-    ),
-  
-  address: z
-    .string()
-    .min(5, "L'adresse doit contenir au moins 5 caractères")
-    .max(200, "L'adresse ne peut pas dépasser 200 caractères"),
-  
-  city: z
-    .string()
-    .min(2, "La ville doit contenir au moins 2 caractères")
-    .max(100, "La ville ne peut pas dépasser 100 caractères")
-    .regex(/^[a-zA-ZÀ-ÿ\s'-]+$/, "La ville ne peut contenir que des lettres"),
-  
-  zip: z
-    .string()
-    .min(5, "Le code postal doit contenir 5 chiffres")
-    .max(5, "Le code postal doit contenir 5 chiffres")
-    .regex(/^\d{5}$/, "Le code postal doit contenir exactement 5 chiffres"),
-  
-  country: z
-    .string()
-    .min(2, "Le pays est requis")
-    .default("France"),
-})
-
-export type CheckoutFormData = z.infer<typeof checkoutSchema>
+export type { CheckoutFormData }
 
 interface UseCheckoutFormOptions {
   onSubmit?: (data: CheckoutFormData) => Promise<void> | void

@@ -3,7 +3,9 @@
 import { useState } from "react"
 import Image from "next/image"
 import { useStore } from "@/lib/store-context"
+import { PAGES } from "@/lib/routes"
 import { type Product, formatPrice, getBadgeColor, getStatusLabel } from "@/lib/data"
+import { LAYOUT_CONSTANTS } from "@/lib/constants"
 import { PRODUCT_BADGE } from "@/lib/status-types"
 import { Heart, ShoppingBag, Star, Minus, Plus, Truck, RotateCcw, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -65,7 +67,7 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
 
   const handleViewDetails = () => {
     selectProduct(product.id)
-    navigate("product")
+    navigate(PAGES.store.product)
     onOpenChange(false)
   }
 
@@ -249,7 +251,7 @@ export function ProductQuickView({ product, open, onOpenChange }: ProductQuickVi
             <div className="flex flex-col gap-2 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
                 <Truck className="h-4 w-4" />
-                <span>Livraison gratuite dès 100€</span>
+                <span>{LAYOUT_CONSTANTS.FREE_SHIPPING_THRESHOLD_LABEL}</span>
               </div>
               <div className="flex items-center gap-2">
                 <RotateCcw className="h-4 w-4" />

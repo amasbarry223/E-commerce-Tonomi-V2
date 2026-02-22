@@ -19,6 +19,7 @@ import { CAROUSEL_ITEMS_PER_VIEW } from "@/lib/responsive"
 import { PRODUCT_BADGE } from "@/lib/status-types"
 import { products } from "@/lib/data"
 import { useStore } from "@/lib/store-context"
+import { PAGES } from "@/lib/routes"
 import { ProductCarousel } from "./product-carousel"
 import { HeroSlider } from "./home-hero-slider"
 import { CategoriesGrid } from "./home-categories-grid"
@@ -47,7 +48,7 @@ export function HomePage() {
   }, [])
 
   const handleNavigateToCatalog = useCallback(() => {
-    navigate("catalog")
+    navigate(PAGES.store.catalog)
   }, [navigate])
 
   const featured = useMemo(() => {
@@ -117,11 +118,7 @@ export function HomePage() {
             showViewAll={true}
             onViewAll={handleNavigateToCatalog}
             isLoading={isLoading}
-            itemsPerView={{
-              mobile: 1,
-              tablet: 2,
-              desktop: 4,
-            }}
+            itemsPerView={DEFAULT_CAROUSEL_CONFIG.itemsPerView}
           />
         </div>
       </motion.section>

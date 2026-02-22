@@ -1,6 +1,6 @@
 "use client"
 
-import { orders, products, customers, reviews, formatPrice } from "@/lib/data"
+import { orders, products, customers, reviews, formatPrice, getStatusColor, getStatusLabel } from "@/lib/data"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
@@ -46,16 +46,14 @@ const categoryData = [
   { name: "Accessoires", value: 27 },
 ]
 
-// Order status distribution
-const orderStatusData = [
-  { status: "En attente", count: orders.filter(o => o.status === "pending").length },
-  { status: "Confirmees", count: orders.filter(o => o.status === "confirmed").length },
-  { status: "Expediees", count: orders.filter(o => o.status === "shipped").length },
-  { status: "Livrees", count: orders.filter(o => o.status === "delivered").length },
-  { status: "Annulees", count: orders.filter(o => o.status === "cancelled").length },
-]
-
 export function AdminDashboard() {
+  const orderStatusData = [
+    { status: getStatusLabel("pending"), count: orders.filter((o) => o.status === "pending").length },
+    { status: getStatusLabel("confirmed"), count: orders.filter((o) => o.status === "confirmed").length },
+    { status: getStatusLabel("shipped"), count: orders.filter((o) => o.status === "shipped").length },
+    { status: getStatusLabel("delivered"), count: orders.filter((o) => o.status === "delivered").length },
+    { status: getStatusLabel("cancelled"), count: orders.filter((o) => o.status === "cancelled").length },
+  ]
   return (
     <div className="flex flex-col gap-6">
       {/* KPI Cards */}
@@ -326,14 +324,8 @@ export function AdminDashboard() {
                         <td className="py-3 font-mono text-xs">{order.orderNumber}</td>
                         <td className="py-3">{customer?.firstName} {customer?.lastName}</td>
                         <td className="py-3">
-                          <Badge className={`${
-                            order.status === "delivered" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400" :
-                            order.status === "shipped" ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" :
-                            order.status === "pending" ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" :
-                            order.status === "confirmed" ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400" :
-                            "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                          } text-xs`}>
-                            {order.status === "pending" ? "En attente" : order.status === "confirmed" ? "Confirmee" : order.status === "shipped" ? "Expediee" : order.status === "delivered" ? "Livree" : "Annulee"}
+                          <Badge className={`${getStatusColor(order.status)} text-xs`}>
+                            {getStatusLabel(order.status)}
                           </Badge>
                         </td>
                         <td className="py-3 text-right font-medium">{formatPrice(order.total)}</td>

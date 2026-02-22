@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { customers, orders, formatPrice, formatDate } from "@/lib/data"
+import { useState, useMemo, useEffect } from "react"
+import { customers, orders, formatPrice, formatDate, getSegmentLabel, getSegmentColor } from "@/lib/data"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -12,24 +12,22 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
 import { Search, Users, Eye, Mail, ShoppingBag, MapPin, Download } from "lucide-react"
 import { toast } from "sonner"
+import { TOAST_MESSAGES } from "@/lib/constants"
 import { PaginationSimple as Pagination } from "@/components/ui/pagination"
 import { usePagination } from "@/hooks/use-pagination"
-
-const segmentColors: Record<string, string> = {
-  vip: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
-  new: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
-  regular: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-  inactive: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400",
-}
-
-const segmentLabels: Record<string, string> = {
-  vip: "VIP", new: "Nouveau", regular: "Regulier", inactive: "Inactif",
-}
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
+import { TableSkeleton } from "@/components/ui/table-skeleton"
 
 export function AdminCustomers() {
   const [search, setSearch] = useState("")
   const [segmentFilter, setSegmentFilter] = useState("all")
   const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 400)
+    return () => clearTimeout(t)
+  }, [])
 
   const filtered = useMemo(() => {
     let result = [...customers]
@@ -62,7 +60,7 @@ export function AdminCustomers() {
   const revenueBySegment = useMemo(() => {
     const segments = ["vip", "new", "regular", "inactive"] as const
     return segments.map(segment => ({
-      segment: segmentLabels[segment],
+      segment: getSegmentLabel(segment),
       revenue: customers
         .filter(c => c.segment === segment)
         .reduce((sum, c) => sum + c.totalSpent, 0)
@@ -89,7 +87,7 @@ export function AdminCustomers() {
       `${customer.firstName} ${customer.lastName}`,
       customer.email,
       customer.phone,
-      segmentLabels[customer.segment],
+      getSegmentLabel(customer.segment),
       customer.orderCount.toString(),
       customer.totalSpent.toString(),
       formatDate(customer.createdAt)
@@ -109,7 +107,7 @@ export function AdminCustomers() {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-    toast.success("Export réussi")
+    toast.success(TOAST_MESSAGES.EXPORT_SUCCESS)
   }
 
   return (
@@ -224,6 +222,9 @@ export function AdminCustomers() {
 
       <div className="bg-card border border-border rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
+          {loading ? (
+            <TableSkeleton rowCount={10} columnCount={6} />
+          ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/50">
@@ -240,7 +241,12 @@ export function AdminCustomers() {
                 <tr key={customer.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-3">
-                      <img src={customer.avatar} alt="" className="h-9 w-9 rounded-full object-cover" crossOrigin="anonymous" />
+                      <img
+                        src={customer.avatar}
+                        alt={`Photo de profil de ${customer.firstName} ${customer.lastName}`}
+                        className="h-9 w-9 rounded-full object-cover"
+                        crossOrigin="anonymous"
+                      />
                       <div>
                         <p className="font-medium">{customer.firstName} {customer.lastName}</p>
                         <p className="text-xs text-muted-foreground">{customer.email}</p>
@@ -248,17 +254,17 @@ export function AdminCustomers() {
                     </div>
                   </td>
                   <td className="py-3 px-4 hidden md:table-cell">
-                    <Badge className={`${segmentColors[customer.segment]} text-xs`}>{segmentLabels[customer.segment]}</Badge>
+                    <Badge className={`${getSegmentColor(customer.segment)} text-xs`}>{getSegmentLabel(customer.segment)}</Badge>
                   </td>
                   <td className="py-3 px-4 hidden lg:table-cell">{customer.orderCount}</td>
                   <td className="py-3 px-4 font-medium">{formatPrice(customer.totalSpent)}</td>
                   <td className="py-3 px-4 text-xs text-muted-foreground hidden lg:table-cell">{formatDate(customer.createdAt)}</td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedCustomer(customer.id)}>
+                      <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-8 sm:w-8" onClick={() => setSelectedCustomer(customer.id)}>
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-8 sm:w-8">
                         <Mail className="h-4 w-4" />
                       </Button>
                     </div>
@@ -267,25 +273,34 @@ export function AdminCustomers() {
               ))}
             </tbody>
           </table>
+          )}
         </div>
-        {filtered.length === 0 && (
-          <div className="py-12 text-center">
-            <Users className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-            <p className="text-muted-foreground">Aucun client trouve</p>
+        {!loading && filtered.length === 0 && (
+          <Empty className="py-12 border-0">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Users className="size-6" />
+              </EmptyMedia>
+              <EmptyTitle>Aucun client trouvé</EmptyTitle>
+              <EmptyDescription>Les clients apparaîtront ici.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        )}
+        {/* Pagination dans la carte : toujours visible sous le tableau */}
+        {!loading && filtered.length > 0 && (
+          <div className="border-t border-border bg-muted/20 px-4 py-3 sm:px-6">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              itemsPerPage={itemsPerPage}
+              onPageChange={goToPage}
+              itemLabel="clients"
+              className="w-full"
+            />
           </div>
         )}
       </div>
-
-      {/* Pagination */}
-      {filtered.length > 0 && (
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          totalItems={totalItems}
-          itemsPerPage={itemsPerPage}
-          onPageChange={goToPage}
-        />
-      )}
 
       {/* Customer Detail Dialog */}
       <Dialog open={!!selectedCustomer} onOpenChange={() => setSelectedCustomer(null)}>
@@ -296,11 +311,16 @@ export function AdminCustomers() {
           {viewCustomer && (
             <div className="flex flex-col gap-6">
               <div className="flex items-center gap-4">
-                <img src={viewCustomer.avatar} alt="" className="h-16 w-16 rounded-full object-cover" crossOrigin="anonymous" />
+                <img
+                src={viewCustomer.avatar}
+                alt={`Photo de profil de ${viewCustomer.firstName} ${viewCustomer.lastName}`}
+                className="h-16 w-16 rounded-full object-cover"
+                crossOrigin="anonymous"
+              />
                 <div>
                   <h3 className="font-bold text-lg">{viewCustomer.firstName} {viewCustomer.lastName}</h3>
                   <p className="text-sm text-muted-foreground">{viewCustomer.email}</p>
-                  <Badge className={`${segmentColors[viewCustomer.segment]} text-xs mt-1`}>{segmentLabels[viewCustomer.segment]}</Badge>
+                  <Badge className={`${getSegmentColor(viewCustomer.segment)} text-xs mt-1`}>{getSegmentLabel(viewCustomer.segment)}</Badge>
                 </div>
               </div>
 

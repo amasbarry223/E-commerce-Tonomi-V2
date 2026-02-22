@@ -2,6 +2,13 @@ import { cva, type VariantProps } from 'class-variance-authority'
 
 import { cn } from '@/lib/utils'
 
+/**
+ * @component Empty
+ * @description Conteneur pour les états vides (liste vide, aucun résultat). Utilisé avec EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription.
+ * @accessibility WCAG 2.1 AA
+ * @responsive mobile | tablet | desktop
+ * @dependencies class-variance-authority, cn
+ */
 function Empty({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div

@@ -2,6 +2,8 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from "react"
 import { products as initialProducts, promoCodes, type Product } from "./data"
+import { PAGES } from "./routes"
+import { promoCodeInputSchema } from "@/src/lib/utils/validation"
 
 // ==========================================
 // TYPES
@@ -62,23 +64,55 @@ interface StoreContextType extends StoreState {
   appliedPromo: string | null
 }
 
+const STORAGE_KEYS = { cart: "tonomi_cart", wishlist: "tonomi_wishlist" } as const
+
+function loadPersistedCart(): CartItem[] {
+  if (typeof window === "undefined") return []
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.cart)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as unknown
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function loadPersistedWishlist(): WishlistItem[] {
+  if (typeof window === "undefined") return []
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.wishlist)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as unknown
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
 export const StoreContext = createContext<StoreContextType | undefined>(undefined)
 
+const defaultStoreState: StoreState = {
+  cart: [],
+  wishlist: [],
+  compareList: [],
+  darkMode: false,
+  currentView: "store",
+  currentPage: PAGES.store.home,
+  selectedProductId: null,
+  selectedCategorySlug: null,
+  selectedOrderId: null,
+  selectedCustomerId: null,
+  searchQuery: "",
+  newsletterSubscribed: false,
+}
+
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<StoreState>({
-    cart: [],
-    wishlist: [],
-    compareList: [],
-    darkMode: false,
-    currentView: "store",
-    currentPage: "home",
-    selectedProductId: null,
-    selectedCategorySlug: null,
-    selectedOrderId: null,
-    selectedCustomerId: null,
-    searchQuery: "",
-    newsletterSubscribed: false,
-  })
+  const [state, setState] = useState<StoreState>(() => ({
+    ...defaultStoreState,
+    cart: loadPersistedCart(),
+    wishlist: loadPersistedWishlist(),
+  }))
 
   const [promoDiscount, setPromoDiscount] = useState(0)
   const [appliedPromo, setAppliedPromo] = useState<string | null>(null)
@@ -90,6 +124,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       document.documentElement.classList.remove("dark")
     }
   }, [state.darkMode])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    try {
+      localStorage.setItem(STORAGE_KEYS.cart, JSON.stringify(state.cart))
+    } catch {
+      // ignore quota or parse errors
+    }
+  }, [state.cart])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    try {
+      localStorage.setItem(STORAGE_KEYS.wishlist, JSON.stringify(state.wishlist))
+    } catch {
+      // ignore
+    }
+  }, [state.wishlist])
 
   const addToCart = useCallback((item: CartItem) => {
     setState(prev => {
@@ -177,7 +229,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const setCurrentView = useCallback((view: "store" | "admin") => {
-    setState(prev => ({ ...prev, currentView: view, currentPage: view === "admin" ? "dashboard" : "home" }))
+    setState(prev => ({ ...prev, currentView: view, currentPage: view === "admin" ? PAGES.admin.dashboard : PAGES.store.home }))
   }, [])
 
   const selectProduct = useCallback((id: string | null) => {
@@ -197,7 +249,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const setSearchQuery = useCallback((query: string) => {
-    setState(prev => ({ ...prev, searchQuery: query }))
+    const MAX_SEARCH_LENGTH = 200
+    const truncated = query.length > MAX_SEARCH_LENGTH ? query.slice(0, MAX_SEARCH_LENGTH) : query
+    setState((prev) => ({ ...prev, searchQuery: truncated }))
   }, [])
 
   const subscribeNewsletter = useCallback(() => {
@@ -209,9 +263,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const applyPromoCode = useCallback((code: string): { success: boolean; discount: number; message: string } => {
-    // Calculate current cart total from state to avoid stale closure
+    const parsed = promoCodeInputSchema.safeParse(code)
+    if (!parsed.success) {
+      return { success: false, discount: 0, message: parsed.error.errors[0]?.message ?? "Code invalide" }
+    }
+    const normalizedCode = parsed.data
     const currentCartTotal = state.cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
-    const promo = promoCodes.find(p => p.code === code.toUpperCase() && p.active)
+    const promo = promoCodes.find(p => p.code === normalizedCode && p.active)
     if (!promo) return { success: false, discount: 0, message: "Code promo invalide" }
     if (promo.usedCount >= promo.maxUses) return { success: false, discount: 0, message: "Code promo expiré" }
     if (promo.minAmount && currentCartTotal < promo.minAmount) return { success: false, discount: 0, message: `Montant minimum de ${promo.minAmount}€ requis` }
@@ -222,16 +280,63 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return { success: true, discount, message: `Code ${promo.code} appliqué !` }
   }, [state.cart])
 
-  return (
-    <StoreContext.Provider value={{
+  const contextValue = useMemo(
+    () => ({
       ...state,
-      addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal, cartCount,
-      toggleWishlist, isInWishlist, toggleCompare, isInCompare,
-      toggleDarkMode, navigate, setCurrentView,
-      selectProduct, selectCategory, selectOrder, selectCustomer,
-      setSearchQuery, subscribeNewsletter, getProduct,
-      applyPromoCode, promoDiscount, appliedPromo,
-    }}>
+      addToCart,
+      removeFromCart,
+      updateCartQuantity,
+      clearCart,
+      cartTotal,
+      cartCount,
+      toggleWishlist,
+      isInWishlist,
+      toggleCompare,
+      isInCompare,
+      toggleDarkMode,
+      navigate,
+      setCurrentView,
+      selectProduct,
+      selectCategory,
+      selectOrder,
+      selectCustomer,
+      setSearchQuery,
+      subscribeNewsletter,
+      getProduct,
+      applyPromoCode,
+      promoDiscount,
+      appliedPromo,
+    }),
+    [
+      state,
+      cartTotal,
+      cartCount,
+      promoDiscount,
+      appliedPromo,
+      addToCart,
+      removeFromCart,
+      updateCartQuantity,
+      clearCart,
+      toggleWishlist,
+      isInWishlist,
+      toggleCompare,
+      isInCompare,
+      toggleDarkMode,
+      navigate,
+      setCurrentView,
+      selectProduct,
+      selectCategory,
+      selectOrder,
+      selectCustomer,
+      setSearchQuery,
+      subscribeNewsletter,
+      getProduct,
+      applyPromoCode,
+    ]
+  )
+
+  return (
+    <StoreContext.Provider value={contextValue}>
       {children}
     </StoreContext.Provider>
   )

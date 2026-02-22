@@ -3,6 +3,8 @@
 import { useState } from "react"
 import Image from "next/image"
 import { useStore } from "@/lib/store-context"
+import { PAGES } from "@/lib/routes"
+import type { CartItem } from "@/lib/store-context"
 import { formatPrice } from "@/lib/data"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,20 +15,41 @@ import { CheckCircle2, CreditCard, Truck, ShieldCheck, MapPin, Package } from "l
 import { motion } from "framer-motion"
 import { useCheckoutForm } from "@/hooks/use-checkout-form"
 import { logger } from "@/lib/utils/logger"
+import { toast } from "sonner"
 import { LAYOUT_CONSTANTS, ANIMATION_DELAYS, ORDER_CONSTANTS } from "@/lib/constants"
+import { paymentCardSchema, type CheckoutFormData } from "@/src/lib/utils/validation"
 
 export function CheckoutPage() {
   const { cart, cartTotal, promoDiscount, clearCart, navigate } = useStore()
   const [step, setStep] = useState(1)
   const [orderPlaced, setOrderPlaced] = useState(false)
   const [shipping, setShipping] = useState("standard")
+  const [card, setCard] = useState("")
+  const [exp, setExp] = useState("")
+  const [cvc, setCvc] = useState("")
+  const [cardErrors, setCardErrors] = useState<Record<string, string>>({})
+  const [orderRecap, setOrderRecap] = useState<{
+    data: CheckoutFormData
+    shipping: string
+    shippingCost: number
+    total: number
+    lines: CartItem[]
+  } | null>(null)
   const shippingCost = shipping === "express" ? LAYOUT_CONSTANTS.EXPRESS_SHIPPING_COST : cartTotal >= LAYOUT_CONSTANTS.FREE_SHIPPING_THRESHOLD ? 0 : LAYOUT_CONSTANTS.STANDARD_SHIPPING_COST
   const total = cartTotal - promoDiscount + shippingCost
 
   const { form, handleSubmit, isSubmitting, errors, trigger } = useCheckoutForm({
-    onSubmit: async (_data) => {
-      // Simuler le traitement de la commande
+    onSubmit: async (data) => {
       await new Promise(resolve => setTimeout(resolve, ANIMATION_DELAYS.CHECKOUT_PROCESSING_DELAY))
+      const cost = shipping === "express" ? LAYOUT_CONSTANTS.EXPRESS_SHIPPING_COST : cartTotal >= LAYOUT_CONSTANTS.FREE_SHIPPING_THRESHOLD ? 0 : LAYOUT_CONSTANTS.STANDARD_SHIPPING_COST
+      const orderTotal = cartTotal - promoDiscount + cost
+      setOrderRecap({
+        data: data,
+        shipping: shipping === "express" ? "Express (1-2 jours)" : "Standard (3-5 jours)",
+        shippingCost: cost,
+        total: orderTotal,
+        lines: [...cart],
+      })
       setOrderPlaced(true)
       clearCart()
     },
@@ -41,6 +64,27 @@ export function CheckoutPage() {
   })
 
   const handlePlaceOrder = handleSubmit
+
+  const handlePayClick = async () => {
+    if (step !== 3) return
+    setCardErrors({})
+    const result = paymentCardSchema.safeParse({ card, exp, cvc })
+    if (!result.success) {
+      const errs: Record<string, string> = {}
+      result.error.errors.forEach((e) => {
+        const p = e.path[0] as string
+        if (!errs[p]) errs[p] = e.message
+      })
+      setCardErrors(errs)
+      const first = result.error.errors[0]
+      if (first) {
+        toast.error(first.message)
+        logger.logError(new Error(first.message), "CheckoutPage", { step: 3 })
+      }
+      return
+    }
+    await handlePlaceOrder()
+  }
 
   const handleNextStep = async () => {
     if (step === 1) {
@@ -63,16 +107,54 @@ export function CheckoutPage() {
   }
 
   if (orderPlaced) {
+    const orderNumber = ORDER_CONSTANTS.ORDER_NUMBER_PREFIX + Date.now().toString(36).toUpperCase().slice(-6)
     return (
-      <div className="mx-auto max-w-lg px-4 py-20 text-center">
-        <CheckCircle2 className="h-16 w-16 text-emerald-500 mx-auto mb-4" />
-        <h1 className="font-serif text-2xl font-bold mb-2">Commande confirmée !</h1>
-        <p className="text-muted-foreground mb-2">Merci pour votre commande.</p>
-        <p className="text-sm text-muted-foreground mb-6">Vous recevrez un email de confirmation avec les détails de suivi.</p>
-        <p className="font-mono text-lg font-bold mb-6">{ORDER_CONSTANTS.ORDER_NUMBER_PREFIX}{Date.now().toString(36).toUpperCase().slice(-6)}</p>
-        <Button onClick={() => navigate("home")} className="gap-2">
-          {'Retour à l\'accueil'}
-        </Button>
+      <div className="mx-auto max-w-lg px-4 py-12">
+        <div className="text-center mb-8">
+          <CheckCircle2 className="h-16 w-16 text-emerald-500 mx-auto mb-4" />
+          <h1 className="font-serif text-2xl font-bold mb-2">Commande confirmée !</h1>
+          <p className="text-muted-foreground mb-2">Merci pour votre commande.</p>
+          <p className="text-sm text-muted-foreground mb-2">Vous recevrez un email de confirmation avec les détails de suivi.</p>
+          <p className="font-mono text-lg font-bold mb-6">Numéro de commande : {orderNumber}</p>
+        </div>
+        {orderRecap && (
+          <div className="bg-card border border-border rounded-lg p-6 text-left space-y-4 mb-8">
+            <h2 className="font-semibold text-lg">Récapitulatif</h2>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase mb-1">Adresse de livraison</p>
+              <p className="text-sm">
+                {orderRecap.data.firstName} {orderRecap.data.lastName}<br />
+                {orderRecap.data.address}<br />
+                {orderRecap.data.zip} {orderRecap.data.city}<br />
+                {orderRecap.data.country}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase mb-1">Livraison</p>
+              <p className="text-sm">{orderRecap.shipping} — {orderRecap.shippingCost === 0 ? "Offert" : formatPrice(orderRecap.shippingCost)}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase mb-2">Articles</p>
+              <ul className="space-y-2">
+                {orderRecap.lines.map((item) => (
+                  <li key={`${item.productId}-${item.color ?? ""}-${item.size ?? ""}`} className="flex justify-between text-sm">
+                    <span>{item.name} x{item.quantity}</span>
+                    <span>{formatPrice(item.price * item.quantity)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="border-t border-border pt-3 flex justify-between font-bold">
+              <span>Total</span>
+              <span>{formatPrice(orderRecap.total)}</span>
+            </div>
+          </div>
+        )}
+        <div className="text-center">
+          <Button onClick={() => navigate(PAGES.store.home)} className="gap-2">
+            Retour à l&apos;accueil
+          </Button>
+        </div>
       </div>
     )
   }
@@ -81,7 +163,7 @@ export function CheckoutPage() {
     return (
       <div className="mx-auto max-w-lg px-4 py-20 text-center">
         <p className="text-muted-foreground mb-4">Votre panier est vide</p>
-        <Button onClick={() => navigate("catalog")}>Voir le catalogue</Button>
+        <Button onClick={() => navigate(PAGES.store.catalog)}>Voir le catalogue</Button>
       </div>
     )
   }
@@ -161,10 +243,11 @@ export function CheckoutPage() {
             {/* Step 1: Address */}
             {step === 1 && (
               <div className="bg-card border border-border rounded-lg p-6">
-                <h2 className="font-semibold text-lg mb-4">Adresse de livraison</h2>
+                <h2 className="font-semibold text-lg mb-1">Adresse de livraison</h2>
+                <p className="text-sm text-muted-foreground mb-4">Étape 1/3 — Champs obligatoires <span className="text-destructive" aria-hidden="true">*</span></p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Field>
-                    <Label htmlFor="firstName" className="text-sm">Prénom</Label>
+                    <Label htmlFor="firstName" className="text-sm">Prénom <span className="text-destructive" aria-hidden="true">*</span></Label>
                     <Input 
                       id="firstName" 
                       {...form.register("firstName")}
@@ -181,7 +264,7 @@ export function CheckoutPage() {
                   </Field>
 
                   <Field>
-                    <Label htmlFor="lastName" className="text-sm">Nom</Label>
+                    <Label htmlFor="lastName" className="text-sm">Nom <span className="text-destructive" aria-hidden="true">*</span></Label>
                     <Input 
                       id="lastName" 
                       {...form.register("lastName")}
@@ -198,7 +281,7 @@ export function CheckoutPage() {
                   </Field>
 
                   <Field className="md:col-span-2">
-                    <Label htmlFor="email" className="text-sm">Email</Label>
+                    <Label htmlFor="email" className="text-sm">Email <span className="text-destructive" aria-hidden="true">*</span></Label>
                     <Input 
                       id="email" 
                       type="email" 
@@ -216,7 +299,7 @@ export function CheckoutPage() {
                   </Field>
 
                   <Field className="md:col-span-2">
-                    <Label htmlFor="address" className="text-sm">Adresse</Label>
+                    <Label htmlFor="address" className="text-sm">Adresse <span className="text-destructive" aria-hidden="true">*</span></Label>
                     <Input 
                       id="address" 
                       {...form.register("address")}
@@ -233,7 +316,7 @@ export function CheckoutPage() {
                   </Field>
 
                   <Field>
-                    <Label htmlFor="city" className="text-sm">Ville</Label>
+                    <Label htmlFor="city" className="text-sm">Ville <span className="text-destructive" aria-hidden="true">*</span></Label>
                     <Input 
                       id="city" 
                       {...form.register("city")}
@@ -250,7 +333,7 @@ export function CheckoutPage() {
                   </Field>
 
                   <Field>
-                    <Label htmlFor="zip" className="text-sm">Code postal</Label>
+                    <Label htmlFor="zip" className="text-sm">Code postal <span className="text-destructive" aria-hidden="true">*</span></Label>
                     <Input 
                       id="zip" 
                       {...form.register("zip")}
@@ -268,7 +351,7 @@ export function CheckoutPage() {
                   </Field>
 
                   <Field>
-                    <Label htmlFor="phone" className="text-sm">Téléphone</Label>
+                    <Label htmlFor="phone" className="text-sm">Téléphone <span className="text-destructive" aria-hidden="true">*</span></Label>
                     <Input 
                       id="phone" 
                       {...form.register("phone")}
@@ -306,7 +389,7 @@ export function CheckoutPage() {
                     <Truck className="h-5 w-5 text-muted-foreground" />
                     <div className="flex-1">
                       <p className="font-medium text-sm">Standard (3-5 jours)</p>
-                      <p className="text-xs text-muted-foreground">{cartTotal >= 100 ? "Gratuite" : "5,99 €"}</p>
+                      <p className="text-xs text-muted-foreground">{cartTotal >= LAYOUT_CONSTANTS.FREE_SHIPPING_THRESHOLD ? LAYOUT_CONSTANTS.FREE_SHIPPING_LABEL : formatPrice(LAYOUT_CONSTANTS.STANDARD_SHIPPING_COST)}</p>
                     </div>
                   </label>
                   <label className={`flex items-center gap-4 p-4 rounded-lg border cursor-pointer transition-colors ${shipping === "express" ? "border-accent bg-accent/5" : "border-border"}`}>
@@ -342,41 +425,85 @@ export function CheckoutPage() {
             {step === 3 && (
               <div className="bg-card border border-border rounded-lg p-6">
                 <h2 className="font-semibold text-lg mb-4">Paiement sécurisé</h2>
-                <div className="flex items-center gap-2 mb-6 p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg text-emerald-700 dark:text-emerald-400 text-sm">
-                  <ShieldCheck className="h-4 w-4 shrink-0" />
-                  Paiement 100% sécurisé par chiffrement SSL
+                <div className="flex flex-col gap-3 mb-6">
+                  <div className="flex items-center gap-2 p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg text-emerald-700 dark:text-emerald-400 text-sm">
+                    <ShieldCheck className="h-4 w-4 shrink-0" />
+                    Paiement 100% sécurisé par chiffrement SSL
+                  </div>
+                  <p className="text-xs text-muted-foreground">Retours gratuits sous 30 jours. Paiement sécurisé.</p>
                 </div>
                 <div className="flex flex-col gap-4">
                   <div>
-                    <Label htmlFor="card" className="text-sm">Numéro de carte</Label>
-                    <Input id="card" placeholder="4242 4242 4242 4242" className="mt-1" />
+                    <Label htmlFor="card" className="text-sm">Numéro de carte <span className="text-destructive" aria-hidden="true">*</span></Label>
+                    <Input
+                      id="card"
+                      value={card}
+                      onChange={(e) => setCard(e.target.value.replace(/\D/g, "").slice(0, 19).replace(/(.{4})/g, "$1 ").trim())}
+                      placeholder="4242 4242 4242 4242"
+                      className="mt-1"
+                      maxLength={19 + 4}
+                      aria-invalid={!!cardErrors.card}
+                      aria-describedby={cardErrors.card ? "card-error" : undefined}
+                    />
+                    {cardErrors.card && (
+                      <p id="card-error" className="text-xs text-destructive mt-1">{cardErrors.card}</p>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="exp" className="text-sm">Expiration</Label>
-                      <Input id="exp" placeholder="MM/AA" className="mt-1" />
+                      <Label htmlFor="exp" className="text-sm">Expiration <span className="text-destructive" aria-hidden="true">*</span></Label>
+                      <Input
+                        id="exp"
+                        value={exp}
+                        onChange={(e) => {
+                          let v = e.target.value.replace(/\D/g, "")
+                          if (v.length >= 2) v = v.slice(0, 2) + "/" + v.slice(2, 4)
+                          setExp(v)
+                        }}
+                        placeholder="MM/AA"
+                        className="mt-1"
+                        maxLength={5}
+                        aria-invalid={!!cardErrors.exp}
+                        aria-describedby={cardErrors.exp ? "exp-error" : undefined}
+                      />
+                      {cardErrors.exp && (
+                        <p id="exp-error" className="text-xs text-destructive mt-1">{cardErrors.exp}</p>
+                      )}
                     </div>
                     <div>
-                      <Label htmlFor="cvc" className="text-sm">CVC</Label>
-                      <Input id="cvc" placeholder="123" className="mt-1" />
+                      <Label htmlFor="cvc" className="text-sm">CVC <span className="text-destructive" aria-hidden="true">*</span></Label>
+                      <Input
+                        id="cvc"
+                        value={cvc}
+                        onChange={(e) => setCvc(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                        placeholder="123"
+                        className="mt-1"
+                        maxLength={4}
+                        aria-invalid={!!cardErrors.cvc}
+                        aria-describedby={cardErrors.cvc ? "cvc-error" : undefined}
+                      />
+                      {cardErrors.cvc && (
+                        <p id="cvc-error" className="text-xs text-destructive mt-1">{cardErrors.cvc}</p>
+                      )}
                     </div>
                   </div>
                 </div>
                 <div className="flex gap-3 mt-6">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
+                  <Button
+                    type="button"
+                    variant="outline"
                     onClick={() => setStep(2)}
                     disabled={isSubmitting}
                   >
                     Retour
                   </Button>
-                  <Button 
-                    type="submit" 
+                  <Button
+                    type="button"
                     className="flex-1 gap-2"
                     loading={isSubmitting}
                     disabled={isSubmitting}
                     aria-label={`Payer ${formatPrice(total)}`}
+                    onClick={handlePayClick}
                   >
                     <CreditCard className="h-4 w-4" />
                     Payer {formatPrice(total)}
@@ -424,7 +551,7 @@ export function CheckoutPage() {
               )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Livraison</span>
-                <span>{shippingCost === 0 ? "Gratuite" : formatPrice(shippingCost)}</span>
+                <span>{shippingCost === 0 ? LAYOUT_CONSTANTS.FREE_SHIPPING_LABEL : formatPrice(shippingCost)}</span>
               </div>
               <div className="border-t border-border pt-2 flex justify-between font-bold">
                 <span>Total</span>

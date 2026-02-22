@@ -62,7 +62,7 @@ const PaginationPrevious = ({
   ...props
 }: React.ComponentProps<typeof Button>) => (
   <Button
-    aria-label="Go to previous page"
+    aria-label="Page précédente"
     variant="outline"
     size="icon"
     className={cn("h-9 w-9", className)}
@@ -78,7 +78,7 @@ const PaginationNext = ({
   ...props
 }: React.ComponentProps<typeof Button>) => (
   <Button
-    aria-label="Go to next page"
+    aria-label="Page suivante"
     variant="outline"
     size="icon"
     className={cn("h-9 w-9", className)}
@@ -112,21 +112,12 @@ interface PaginationProps {
   onPageChange: (page: number) => void
   className?: string
   showInfo?: boolean
+  itemLabel?: string
 }
 
 /**
- * Composant de pagination réutilisable (API simplifiée)
- * 
- * @example
- * ```tsx
- * <PaginationSimple
- *   currentPage={1}
- *   totalPages={10}
- *   totalItems={100}
- *   itemsPerPage={10}
- *   onPageChange={(page) => setPage(page)}
- * />
- * ```
+ * Composant de pagination réutilisable (API simplifiée).
+ * Structure cible : div.flex.items-center.justify-between.gap-4 > (p.text-sm.text-muted-foreground "Affichage de X à Y sur Z {itemLabel}") + nav[aria-label=pagination] > ul.flex.flex-row.items-center.gap-1 > li (Prev, 1…N, Next).
  */
 export function PaginationSimple({
   currentPage,
@@ -136,118 +127,89 @@ export function PaginationSimple({
   onPageChange,
   className,
   showInfo = true,
+  itemLabel = "résultats",
 }: PaginationProps) {
-  if (totalPages <= 1) return null
+  // Ne rien afficher s'il n'y a aucun résultat
+  if (totalItems === 0) return null
 
-  const startIndex = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1
+  const startIndex = (currentPage - 1) * itemsPerPage + 1
   const endIndex = Math.min(currentPage * itemsPerPage, totalItems)
-
-  // Générer les numéros de page à afficher
-  const getPageNumbers = () => {
-    const pages: (number | string)[] = []
-    const maxVisible = 5
-
-    if (totalPages <= maxVisible) {
-      // Afficher toutes les pages si peu de pages
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i)
-      }
-    } else {
-      // Logique pour afficher les pages avec ellipses
-      if (currentPage <= 3) {
-        // Début : 1, 2, 3, 4, ..., totalPages
-        for (let i = 1; i <= 4; i++) {
-          pages.push(i)
-        }
-        pages.push("ellipsis")
-        pages.push(totalPages)
-      } else if (currentPage >= totalPages - 2) {
-        // Fin : 1, ..., totalPages-3, totalPages-2, totalPages-1, totalPages
-        pages.push(1)
-        pages.push("ellipsis")
-        for (let i = totalPages - 3; i <= totalPages; i++) {
-          pages.push(i)
-        }
-      } else {
-        // Milieu : 1, ..., currentPage-1, currentPage, currentPage+1, ..., totalPages
-        pages.push(1)
-        pages.push("ellipsis")
-        for (let i = currentPage - 1; i <= currentPage + 1; i++) {
-          pages.push(i)
-        }
-        pages.push("ellipsis")
-        pages.push(totalPages)
-      }
-    }
-
-    return pages
-  }
-
-  const pageNumbers = getPageNumbers()
+  const showNav = totalPages > 1
 
   return (
-    <div className={cn("flex flex-col sm:flex-row items-center justify-between gap-4 py-4", className)}>
+    <div
+      className={cn(
+        "flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 w-full",
+        className
+      )}
+    >
       {showInfo && (
-        <div className="text-sm text-muted-foreground">
-          Affichage de <span className="font-medium text-foreground">{startIndex}</span> à{" "}
-          <span className="font-medium text-foreground">{endIndex}</span> sur{" "}
-          <span className="font-medium text-foreground">{totalItems}</span> résultat
-          {totalItems > 1 ? "s" : ""}
-        </div>
+        <p className="text-sm text-muted-foreground order-2 sm:order-1 shrink-0">
+          Affichage de {startIndex} à {endIndex} sur {totalItems} {itemLabel}
+        </p>
       )}
 
-      <div className="flex items-center gap-1">
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-9 w-9"
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-          aria-label="Page précédente"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
+      {showNav && (
+        <Pagination className="order-1 sm:order-2 w-full sm:w-auto">
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                onClick={() => {
+                  if (currentPage > 1) onPageChange(currentPage - 1)
+                }}
+                disabled={currentPage === 1}
+                aria-label="Page précédente"
+              />
+            </PaginationItem>
 
-        <div className="flex items-center gap-1">
-          {pageNumbers.map((page, index) => {
-            if (page === "ellipsis") {
-              return (
-                <div key={`ellipsis-${index}`} className="px-2">
-                  <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-                </div>
-              )
-            }
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+              if (
+                page === 1 ||
+                page === totalPages ||
+                (page >= currentPage - 1 && page <= currentPage + 1)
+              ) {
+                const isActive = currentPage === page
+                return (
+                  <PaginationItem key={page}>
+                    <button
+                      type="button"
+                      onClick={() => onPageChange(page)}
+                      aria-label={`Page ${page}`}
+                      aria-current={isActive ? "page" : undefined}
+                      disabled={isActive}
+                      className={cn(
+                        "inline-flex h-9 w-9 items-center justify-center rounded-md border border-input bg-background text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
+                        isActive &&
+                          "bg-primary text-primary-foreground pointer-events-none"
+                      )}
+                    >
+                      {page}
+                    </button>
+                  </PaginationItem>
+                )
+              }
+              if (page === currentPage - 2 || page === currentPage + 2) {
+                return (
+                  <PaginationItem key={page}>
+                    <PaginationEllipsis />
+                  </PaginationItem>
+                )
+              }
+              return null
+            })}
 
-            const pageNum = page as number
-            const isActive = pageNum === currentPage
-
-            return (
-              <Button
-                key={pageNum}
-                variant={isActive ? "default" : "outline"}
-                size="icon"
-                className={cn("h-9 w-9", isActive && "pointer-events-none")}
-                onClick={() => onPageChange(pageNum)}
-                aria-label={`Aller à la page ${pageNum}`}
-                aria-current={isActive ? "page" : undefined}
-              >
-                {pageNum}
-              </Button>
-            )
-          })}
-        </div>
-
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-9 w-9"
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          aria-label="Page suivante"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
+            <PaginationItem>
+              <PaginationNext
+                onClick={() => {
+                  if (currentPage < totalPages) onPageChange(currentPage + 1)
+                }}
+                disabled={currentPage === totalPages}
+                aria-label="Page suivante"
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
     </div>
   )
 }

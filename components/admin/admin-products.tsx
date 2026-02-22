@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { products, categories, formatPrice, getStatusColor, getStatusLabel } from "@/lib/data"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,6 +21,11 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { toast } from "sonner"
 import { usePagination } from "@/hooks/use-pagination"
+import { TableSkeleton } from "@/components/ui/table-skeleton"
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
+import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog"
+import { productSchema } from "@/src/lib/utils/validation"
+import { TOAST_MESSAGES } from "@/lib/constants"
 
 export function AdminProducts() {
   const [search, setSearch] = useState("")
@@ -30,6 +35,12 @@ export function AdminProducts() {
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [productToDelete, setProductToDelete] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 200)
+    return () => clearTimeout(t)
+  }, [])
 
   const filtered = useMemo(() => {
     let result = [...products]
@@ -77,14 +88,14 @@ export function AdminProducts() {
   }
 
   const confirmDeleteProduct = () => {
-    if (productToDelete) {
-      const product = products.find(p => p.id === productToDelete)
-      if (product) {
-        toast.success(`Produit "${product.name}" supprimé avec succès`)
-      }
-      setProductToDelete(null)
-      setDeleteDialogOpen(false)
+    if (!productToDelete) return
+    setIsDeleting(true)
+    const product = products.find(p => p.id === productToDelete)
+    if (product) {
+      toast.success(`Produit "${product.name}" supprimé avec succès`)
     }
+    setProductToDelete(null)
+    setIsDeleting(false)
   }
 
   const handleProductSaved = (isNew: boolean) => {
@@ -166,6 +177,12 @@ export function AdminProducts() {
 
       {/* Table */}
       <div className="bg-card border border-border rounded-lg overflow-hidden">
+        {loading ? (
+          <div className="p-4">
+            <TableSkeleton rowCount={10} columnCount={6} />
+          </div>
+        ) : (
+        <>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -214,7 +231,7 @@ export function AdminProducts() {
                     <td className="py-3 px-4 text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-8 sm:w-8">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -240,46 +257,44 @@ export function AdminProducts() {
             </tbody>
           </table>
         </div>
-        {filtered.length === 0 && (
-          <div className="py-12 text-center">
-            <Package className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-            <p className="text-muted-foreground">Aucun produit trouve</p>
+        {!loading && filtered.length === 0 && (
+          <Empty className="py-12 border-0">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Package className="size-6" />
+              </EmptyMedia>
+              <EmptyTitle>Aucun produit trouvé</EmptyTitle>
+              <EmptyDescription>Ajoutez des produits pour les afficher ici.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        )}
+        </>
+        )}
+        {/* Pagination dans la carte : toujours visible sous le tableau */}
+        {!loading && filtered.length > 0 && (
+          <div className="border-t border-border bg-muted/20 px-4 py-3 sm:px-6">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              itemsPerPage={itemsPerPage}
+              onPageChange={goToPage}
+              itemLabel="produits"
+              className="w-full"
+            />
           </div>
         )}
       </div>
 
-      {/* Pagination */}
-      {filtered.length > 0 && (
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          totalItems={totalItems}
-          itemsPerPage={itemsPerPage}
-          onPageChange={goToPage}
-        />
-      )}
-
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Supprimer le produit</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-muted-foreground">
-              Êtes-vous sûr de vouloir supprimer ce produit ? Cette action est irréversible.
-            </p>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} size="sm">
-              Annuler
-            </Button>
-            <Button variant="destructive" onClick={confirmDeleteProduct} size="sm">
-              Supprimer
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDeleteDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Supprimer le produit"
+        description="Êtes-vous sûr de vouloir supprimer ce produit ? Cette action est irréversible."
+        onConfirm={confirmDeleteProduct}
+        loading={isDeleting}
+      />
 
       {/* Edit Dialog */}
       {editingProduct && (
@@ -317,48 +332,92 @@ function ProductForm({
   const product = productId ? products.find(p => p.id === productId) : null
   const isNew = !productId
 
+  const [name, setName] = useState(product?.name ?? "")
+  const [brand, setBrand] = useState(product?.brand ?? "")
+  const [shortDescription, setShortDescription] = useState(product?.shortDescription ?? "")
+  const [description, setDescription] = useState(product?.description ?? "")
+  const [price, setPrice] = useState(product?.price != null ? String(product.price) : "")
+  const [originalPrice, setOriginalPrice] = useState(product?.originalPrice != null ? String(product.originalPrice) : "")
+  const [stock, setStock] = useState(product?.stock != null ? String(product.stock) : "")
+  const [category, setCategory] = useState(product?.category ?? "")
+  const [status, setStatus] = useState<string>(product?.status ?? "draft")
+  const [material, setMaterial] = useState(product?.material ?? "")
+  const [sku, setSku] = useState(product?.sku ?? "")
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+
+  const handleSubmit = () => {
+    setFieldErrors({})
+    const numPrice = price.trim() === "" ? NaN : parseFloat(price.replace(",", "."))
+    const numStock = stock.trim() === "" ? NaN : parseInt(stock, 10)
+    const payload = {
+      name: name.trim(),
+      price: numPrice,
+      description: description.trim(),
+      stock: Number.isNaN(numStock) ? 0 : numStock,
+      category: category.trim(),
+      sku: sku.trim(),
+    }
+    const result = productSchema.safeParse(payload)
+    if (!result.success) {
+      const errors: Record<string, string> = {}
+      result.error.errors.forEach((err) => {
+        const path = err.path[0] as string
+        if (!errors[path]) errors[path] = err.message
+      })
+      setFieldErrors(errors)
+      toast.error(result.error.errors[0]?.message ?? TOAST_MESSAGES.VALIDATION_CORRECT_FIELDS)
+      return
+    }
+    if (onSave) onSave(isNew)
+    else onClose()
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label className="text-sm">Nom du produit</Label>
-          <Input defaultValue={product?.name || ""} className="mt-1" placeholder="Nom du produit" />
+          <Input value={name} onChange={(e) => setName(e.target.value)} className="mt-1" placeholder="Nom du produit" />
+          {fieldErrors.name && <p className="text-xs text-destructive mt-0.5">{fieldErrors.name}</p>}
         </div>
         <div>
           <Label className="text-sm">Marque</Label>
-          <Input defaultValue={product?.brand || ""} className="mt-1" placeholder="Marque" />
+          <Input value={brand} onChange={(e) => setBrand(e.target.value)} className="mt-1" placeholder="Marque" />
         </div>
       </div>
 
       <div>
         <Label className="text-sm">Description courte</Label>
-        <Input defaultValue={product?.shortDescription || ""} className="mt-1" placeholder="Description courte" />
+        <Input value={shortDescription} onChange={(e) => setShortDescription(e.target.value)} className="mt-1" placeholder="Description courte" />
       </div>
 
       <div>
         <Label className="text-sm">Description complete</Label>
-        <Textarea defaultValue={product?.description || ""} className="mt-1 min-h-[100px]" placeholder="Description detaillee" />
+        <Textarea value={description} onChange={(e) => setDescription(e.target.value)} className="mt-1 min-h-[100px]" placeholder="Description detaillee" />
+        {fieldErrors.description && <p className="text-xs text-destructive mt-0.5">{fieldErrors.description}</p>}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <Label className="text-sm">Prix</Label>
-          <Input type="number" defaultValue={product?.price || ""} className="mt-1" placeholder="0.00" />
+          <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} className="mt-1" placeholder="0.00" min="0" step="0.01" />
+          {fieldErrors.price && <p className="text-xs text-destructive mt-0.5">{fieldErrors.price}</p>}
         </div>
         <div>
           <Label className="text-sm">Prix barre</Label>
-          <Input type="number" defaultValue={product?.originalPrice || ""} className="mt-1" placeholder="0.00" />
+          <Input type="number" value={originalPrice} onChange={(e) => setOriginalPrice(e.target.value)} className="mt-1" placeholder="0.00" min="0" step="0.01" />
         </div>
         <div>
           <Label className="text-sm">Stock</Label>
-          <Input type="number" defaultValue={product?.stock || ""} className="mt-1" placeholder="0" />
+          <Input type="number" value={stock} onChange={(e) => setStock(e.target.value)} className="mt-1" placeholder="0" min="0" />
+          {fieldErrors.stock && <p className="text-xs text-destructive mt-0.5">{fieldErrors.stock}</p>}
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label className="text-sm">Categorie</Label>
-          <Select defaultValue={product?.category || undefined}>
+          <Select value={category || undefined} onValueChange={setCategory}>
             <SelectTrigger className="mt-1"><SelectValue placeholder="Choisir" /></SelectTrigger>
             <SelectContent>
               {categories.map(c => (
@@ -366,10 +425,11 @@ function ProductForm({
               ))}
             </SelectContent>
           </Select>
+          {fieldErrors.category && <p className="text-xs text-destructive mt-0.5">{fieldErrors.category}</p>}
         </div>
         <div>
           <Label className="text-sm">Statut</Label>
-          <Select defaultValue={product?.status || "draft"}>
+          <Select value={status} onValueChange={setStatus}>
             <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="published">Publie</SelectItem>
@@ -382,12 +442,13 @@ function ProductForm({
 
       <div>
         <Label className="text-sm">Matiere</Label>
-        <Input defaultValue={product?.material || ""} className="mt-1" placeholder="Cuir veritable, etc." />
+        <Input value={material} onChange={(e) => setMaterial(e.target.value)} className="mt-1" placeholder="Cuir veritable, etc." />
       </div>
 
       <div>
         <Label className="text-sm">SKU</Label>
-        <Input defaultValue={product?.sku || ""} className="mt-1" placeholder="SKU-001" />
+        <Input value={sku} onChange={(e) => setSku(e.target.value)} className="mt-1" placeholder="SKU-001" />
+        {fieldErrors.sku && <p className="text-xs text-destructive mt-0.5">{fieldErrors.sku}</p>}
       </div>
 
       {/* Image upload area */}
@@ -409,13 +470,7 @@ function ProductForm({
 
       <div className="flex justify-end gap-3 pt-4 border-t border-border">
         <Button variant="outline" onClick={onClose}>Annuler</Button>
-        <Button onClick={() => {
-          if (onSave) {
-            onSave(isNew)
-          } else {
-            onClose()
-          }
-        }}>
+        <Button onClick={handleSubmit}>
           {product ? "Enregistrer" : "Creer le produit"}
         </Button>
       </div>

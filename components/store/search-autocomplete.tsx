@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { useStore } from "@/lib/store-context"
+import { PAGES } from "@/lib/routes"
 import { products, type Product } from "@/lib/data"
 import { formatPrice } from "@/lib/data"
 import { Search, X, ArrowRight } from "lucide-react"
@@ -83,7 +84,7 @@ export function SearchAutocomplete() {
 
   const handleSelectProduct = useCallback((product: Product) => {
     selectProduct(product.id)
-    navigate("product")
+    navigate(PAGES.store.product)
     setIsOpen(false)
     setSearchQuery("")
     inputRef.current?.blur()
@@ -91,7 +92,7 @@ export function SearchAutocomplete() {
 
   const performSearch = useCallback(() => {
     if (searchQuery.trim()) {
-      navigate("catalog")
+      navigate(PAGES.store.catalog)
       setIsOpen(false)
       inputRef.current?.blur()
     }
@@ -200,7 +201,8 @@ export function SearchAutocomplete() {
           type="submit" 
           size="sm"
           disabled={!searchQuery.trim()}
-          aria-label="Lancer la recherche"
+          aria-label={searchQuery.trim() ? "Lancer la recherche" : "Saisir au moins un caractère pour rechercher"}
+          title={!searchQuery.trim() ? "Saisir au moins un caractère pour rechercher" : undefined}
         >
           Rechercher
         </Button>

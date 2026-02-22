@@ -1,10 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState, useMemo } from "react"
 import Image from "next/image"
 import { useStore } from "@/lib/store-context"
+import { PAGES } from "@/lib/routes"
 import { categories } from "@/lib/data"
 import { SECTION_PADDING, EXCLUDED_CATEGORY_IDS } from "@/lib/layout"
+import { LAYOUT_CONSTANTS } from "@/lib/constants"
 import { Search, Heart, Sun, Moon, Menu, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
@@ -12,17 +14,20 @@ import { VisuallyHidden } from "@/components/ui/visually-hidden"
 import { SearchAutocomplete } from "./search-autocomplete"
 import { MiniCart } from "./mini-cart"
 
-export function StoreHeader() {
+export const StoreHeader = React.memo(function StoreHeader() {
   const { wishlist, darkMode, toggleDarkMode, navigate, selectCategory } = useStore()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  const mainCategories = categories.filter(c => !EXCLUDED_CATEGORY_IDS.includes(c.id))
+  const mainCategories = useMemo(
+    () => categories.filter((c) => !EXCLUDED_CATEGORY_IDS.includes(c.id)),
+    []
+  )
 
   return (
     <header role="banner" className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
       {/* Top bar */}
       <div className="bg-primary text-primary-foreground text-center py-1.5 text-xs tracking-wider" role="region" aria-label="Information promotionnelle">
-        Livraison gratuite pour toute commande de plus de 100&euro; | Code BIENVENUE10 = -10%
+        {`${LAYOUT_CONSTANTS.FREE_SHIPPING_HEADER} | Code BIENVENUE10 = -10%`}
       </div>
 
       <div className={`w-full ${SECTION_PADDING}`}>
@@ -41,7 +46,7 @@ export function StoreHeader() {
               </VisuallyHidden>
               <nav role="navigation" aria-label="Menu mobile" className="flex flex-col gap-4 mt-8">
                 <button 
-                  onClick={() => { navigate("home"); setMobileMenuOpen(false) }} 
+                  onClick={() => { navigate(PAGES.store.home); setMobileMenuOpen(false) }} 
                   className="text-left text-lg font-medium hover:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
                   aria-label="Aller à la page d'accueil"
                 >
@@ -52,7 +57,7 @@ export function StoreHeader() {
                     key={cat.id} 
                     onClick={() => { 
                       selectCategory(cat.id); 
-                      navigate("catalog"); 
+                      navigate(PAGES.store.catalog); 
                       setMobileMenuOpen(false); 
                     }} 
                     className="text-left text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
@@ -62,14 +67,14 @@ export function StoreHeader() {
                   </button>
                 ))}
                 <button 
-                  onClick={() => { selectCategory(null); navigate("catalog"); setMobileMenuOpen(false) }} 
+                  onClick={() => { selectCategory(null); navigate(PAGES.store.catalog); setMobileMenuOpen(false) }} 
                   className="text-left text-lg font-medium hover:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
                   aria-label="Voir le catalogue complet"
                 >
                   Catalogue
                 </button>
                 <button 
-                  onClick={() => { selectCategory(null); navigate("promotions"); setMobileMenuOpen(false) }} 
+                  onClick={() => { selectCategory(null); navigate(PAGES.store.promotions); setMobileMenuOpen(false) }} 
                   className="text-left text-lg font-medium text-red-500 hover:text-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
                   aria-label="Voir les promotions"
                 >
@@ -81,7 +86,7 @@ export function StoreHeader() {
 
           {/* Logo */}
           <button 
-            onClick={() => navigate("home")} 
+            onClick={() => navigate(PAGES.store.home)} 
             className="flex items-center gap-2"
             aria-label="Retour à l'accueil - TONOMI ACCESSOIRES"
           >
@@ -98,14 +103,14 @@ export function StoreHeader() {
           {/* Desktop nav */}
           <nav role="navigation" aria-label="Navigation principale" className="hidden lg:flex items-center gap-8">
             <button 
-              onClick={() => navigate("home")} 
+              onClick={() => navigate(PAGES.store.home)} 
               className="text-sm tracking-wide hover:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
               aria-label="Aller à la page d'accueil"
             >
               Accueil
             </button>
             <button 
-              onClick={() => { selectCategory(null); navigate("catalog"); }} 
+              onClick={() => { selectCategory(null); navigate(PAGES.store.catalog); }} 
               className="text-sm tracking-wide hover:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
               aria-label="Voir le catalogue complet"
             >
@@ -116,7 +121,7 @@ export function StoreHeader() {
                 key={cat.id}
                 onClick={() => { 
                   selectCategory(cat.id); 
-                  navigate("catalog"); 
+                  navigate(PAGES.store.catalog); 
                 }}
                 className="text-sm tracking-wide text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
                 aria-label={`Voir les produits de la catégorie ${cat.name}`}
@@ -125,7 +130,7 @@ export function StoreHeader() {
               </button>
             ))}
             <button 
-              onClick={() => { selectCategory(null); navigate("promotions"); }} 
+              onClick={() => { selectCategory(null); navigate(PAGES.store.promotions); }} 
               className="text-sm tracking-wide text-red-500 font-medium hover:text-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
               aria-label="Voir les promotions"
             >
@@ -143,7 +148,7 @@ export function StoreHeader() {
               variant="ghost" 
               size="icon" 
               className="md:hidden"
-              onClick={() => navigate("catalog")}
+              onClick={() => navigate(PAGES.store.catalog)}
               aria-label="Rechercher"
             >
               <Search className="h-5 w-5" />
@@ -164,7 +169,7 @@ export function StoreHeader() {
               variant="ghost" 
               size="icon" 
               className="relative" 
-              onClick={() => navigate("wishlist")}
+              onClick={() => navigate(PAGES.store.wishlist)}
               aria-label={`Voir mes favoris${wishlist.length > 0 ? ` (${wishlist.length} article${wishlist.length > 1 ? 's' : ''})` : ''}`}
             >
               <Heart className="h-5 w-5" />
@@ -182,7 +187,7 @@ export function StoreHeader() {
             <Button 
               variant="ghost" 
               size="icon" 
-              onClick={() => navigate("account")}
+              onClick={() => navigate(PAGES.store.account)}
               aria-label="Voir mon compte"
             >
               <User className="h-5 w-5" />
@@ -195,4 +200,4 @@ export function StoreHeader() {
       </div>
     </header>
   )
-}
+})

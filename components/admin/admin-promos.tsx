@@ -1,6 +1,7 @@
 "use client"
 
 import { promoCodes, formatPrice, formatDate } from "@/lib/data"
+import { LAYOUT_CONSTANTS } from "@/lib/constants"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -11,17 +12,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Plus, Tag, Copy, Trash2, MoreHorizontal, Percent, Calendar, Settings, Eye } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { toast } from "sonner"
 import { PaginationSimple as Pagination } from "@/components/ui/pagination"
 import { usePagination } from "@/hooks/use-pagination"
+import { useSubmitState } from "@/hooks/use-submit-state"
+import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog"
+import { promoCodeSchema } from "@/src/lib/utils/validation"
+import { TOAST_MESSAGES } from "@/lib/constants"
 
 export function AdminPromos() {
   const [showAdd, setShowAdd] = useState(false)
   const [promoToDelete, setPromoToDelete] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const { isSubmitting, submit } = useSubmitState()
+  const [isDeleting, setIsDeleting] = useState(false)
 
-  const activeCount = promoCodes.filter(p => p.active && new Date(p.endDate) > new Date()).length
+  const filtered = useMemo(() => promoCodes, [promoCodes])
+  const activeCount = filtered.filter(p => p.active && new Date(p.endDate) > new Date()).length
 
   const {
     paginatedData,
@@ -30,7 +38,7 @@ export function AdminPromos() {
     totalItems,
     itemsPerPage,
     goToPage,
-  } = usePagination(promoCodes, { itemsPerPage: 10 })
+  } = usePagination(filtered, { itemsPerPage: 10 })
 
   const handleCopyCode = (code: string) => {
     navigator.clipboard.writeText(code)
@@ -43,19 +51,35 @@ export function AdminPromos() {
   }
 
   const confirmDeletePromo = () => {
-    if (promoToDelete) {
-      const promo = promoCodes.find(p => p.id === promoToDelete)
-      if (promo) {
-        toast.success(`Code promo "${promo.code}" supprimé avec succès`)
-      }
-      setPromoToDelete(null)
-      setDeleteDialogOpen(false)
+    if (!promoToDelete) return
+    setIsDeleting(true)
+    const promo = promoCodes.find(p => p.id === promoToDelete)
+    if (promo) {
+      toast.success(`Code promo "${promo.code}" supprimé avec succès`)
     }
+    setPromoToDelete(null)
+    setIsDeleting(false)
   }
 
-  const handleCreatePromo = () => {
-    toast.success("Code promo créé avec succès")
-    setShowAdd(false)
+  const handleCreatePromo = (formValues: {
+    code: string
+    type: "percentage" | "fixed"
+    value: number
+    minAmount?: number
+    maxUses: number
+    startDate: string
+    endDate: string
+  }) => {
+    const result = promoCodeSchema.safeParse(formValues)
+    if (!result.success) {
+      const first = result.error.errors[0]
+      toast.error(first?.message ?? TOAST_MESSAGES.VALIDATION_CORRECT_FIELDS)
+      return
+    }
+    submit(async () => {
+      toast.success("Code promo créé avec succès")
+      setShowAdd(false)
+    })
   }
 
   return (
@@ -63,7 +87,7 @@ export function AdminPromos() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold">Codes promo</h2>
-          <p className="text-sm text-muted-foreground">{promoCodes.length} codes | {activeCount} actifs</p>
+          <p className="text-sm text-muted-foreground">{filtered.length} codes | {activeCount} actifs</p>
         </div>
         <Dialog open={showAdd} onOpenChange={setShowAdd}>
           <DialogTrigger asChild>
@@ -76,162 +100,11 @@ export function AdminPromos() {
                 Nouveau code promo
               </DialogTitle>
             </DialogHeader>
-            
-            <Tabs defaultValue="basic" className="mt-4">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="basic" className="gap-1.5 text-xs">
-                  <Tag className="h-3.5 w-3.5" />
-                  Code
-                </TabsTrigger>
-                <TabsTrigger value="conditions" className="gap-1.5 text-xs">
-                  <Settings className="h-3.5 w-3.5" />
-                  Conditions
-                </TabsTrigger>
-                <TabsTrigger value="dates" className="gap-1.5 text-xs">
-                  <Calendar className="h-3.5 w-3.5" />
-                  Dates
-                </TabsTrigger>
-                <TabsTrigger value="preview" className="gap-1.5 text-xs">
-                  <Eye className="h-3.5 w-3.5" />
-                  Aperçu
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="basic" className="space-y-4 mt-4">
-                <div>
-                  <Label htmlFor="promo-code" className="text-sm font-medium">Code promo</Label>
-                  <Input 
-                    id="promo-code"
-                    className="mt-1.5 font-mono uppercase font-bold" 
-                    placeholder="SUMMER2026"
-                    maxLength={20}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="promo-type" className="text-sm font-medium">Type</Label>
-                    <Select defaultValue="percentage">
-                      <SelectTrigger id="promo-type" className="mt-1.5">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="percentage">
-                          <div className="flex items-center gap-2">
-                            <Percent className="h-3.5 w-3.5" />
-                            Pourcentage
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="fixed">Montant fixe</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="promo-value" className="text-sm font-medium">Valeur</Label>
-                    <Input 
-                      id="promo-value"
-                      type="number" 
-                      className="mt-1.5" 
-                      placeholder="10"
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
-                  <input 
-                    type="checkbox" 
-                    id="promo-active"
-                    defaultChecked
-                    className="h-4 w-4 rounded border-border"
-                  />
-                  <Label htmlFor="promo-active" className="text-sm cursor-pointer">
-                    Actif immédiatement
-                  </Label>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="conditions" className="space-y-4 mt-4">
-                <div>
-                  <Label htmlFor="promo-min-amount" className="text-sm font-medium">Montant minimum (€)</Label>
-                  <Input 
-                    id="promo-min-amount"
-                    type="number" 
-                    className="mt-1.5" 
-                    placeholder="0"
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="promo-max-uses" className="text-sm font-medium">Limite d'utilisations</Label>
-                  <Input 
-                    id="promo-max-uses"
-                    type="number" 
-                    className="mt-1.5" 
-                    placeholder="100"
-                    min="1"
-                  />
-                </div>
-              </TabsContent>
-
-              <TabsContent value="dates" className="space-y-4 mt-4">
-                <div>
-                  <Label htmlFor="promo-start-date" className="text-sm font-medium">Date de début</Label>
-                  <Input 
-                    id="promo-start-date"
-                    type="date" 
-                    className="mt-1.5"
-                    min={new Date().toISOString().split('T')[0]}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="promo-end-date" className="text-sm font-medium">Date de fin</Label>
-                  <Input 
-                    id="promo-end-date"
-                    type="date" 
-                    className="mt-1.5"
-                    min={new Date().toISOString().split('T')[0]}
-                  />
-                </div>
-              </TabsContent>
-
-              <TabsContent value="preview" className="mt-4">
-                <div className="p-4 bg-muted/30 rounded-lg border border-border">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Tag className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-mono font-bold text-lg">SUMMER2026</span>
-                    </div>
-                    <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 text-xs">
-                      Actif
-                    </Badge>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-2xl font-bold">-10%</p>
-                    <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-                      <span>Min. commande : 0€</span>
-                      <span>Limite : 100 utilisations</span>
-                      <span>Période : 01/01/2026 - 31/12/2026</span>
-                    </div>
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground mt-3 text-center">
-                  Aperçu du code promo tel qu'il apparaîtra dans la liste
-                </p>
-              </TabsContent>
-            </Tabs>
-
-            <div className="flex justify-end gap-2 pt-4 mt-4 border-t">
-              <Button variant="outline" onClick={() => setShowAdd(false)} size="sm">
-                Annuler
-              </Button>
-              <Button onClick={handleCreatePromo} size="sm" className="gap-1.5">
-                <Plus className="h-3.5 w-3.5" />
-                Créer
-              </Button>
-            </div>
+            <PromoForm
+              onSubmit={handleCreatePromo}
+              onCancel={() => setShowAdd(false)}
+              isSubmitting={isSubmitting}
+            />
           </DialogContent>
         </Dialog>
       </div>
@@ -258,7 +131,7 @@ export function AdminPromos() {
                     </Badge>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-8 sm:w-8">
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -275,7 +148,7 @@ export function AdminPromos() {
                 </div>
 
                 <p className="text-2xl font-bold mb-1">
-                  {promo.type === "percentage" ? `-${promo.value}%` : promo.type === "fixed" ? `-${formatPrice(promo.value)}` : "Livraison gratuite"}
+                  {promo.type === "percentage" ? `-${promo.value}%` : promo.type === "fixed" ? `-${formatPrice(promo.value)}` : LAYOUT_CONSTANTS.FREE_SHIPPING_LABEL_LONG}
                 </p>
                 {promo.minAmount && promo.minAmount > 0 && (
                   <p className="text-xs text-muted-foreground">Min. commande : {formatPrice(promo.minAmount)}</p>
@@ -291,43 +164,245 @@ export function AdminPromos() {
         })}
       </div>
 
-      {/* Pagination */}
-      {promoCodes.length > 0 && (
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          totalItems={totalItems}
-          itemsPerPage={itemsPerPage}
-          onPageChange={goToPage}
-        />
+      {/* Pagination : barre visible sous la grille */}
+      {filtered.length > 0 && (
+        <div className="border border-border rounded-lg bg-muted/20 px-4 py-3 sm:px-6">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            onPageChange={goToPage}
+            itemLabel="codes promo"
+            className="w-full"
+          />
+        </div>
       )}
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Supprimer le code promo</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-muted-foreground">
-              {promoToDelete && (() => {
-                const promo = promoCodes.find(p => p.id === promoToDelete)
+      <ConfirmDeleteDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Supprimer le code promo"
+        description={
+          promoToDelete
+            ? (() => {
+                const promo = promoCodes.find((p) => p.id === promoToDelete)
                 return promo
                   ? `Êtes-vous sûr de vouloir supprimer le code promo "${promo.code}" ? Cette action est irréversible.`
                   : "Êtes-vous sûr de vouloir supprimer ce code promo ? Cette action est irréversible."
-              })()}
-            </p>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} size="sm">
-              Annuler
-            </Button>
-            <Button variant="destructive" onClick={confirmDeletePromo} size="sm">
-              Supprimer
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+              })()
+            : "Êtes-vous sûr de vouloir supprimer ce code promo ? Cette action est irréversible."
+        }
+        onConfirm={confirmDeletePromo}
+        loading={isDeleting}
+      />
     </div>
+  )
+}
+
+function PromoForm({
+  onSubmit,
+  onCancel,
+  isSubmitting,
+}: {
+  onSubmit: (values: { code: string; type: "percentage" | "fixed"; value: number; minAmount?: number; maxUses: number; startDate: string; endDate: string }) => void
+  onCancel: () => void
+  isSubmitting: boolean
+}) {
+  const today = new Date().toISOString().split("T")[0]
+  const [code, setCode] = useState("")
+  const [type, setType] = useState<"percentage" | "fixed">("percentage")
+  const [value, setValue] = useState("")
+  const [minAmount, setMinAmount] = useState("")
+  const [maxUses, setMaxUses] = useState("100")
+  const [startDate, setStartDate] = useState(today)
+  const [endDate, setEndDate] = useState(today)
+
+  const handleSubmit = () => {
+    const valueNum = value.trim() === "" ? NaN : parseFloat(value.replace(",", "."))
+    const minAmountNum = minAmount.trim() === "" ? undefined : parseFloat(minAmount.replace(",", "."))
+    const maxUsesNum = maxUses.trim() === "" ? NaN : parseInt(maxUses, 10)
+    const payload = {
+      code: code.trim().toUpperCase(),
+      type,
+      value: valueNum,
+      minAmount: minAmountNum,
+      maxUses: maxUsesNum,
+      startDate,
+      endDate,
+    }
+    onSubmit(payload)
+  }
+
+  const displayCode = (code.trim().toUpperCase() || "SUMMER2026").slice(0, 20)
+  const displayValue = value.trim() ? (type === "percentage" ? `-${value}%` : `-${value}€`) : "-10%"
+  const displayMin = minAmount.trim() ? `${minAmount}€` : "0€"
+  const displayMax = maxUses.trim() || "100"
+  const displayPeriod = startDate && endDate ? `${startDate} - ${endDate}` : "—"
+
+  return (
+    <>
+      <Tabs defaultValue="basic" className="mt-4">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="basic" className="gap-1.5 text-xs">
+            <Tag className="h-3.5 w-3.5" />
+            Code
+          </TabsTrigger>
+          <TabsTrigger value="conditions" className="gap-1.5 text-xs">
+            <Settings className="h-3.5 w-3.5" />
+            Conditions
+          </TabsTrigger>
+          <TabsTrigger value="dates" className="gap-1.5 text-xs">
+            <Calendar className="h-3.5 w-3.5" />
+            Dates
+          </TabsTrigger>
+          <TabsTrigger value="preview" className="gap-1.5 text-xs">
+            <Eye className="h-3.5 w-3.5" />
+            Aperçu
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="basic" className="space-y-4 mt-4">
+          <div>
+            <Label htmlFor="promo-code" className="text-sm font-medium">Code promo</Label>
+            <Input
+              id="promo-code"
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              className="mt-1.5 font-mono uppercase font-bold"
+              placeholder="SUMMER2026"
+              maxLength={20}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="promo-type" className="text-sm font-medium">Type</Label>
+              <Select value={type} onValueChange={(v) => setType(v as "percentage" | "fixed")}>
+                <SelectTrigger id="promo-type" className="mt-1.5">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="percentage">
+                    <div className="flex items-center gap-2">
+                      <Percent className="h-3.5 w-3.5" />
+                      Pourcentage
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="fixed">Montant fixe</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="promo-value" className="text-sm font-medium">Valeur</Label>
+              <Input
+                id="promo-value"
+                type="number"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                className="mt-1.5"
+                placeholder="10"
+                min="0"
+                step="0.01"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+            <input type="checkbox" id="promo-active" defaultChecked className="h-4 w-4 rounded border-border" />
+            <Label htmlFor="promo-active" className="text-sm cursor-pointer">
+              Actif immédiatement
+            </Label>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="conditions" className="space-y-4 mt-4">
+          <div>
+            <Label htmlFor="promo-min-amount" className="text-sm font-medium">Montant minimum (€)</Label>
+            <Input
+              id="promo-min-amount"
+              type="number"
+              value={minAmount}
+              onChange={(e) => setMinAmount(e.target.value)}
+              className="mt-1.5"
+              placeholder="0"
+              min="0"
+              step="0.01"
+            />
+          </div>
+          <div>
+            <Label htmlFor="promo-max-uses" className="text-sm font-medium">Limite d'utilisations</Label>
+            <Input
+              id="promo-max-uses"
+              type="number"
+              value={maxUses}
+              onChange={(e) => setMaxUses(e.target.value)}
+              className="mt-1.5"
+              placeholder="100"
+              min="1"
+            />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="dates" className="space-y-4 mt-4">
+          <div>
+            <Label htmlFor="promo-start-date" className="text-sm font-medium">Date de début</Label>
+            <Input
+              id="promo-start-date"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="mt-1.5"
+              min={today}
+            />
+          </div>
+          <div>
+            <Label htmlFor="promo-end-date" className="text-sm font-medium">Date de fin</Label>
+            <Input
+              id="promo-end-date"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="mt-1.5"
+              min={today}
+            />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="preview" className="mt-4">
+          <div className="p-4 bg-muted/30 rounded-lg border border-border">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Tag className="h-4 w-4 text-muted-foreground" />
+                <span className="font-mono font-bold text-lg">{displayCode}</span>
+              </div>
+              <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 text-xs">
+                Actif
+              </Badge>
+            </div>
+            <div className="space-y-2">
+              <p className="text-2xl font-bold">{displayValue}</p>
+              <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+                <span>Min. commande : {displayMin}</span>
+                <span>Limite : {displayMax} utilisations</span>
+                <span>Période : {displayPeriod}</span>
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-3 text-center">
+            Aperçu du code promo tel qu'il apparaîtra dans la liste
+          </p>
+        </TabsContent>
+      </Tabs>
+
+      <div className="flex justify-end gap-2 pt-4 mt-4 border-t">
+        <Button variant="outline" onClick={onCancel} size="sm">
+          Annuler
+        </Button>
+        <Button onClick={handleSubmit} size="sm" className="gap-1.5" loading={isSubmitting}>
+          <Plus className="h-3.5 w-3.5" />
+          Créer
+        </Button>
+      </div>
+    </>
   )
 }

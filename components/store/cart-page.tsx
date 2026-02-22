@@ -3,9 +3,11 @@
 import { useState } from "react"
 import Image from "next/image"
 import { useStore } from "@/lib/store-context"
+import { PAGES } from "@/lib/routes"
 import { formatPrice } from "@/lib/data"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Tag } from "lucide-react"
 import { useCartToast } from "@/hooks/use-cart-toast"
 import { useErrorHandler } from "@/hooks/use-error-handler"
@@ -75,7 +77,7 @@ export function CartPage() {
         <ShoppingBag className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
         <h1 className="font-serif text-2xl font-bold mb-2">Votre panier est vide</h1>
         <p className="text-muted-foreground mb-6">Découvrez nos collections et trouvez votre bonheur</p>
-        <Button onClick={() => navigate("catalog")} className="gap-2">
+        <Button onClick={() => navigate(PAGES.store.catalog)} className="gap-2">
           Continuer mes achats <ArrowRight className="h-4 w-4" />
         </Button>
       </div>
@@ -150,13 +152,17 @@ export function CartPage() {
 
             {/* Promo Code */}
             <div className="mb-6">
-              <label className="text-sm text-muted-foreground mb-2 block">Code promo</label>
+              <Label htmlFor="cart-promo-code" className="text-sm text-muted-foreground mb-2 block">
+                Code promo
+              </Label>
               <div className="flex gap-2">
                 <Input
+                  id="cart-promo-code"
                   value={promoCode}
                   onChange={(e) => setPromoCode(e.target.value)}
                   placeholder="BIENVENUE10"
                   className="text-sm"
+                  aria-describedby={promoMessage ? "cart-promo-message" : undefined}
                 />
                 <Button 
                   variant="outline" 
@@ -165,13 +171,16 @@ export function CartPage() {
                   className="shrink-0"
                   loading={isApplyingPromo}
                   disabled={isApplyingPromo || !promoCode.trim()}
-                  aria-label="Appliquer le code promo"
+                  aria-label={promoCode.trim() ? "Appliquer le code promo" : "Saisir un code promo"}
+                  title={!promoCode.trim() ? "Saisir un code promo" : undefined}
                 >
                   <Tag className="h-4 w-4" />
                 </Button>
               </div>
               {promoMessage && (
-                <p className={`text-xs mt-1 ${promoSuccess ? "text-emerald-600" : "text-destructive"}`}>{promoMessage}</p>
+                <p id="cart-promo-message" className={`text-xs mt-1 ${promoSuccess ? "text-emerald-600" : "text-destructive"}`} role="status">
+                  {promoMessage}
+                </p>
               )}
             </div>
 
@@ -188,10 +197,10 @@ export function CartPage() {
               )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Livraison</span>
-                <span>{shipping === 0 ? "Gratuite" : formatPrice(shipping)}</span>
+                <span>{shipping === 0 ? LAYOUT_CONSTANTS.FREE_SHIPPING_LABEL : formatPrice(shipping)}</span>
               </div>
               {shipping > 0 && (
-                <p className="text-xs text-muted-foreground">Livraison gratuite dès 100&euro;</p>
+                <p className="text-xs text-muted-foreground">{LAYOUT_CONSTANTS.FREE_SHIPPING_THRESHOLD_LABEL}</p>
               )}
               <div className="border-t border-border pt-3 flex justify-between font-bold text-lg">
                 <span>Total</span>
@@ -200,14 +209,14 @@ export function CartPage() {
             </div>
 
             <Button 
-              onClick={() => navigate("checkout")} 
+              onClick={() => navigate(PAGES.store.checkout)} 
               className="w-full mt-6 gap-2" 
               size="lg"
               aria-label="Passer la commande"
             >
               Commander <ArrowRight className="h-4 w-4" />
             </Button>
-            <Button onClick={() => navigate("catalog")} variant="ghost" className="w-full mt-2 text-sm">
+            <Button onClick={() => navigate(PAGES.store.catalog)} variant="ghost" className="w-full mt-2 text-sm">
               Continuer mes achats
             </Button>
           </div>

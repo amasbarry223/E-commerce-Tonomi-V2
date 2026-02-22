@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { categories as initialCategories } from "@/lib/data"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,6 +18,9 @@ import { VALIDATION_LIMITS } from "@/lib/constants"
 import { categorySchema } from "@/src/lib/utils/validation"
 import { PaginationSimple as Pagination } from "@/components/ui/pagination"
 import { usePagination } from "@/hooks/use-pagination"
+import { TableSkeleton } from "@/components/ui/table-skeleton"
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
+import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog"
 
 /**
  * Safe image preview component that handles errors without XSS risk
@@ -71,6 +74,13 @@ export function AdminCategories() {
   const [searchQuery, setSearchQuery] = useState("")
   const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 200)
+    return () => clearTimeout(t)
+  }, [])
 
   const filteredCategories = useMemo(() => {
     if (!searchQuery) return allCategories
@@ -152,7 +162,6 @@ export function AdminCategories() {
   }
 
   const handleSaveCategory = () => {
-    // Validation avec Zod
     const validationResult = categorySchema.safeParse({
       name: categoryName,
       slug: categorySlug,
@@ -168,7 +177,7 @@ export function AdminCategories() {
       toast.error(firstError.message || "Erreur de validation")
       return
     }
-
+    setIsSubmitting(true)
     if (editingCategory) {
       // Edit existing category
       setAllCategories(prev =>
@@ -212,6 +221,7 @@ export function AdminCategories() {
     }
     setShowAddEditDialog(false)
     resetForm()
+    setIsSubmitting(false)
   }
 
   // Générer le slug automatiquement depuis le nom
@@ -235,12 +245,12 @@ export function AdminCategories() {
   }
 
   const confirmDeleteCategory = () => {
-    if (categoryToDelete) {
-      setAllCategories(prev => prev.filter(cat => cat.id !== categoryToDelete))
-      toast.success("Catégorie supprimée avec succès.")
-      setCategoryToDelete(null)
-      setDeleteDialogOpen(false)
-    }
+    if (!categoryToDelete) return
+    setIsDeleting(true)
+    setAllCategories(prev => prev.filter(cat => cat.id !== categoryToDelete))
+    toast.success("Catégorie supprimée avec succès.")
+    setCategoryToDelete(null)
+    setIsDeleting(false)
   }
 
   return (
@@ -387,11 +397,11 @@ export function AdminCategories() {
                           type="button"
                           variant="destructive"
                           size="icon"
-                          className="absolute top-2 right-2 h-8 w-8"
+                          className="absolute top-2 right-2 h-11 w-11 sm:h-8 sm:w-8"
                           onClick={handleRemoveImage}
                           aria-label="Supprimer l'image"
                         >
-                          <X className="h-4 w-4" />
+                          <X className="h-4 w-4" aria-hidden />
                         </Button>
                       </div>
                       <Button
@@ -497,7 +507,7 @@ export function AdminCategories() {
               <Button variant="outline" onClick={() => setShowAddEditDialog(false)} size="sm">
                 Annuler
               </Button>
-              <Button onClick={handleSaveCategory} size="sm" className="gap-1.5">
+              <Button onClick={handleSaveCategory} size="sm" className="gap-1.5" loading={isSubmitting}>
                 <Plus className="h-3.5 w-3.5" />
                 {editingCategory ? "Enregistrer" : "Créer"}
               </Button>
@@ -517,6 +527,11 @@ export function AdminCategories() {
       </div>
 
       <div className="bg-card border border-border rounded-lg overflow-hidden">
+        {loading ? (
+          <div className="p-4">
+            <TableSkeleton rowCount={10} columnCount={5} />
+          </div>
+        ) : (
         <Table>
           <TableHeader>
             <TableRow>
@@ -530,8 +545,16 @@ export function AdminCategories() {
           <TableBody>
             {filteredCategories.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                  Aucune catégorie trouvée.
+                <TableCell colSpan={5} className="py-0 border-0">
+                  <Empty className="py-12 border-0">
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">
+                        <FolderOpen className="size-6" aria-hidden />
+                      </EmptyMedia>
+                      <EmptyTitle>Aucune catégorie trouvée</EmptyTitle>
+                      <EmptyDescription>Ajoutez une catégorie pour commencer.</EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
                 </TableCell>
               </TableRow>
             ) : (
@@ -546,7 +569,7 @@ export function AdminCategories() {
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-8 sm:w-8">
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -570,38 +593,32 @@ export function AdminCategories() {
             )}
           </TableBody>
         </Table>
+        )}
+        {/* Pagination dans la carte : toujours visible sous le tableau */}
+        {!loading && filteredCategories.length > 0 && (
+          <div className="border-t border-border bg-muted/20 px-4 py-3 sm:px-6">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              itemsPerPage={itemsPerPage}
+              onPageChange={goToPage}
+              itemLabel="catégories"
+              className="w-full"
+            />
+          </div>
+        )}
       </div>
 
-      {/* Pagination */}
-      {filteredCategories.length > 0 && (
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          totalItems={totalItems}
-          itemsPerPage={itemsPerPage}
-          onPageChange={goToPage}
-        />
-      )}
-
       {/* Delete confirmation dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Supprimer la catégorie</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Êtes-vous sûr de vouloir supprimer cette catégorie ? Cette action est irréversible.
-          </p>
-          <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} size="sm">
-              Annuler
-            </Button>
-            <Button variant="destructive" onClick={confirmDeleteCategory} size="sm">
-              Supprimer
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDeleteDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Supprimer la catégorie"
+        description="Êtes-vous sûr de vouloir supprimer cette catégorie ? Cette action est irréversible."
+        onConfirm={confirmDeleteCategory}
+        loading={isDeleting}
+      />
     </div>
   )
 }

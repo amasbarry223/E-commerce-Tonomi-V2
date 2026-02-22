@@ -4,6 +4,7 @@ import { useCallback } from "react"
 import { toast } from "sonner"
 import { ShoppingBag, Trash2, CheckCircle2 } from "lucide-react"
 import { useStore } from "@/lib/store-context"
+import { PAGES } from "@/lib/routes"
 
 /**
  * Hook personnalisé pour gérer les notifications toast liées au panier
@@ -33,7 +34,7 @@ export function useCartToast() {
       duration: 3000,
       action: {
         label: "Voir le panier",
-        onClick: () => navigate("cart"),
+        onClick: () => navigate(PAGES.store.cart),
       },
     })
   }, [navigate])

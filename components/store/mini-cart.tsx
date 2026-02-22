@@ -1,7 +1,10 @@
 "use client"
 
+import React from "react"
 import { useStore } from "@/lib/store-context"
+import { PAGES } from "@/lib/routes"
 import { formatPrice } from "@/lib/data"
+import { LAYOUT_CONSTANTS } from "@/lib/constants"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import Image from "next/image"
@@ -13,7 +16,7 @@ import { useCartToast } from "@/hooks/use-cart-toast"
  * Mini panier affiché dans le header
  * Affiche un aperçu rapide du panier avec les articles et le total
  */
-export function MiniCart() {
+export const MiniCart = React.memo(function MiniCart() {
   const { cart, cartCount, cartTotal, removeFromCart, navigate } = useStore()
   const { showRemoveFromCartToast } = useCartToast()
 
@@ -22,7 +25,7 @@ export function MiniCart() {
     showRemoveFromCartToast(item.name)
   }
 
-  const shipping = cartTotal >= 100 ? 0 : 5.99
+  const shipping = cartTotal >= LAYOUT_CONSTANTS.FREE_SHIPPING_THRESHOLD ? 0 : LAYOUT_CONSTANTS.STANDARD_SHIPPING_COST
   const total = cartTotal + shipping
 
   return (
@@ -133,12 +136,12 @@ export function MiniCart() {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Livraison</span>
                 <span className="font-medium">
-                  {shipping === 0 ? "Gratuite" : formatPrice(shipping)}
+                  {shipping === 0 ? LAYOUT_CONSTANTS.FREE_SHIPPING_LABEL : formatPrice(shipping)}
                 </span>
               </div>
-              {cartTotal < 100 && (
+              {cartTotal < LAYOUT_CONSTANTS.FREE_SHIPPING_THRESHOLD && (
                 <p className="text-xs text-muted-foreground">
-                  Ajoutez {formatPrice(100 - cartTotal)} pour la livraison gratuite
+                  Ajoutez {formatPrice(LAYOUT_CONSTANTS.FREE_SHIPPING_THRESHOLD - cartTotal)} pour {LAYOUT_CONSTANTS.FREE_SHIPPING_LABEL_LONG.toLowerCase()}
                 </p>
               )}
               <div className="flex items-center justify-between pt-2 border-t border-border">
@@ -147,7 +150,7 @@ export function MiniCart() {
               </div>
               <Button
                 onClick={() => {
-                  navigate("cart")
+                  navigate(PAGES.store.cart)
                 }}
                 className="w-full gap-2"
                 size="lg"
@@ -160,6 +163,6 @@ export function MiniCart() {
       </PopoverContent>
     </Popover>
   )
-}
+})
 
 

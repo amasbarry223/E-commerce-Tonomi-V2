@@ -7,20 +7,29 @@ import { useStore } from "@/lib/store-context"
 import { useAuthStore } from "@/lib/stores/auth-store"
 import { Button } from "@/components/ui/button"
 import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
+import {
   LayoutDashboard, Package, FolderKanban, ShoppingCart, Users,
   BarChart3, Tag, Star, Settings, Store, Sun, Moon, Menu, X, ChevronRight, LogOut,
 } from "lucide-react"
+import { PAGES, ROUTES } from "@/lib/routes"
 
 const navItems = [
-  { id: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
-  { id: "admin-products", label: "Produits", icon: Package },
-  { id: "admin-categories", label: "Catégories", icon: FolderKanban },
-  { id: "admin-orders", label: "Commandes", icon: ShoppingCart },
-  { id: "admin-customers", label: "Clients", icon: Users },
-  { id: "admin-analytics", label: "Analytics", icon: BarChart3 },
-  { id: "admin-promos", label: "Codes promo", icon: Tag },
-  { id: "admin-reviews", label: "Avis clients", icon: Star },
-  { id: "admin-settings", label: "Parametres", icon: Settings },
+  { id: PAGES.admin.dashboard, label: "Tableau de bord", icon: LayoutDashboard },
+  { id: PAGES.admin.products, label: "Produits", icon: Package },
+  { id: PAGES.admin.categories, label: "Catégories", icon: FolderKanban },
+  { id: PAGES.admin.orders, label: "Commandes", icon: ShoppingCart },
+  { id: PAGES.admin.customers, label: "Clients", icon: Users },
+  { id: PAGES.admin.analytics, label: "Analytics", icon: BarChart3 },
+  { id: PAGES.admin.promos, label: "Codes promo", icon: Tag },
+  { id: PAGES.admin.reviews, label: "Avis clients", icon: Star },
+  { id: PAGES.admin.settings, label: "Parametres", icon: Settings },
 ]
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -31,7 +40,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
   const handleLogout = () => {
     logout()
-    router.push("/login")
+    router.push(ROUTES.login)
   }
 
   return (
@@ -54,8 +63,8 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               priority
             />
           </button>
-          <Button variant="ghost" size="icon" className="absolute right-4 lg:hidden" onClick={() => setSidebarOpen(false)}>
-            <X className="h-4 w-4" />
+          <Button variant="ghost" size="icon" className="absolute right-4 lg:hidden h-11 w-11" onClick={() => setSidebarOpen(false)} aria-label="Fermer le menu">
+            <X className="h-4 w-4" aria-hidden />
           </Button>
         </div>
 
@@ -92,12 +101,14 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             <ChevronRight className="h-3 w-3 ml-auto" />
           </Button>
           <Button
+            type="button"
             variant="ghost"
             size="sm"
             className="w-full justify-start gap-2 text-muted-foreground hover:text-destructive"
             onClick={handleLogout}
+            aria-label="Se déconnecter et aller à la page de connexion admin"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-4 w-4" aria-hidden />
             Déconnexion
           </Button>
         </div>
@@ -107,21 +118,43 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
         <header className="h-16 border-b border-border bg-card flex items-center justify-between px-4 shrink-0">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(true)}>
+          <div className="flex items-center gap-3 min-w-0">
+            <Button variant="ghost" size="icon" className="lg:hidden shrink-0 h-11 w-11 sm:h-9 sm:w-9" onClick={() => setSidebarOpen(true)}>
               <Menu className="h-5 w-5" />
             </Button>
-            <h1 className="font-semibold text-lg capitalize">
-              {navItems.find(n => n.id === currentPage)?.label || "Back-Office"}
-            </h1>
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  {currentPage === PAGES.admin.dashboard ? (
+                    <BreadcrumbPage>Tableau de bord</BreadcrumbPage>
+                  ) : (
+                    <BreadcrumbLink asChild>
+                      <button type="button" onClick={() => navigate(PAGES.admin.dashboard)} className="hover:text-foreground transition-colors">
+                        Tableau de bord
+                      </button>
+                    </BreadcrumbLink>
+                  )}
+                </BreadcrumbItem>
+                {currentPage !== PAGES.admin.dashboard && (
+                  <>
+                    <BreadcrumbSeparator />
+                    <BreadcrumbItem>
+                      <BreadcrumbPage>
+                        {navItems.find(n => n.id === currentPage)?.label || "Back-Office"}
+                      </BreadcrumbPage>
+                    </BreadcrumbItem>
+                  </>
+                )}
+              </BreadcrumbList>
+            </Breadcrumb>
           </div>
           <div className="flex items-center gap-3">
             <div className="hidden md:flex flex-col items-end">
               <span className="text-xs text-muted-foreground">Connecté en tant que</span>
               <span className="text-sm font-medium">{user?.email || "Admin"}</span>
             </div>
-            <Button variant="ghost" size="icon" onClick={toggleDarkMode}>
-              {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-9 sm:w-9" onClick={toggleDarkMode} aria-label={darkMode ? "Désactiver le mode sombre" : "Activer le mode sombre"}>
+              {darkMode ? <Sun className="h-4 w-4" aria-hidden /> : <Moon className="h-4 w-4" aria-hidden />}
             </Button>
             <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center text-xs font-bold text-foreground">
               AD

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { reviews, products, formatDate } from "@/lib/data"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -9,6 +9,8 @@ import { Star, Check, X, MessageSquare, Clock } from "lucide-react"
 import { toast } from "sonner"
 import { PaginationSimple as Pagination } from "@/components/ui/pagination"
 import { usePagination } from "@/hooks/use-pagination"
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
+import { TableSkeleton } from "@/components/ui/table-skeleton"
 
 const statusColors: Record<string, string> = {
   approved: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
@@ -23,6 +25,12 @@ const statusLabels: Record<string, string> = {
 export function AdminReviews() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [ratingFilter, setRatingFilter] = useState("all")
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 400)
+    return () => clearTimeout(t)
+  }, [])
 
   const filtered = useMemo(() => {
     let result = [...reviews]
@@ -109,6 +117,10 @@ export function AdminReviews() {
       </div>
 
       <div className="flex flex-col gap-4">
+        {loading ? (
+          <TableSkeleton rowCount={5} columnCount={3} />
+        ) : (
+        <>
         {paginatedData.map(review => {
           const product = products.find(p => p.id === review.productId)
           return (
@@ -158,24 +170,35 @@ export function AdminReviews() {
             </div>
           )
         })}
+        </>
+        )}
       </div>
 
-      {filtered.length === 0 && (
-        <div className="text-center py-12">
-          <MessageSquare className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-          <p className="text-muted-foreground">Aucun avis trouve</p>
-        </div>
+      {!loading && filtered.length === 0 && (
+        <Empty className="py-12 border-0">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <MessageSquare className="size-6" />
+            </EmptyMedia>
+            <EmptyTitle>Aucun avis trouvé</EmptyTitle>
+            <EmptyDescription>Les avis clients apparaîtront ici.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       )}
 
-      {/* Pagination */}
-      {filtered.length > 0 && (
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          totalItems={totalItems}
-          itemsPerPage={itemsPerPage}
-          onPageChange={goToPage}
-        />
+      {/* Pagination : barre visible sous la liste */}
+      {!loading && filtered.length > 0 && (
+        <div className="border border-border rounded-lg bg-muted/20 px-4 py-3 sm:px-6">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            onPageChange={goToPage}
+            itemLabel="avis"
+            className="w-full"
+          />
+        </div>
       )}
     </div>
   )

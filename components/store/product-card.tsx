@@ -3,6 +3,7 @@
 import React, { useState, useRef } from "react"
 import Image from "next/image"
 import { useStore } from "@/lib/store-context"
+import { PAGES } from "@/lib/routes"
 import { type Product, formatPrice, getBadgeColor, getStatusLabel } from "@/lib/data"
 import { Heart, ShoppingBag, Star, Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -28,7 +29,7 @@ export const ProductCard = React.memo(function ProductCard({ product, index = 0 
 
   const handleView = () => {
     selectProduct(product.id)
-    navigate("product")
+    navigate(PAGES.store.product)
   }
 
   const handleQuickView = (e: React.MouseEvent) => {

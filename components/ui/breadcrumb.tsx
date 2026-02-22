@@ -4,6 +4,13 @@ import { ChevronRight, MoreHorizontal } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
+/**
+ * @component Breadcrumb
+ * @description Fil d'Ariane sémantique (nav aria-label="breadcrumb") pour la navigation hiérarchique.
+ * @accessibility WCAG 2.1 AA (aria-label, structure ol/li)
+ * @responsive mobile | tablet | desktop
+ * @dependencies Slot (Radix), cn
+ */
 function Breadcrumb({ ...props }: React.ComponentProps<'nav'>) {
   return <nav aria-label="breadcrumb" data-slot="breadcrumb" {...props} />
 }

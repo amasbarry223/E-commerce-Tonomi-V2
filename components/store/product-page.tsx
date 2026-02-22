@@ -1,14 +1,33 @@
 "use client"
 
+/**
+ * @component ProductPage
+ * @description Affiche la fiche détaillée d'un produit avec galerie, options, avis et produits similaires.
+ * @accessibility WCAG 2.1 AA (breadcrumb sémantique, états vides avec Empty, labels)
+ * @responsive mobile | tablet | desktop
+ * @dependencies useStore, lib/data, Empty, Breadcrumb, ImageZoom, Tabs
+ */
+
 import { useState } from "react"
 import Image from "next/image"
 import { useStore } from "@/lib/store-context"
+import { PAGES } from "@/lib/routes"
 import { products, reviews, formatPrice, formatDate, categories } from "@/lib/data"
+import { LAYOUT_CONSTANTS } from "@/lib/constants"
 import { ProductCard } from "./product-card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Heart, ShoppingBag, Star, Minus, Plus, Truck, RotateCcw, ShieldCheck } from "lucide-react"
+import { Heart, ShoppingBag, Star, Minus, Plus, Truck, RotateCcw, ShieldCheck, MessageSquare } from "lucide-react"
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 import { ImageZoom } from "./image-zoom"
 import { CartAnimation, useCartAnimation } from "./cart-animation"
 import { useCartToast } from "@/hooks/use-cart-toast"
@@ -30,7 +49,7 @@ export function ProductPage() {
     return (
       <div className="mx-auto max-w-7xl px-4 py-20 text-center">
         <p className="text-muted-foreground">Produit non trouvé</p>
-        <Button onClick={() => navigate("catalog")} className="mt-4">Retour au catalogue</Button>
+        <Button onClick={() => navigate(PAGES.store.catalog)} className="mt-4">Retour au catalogue</Button>
       </div>
     )
   }
@@ -73,19 +92,43 @@ export function ProductPage() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-        <button onClick={() => navigate("home")} className="hover:text-foreground">Accueil</button>
-        <span>/</span>
-        <button onClick={() => navigate("catalog")} className="hover:text-foreground">Catalogue</button>
-        <span>/</span>
-        {category && (
-          <>
-            <button onClick={() => navigate("catalog")} className="hover:text-foreground">{category.name}</button>
-            <span>/</span>
-          </>
-        )}
-        <span className="text-foreground truncate">{product.name}</span>
-      </div>
+      <Breadcrumb className="mb-6">
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <button type="button" onClick={() => navigate(PAGES.store.home)}>
+                Accueil
+              </button>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <button type="button" onClick={() => navigate(PAGES.store.catalog)}>
+                Catalogue
+              </button>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          {category && (
+            <>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <button type="button" onClick={() => navigate(PAGES.store.catalog)}>
+                    {category.name}
+                  </button>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+            </>
+          )}
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage className="truncate max-w-[200px] inline-block">
+              {product.name}
+            </BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
         {/* Image Gallery */}
@@ -160,7 +203,7 @@ export function ProductPage() {
           {/* Color Selection */}
           <div className="mb-6">
             <p className="text-sm font-medium mb-2">Couleur : <span className="text-muted-foreground">{product.colors[selectedColor]?.name}</span></p>
-            <div className="flex gap-2">
+            <div className="flex gap-2" role="group" aria-label="Choisir la couleur">
               {product.colors.map((color, i) => (
                 <button
                   key={color.hex}
@@ -168,6 +211,8 @@ export function ProductPage() {
                   className={`h-10 w-10 rounded-full border-2 transition-all ${i === selectedColor ? "border-accent ring-2 ring-accent/20" : "border-border"}`}
                   style={{ backgroundColor: color.hex }}
                   title={color.name}
+                  aria-label={`Sélectionner couleur ${color.name}`}
+                  aria-pressed={i === selectedColor}
                 />
               ))}
             </div>
@@ -175,7 +220,7 @@ export function ProductPage() {
 
           {/* Size Selection */}
           {product.sizes.length > 1 && (
-            <div className="mb-6">
+            <div className="mb-6" role="group" aria-label="Choisir la taille">
               <p className="text-sm font-medium mb-2">Taille</p>
               <div className="flex gap-2">
                 {product.sizes.map((size, i) => (
@@ -183,6 +228,8 @@ export function ProductPage() {
                     key={size}
                     onClick={() => setSelectedSize(i)}
                     className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all ${i === selectedSize ? "border-accent bg-accent/10 text-foreground" : "border-border text-muted-foreground hover:border-foreground"}`}
+                    aria-label={`Sélectionner taille ${size}`}
+                    aria-pressed={i === selectedSize}
                   >
                     {size}
                   </button>
@@ -195,12 +242,20 @@ export function ProductPage() {
           <div className="mb-6">
             <p className="text-sm font-medium mb-2">Quantité</p>
             <div className="flex items-center gap-3">
-              <div className="flex items-center border border-border rounded-lg">
-                <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="h-10 w-10 flex items-center justify-center hover:bg-secondary transition-colors">
+              <div className="flex items-center border border-border rounded-lg" role="group" aria-label="Quantité">
+                <button
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  className="h-10 w-10 flex items-center justify-center hover:bg-secondary transition-colors"
+                  aria-label="Diminuer la quantité"
+                >
                   <Minus className="h-4 w-4" />
                 </button>
-                <span className="w-12 text-center font-medium">{quantity}</span>
-                <button onClick={() => setQuantity(quantity + 1)} className="h-10 w-10 flex items-center justify-center hover:bg-secondary transition-colors">
+                <span className="w-12 text-center font-medium" aria-live="polite">{quantity}</span>
+                <button
+                  onClick={() => setQuantity(quantity + 1)}
+                  className="h-10 w-10 flex items-center justify-center hover:bg-secondary transition-colors"
+                  aria-label="Augmenter la quantité"
+                >
                   <Plus className="h-4 w-4" />
                 </button>
               </div>
@@ -219,6 +274,8 @@ export function ProductPage() {
               size="lg"
               variant="outline"
               className={wishlisted ? "text-red-500 border-red-500 hover:bg-red-50" : ""}
+              aria-label={wishlisted ? "Retirer des favoris" : "Ajouter aux favoris"}
+              aria-pressed={wishlisted}
             >
               <Heart className={`h-5 w-5 ${wishlisted ? "fill-current" : ""}`} />
             </Button>
@@ -228,7 +285,7 @@ export function ProductPage() {
           <div className="grid grid-cols-3 gap-4 p-4 bg-secondary/50 rounded-lg">
             <div className="flex flex-col items-center text-center gap-1">
               <Truck className="h-5 w-5 text-accent" />
-              <span className="text-xs">Livraison gratuite</span>
+              <span className="text-xs">{LAYOUT_CONSTANTS.FREE_SHIPPING_LABEL_LONG}</span>
             </div>
             <div className="flex flex-col items-center text-center gap-1">
               <RotateCcw className="h-5 w-5 text-accent" />
@@ -279,7 +336,15 @@ export function ProductPage() {
 
         <TabsContent value="reviews" className="pt-6">
           {productReviews.length === 0 ? (
-            <p className="text-muted-foreground">Aucun avis pour le moment.</p>
+            <Empty className="py-8 border-0">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <MessageSquare className="size-6" aria-hidden />
+                </EmptyMedia>
+                <EmptyTitle>Aucun avis pour le moment</EmptyTitle>
+                <EmptyDescription>Soyez le premier à laisser un avis sur ce produit.</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
             <div className="flex flex-col gap-6 max-w-3xl">
               {productReviews.map(review => (

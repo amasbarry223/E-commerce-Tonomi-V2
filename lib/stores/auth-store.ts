@@ -15,6 +15,16 @@ interface AuthStore {
 const ADMIN_EMAIL = 'admin@tonomi.com'
 const ADMIN_PASSWORD = 'admin123'
 
+function isValidRehydratedUser(u: unknown): u is { id: string; email: string; role: 'admin' | 'super-admin' } {
+  if (!u || typeof u !== 'object') return false
+  const o = u as Record<string, unknown>
+  return (
+    typeof o.id === 'string' &&
+    typeof o.email === 'string' &&
+    (o.role === 'admin' || o.role === 'super-admin')
+  )
+}
+
 export const useAuthStore = create<AuthStore>()(
   persist(
     (set, get) => ({
@@ -116,6 +126,11 @@ export const useAuthStore = create<AuthStore>()(
         isAuthenticated: state.isAuthenticated,
         user: state.user,
       }),
+      onRehydrateStorage: () => (persistedState) => {
+        if (persistedState?.user && !isValidRehydratedUser(persistedState.user)) {
+          useAuthStore.setState({ isAuthenticated: false, user: null })
+        }
+      },
     }
   )
 )

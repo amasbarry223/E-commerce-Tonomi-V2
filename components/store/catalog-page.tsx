@@ -1,7 +1,16 @@
 "use client"
 
+/**
+ * @component CatalogPage
+ * @description Page catalogue avec filtres (catégorie, prix, marques, matière), tri et pagination.
+ * @accessibility WCAG 2.1 AA (breadcrumb sémantique, états vides Empty, filtres)
+ * @responsive mobile | tablet | desktop
+ * @dependencies useStore, lib/data, Empty, Breadcrumb, ProductCard, PaginationSimple
+ */
+
 import { useState, useMemo, useEffect, useCallback } from "react"
 import { useStore } from "@/lib/store-context"
+import { PAGES } from "@/lib/routes"
 import { products, categories, formatPrice } from "@/lib/data"
 import { SECTION_CONTAINER } from "@/lib/layout"
 import { ProductCard } from "./product-card"
@@ -11,16 +20,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider"
 import { Checkbox } from "@/components/ui/checkbox"
 import { SlidersHorizontal, X, Grid3X3, LayoutGrid, Search } from "lucide-react"
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from "@/components/ui/empty"
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { 
-  Pagination, 
-  PaginationContent, 
-  PaginationItem, 
-  PaginationLink, 
-  PaginationNext, 
-  PaginationPrevious,
-  PaginationEllipsis
-} from "@/components/ui/pagination"
+import { PaginationSimple } from "@/components/ui/pagination"
 
 const MATERIALS = ["Cuir véritable", "Cuir grainé", "Cuir saffiano", "Cuir d'agneau", "Canvas & Cuir", "Nylon imperméable", "Similicuir", "Toile & Cuir"] as const
 const BRANDS = ["Maison Élégance", "Bohème Paris", "Cristal de Paris", "Urban Mode", "Riviera Mode", "Artisan Paris"] as const
@@ -99,14 +109,13 @@ export function CatalogPage() {
     }
 
     switch (sortBy) {
-      case "price-asc": result.sort((a, b) => a.price - b.price); break
-      case "price-desc": result.sort((a, b) => b.price - a.price); break
-      case "newest": result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); break
-      case "popularity": result.sort((a, b) => b.reviewCount - a.reviewCount); break
-      case "rating": result.sort((a, b) => b.rating - a.rating); break
+      case "price-asc": return [...result].sort((a, b) => a.price - b.price)
+      case "price-desc": return [...result].sort((a, b) => b.price - a.price)
+      case "newest": return [...result].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      case "popularity": return [...result].sort((a, b) => b.reviewCount - a.reviewCount)
+      case "rating": return [...result].sort((a, b) => b.rating - a.rating)
+      default: return result
     }
-
-    return result
   }, [searchQuery, selectedCategory, priceRange, selectedBrands, selectedMaterials, sortBy])
 
   // Calcul de la pagination
@@ -214,11 +223,21 @@ export function CatalogPage() {
   return (
     <div className={`${SECTION_CONTAINER} py-8`}>
       {/* Breadcrumb */}
-      <div className="text-sm text-muted-foreground mb-6">
-        <button type="button" onClick={() => navigate("home")} className="hover:text-foreground">Accueil</button>
-        <span className="mx-2">/</span>
-        <span className="text-foreground">Catalogue</span>
-      </div>
+      <Breadcrumb className="mb-6">
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <button type="button" onClick={() => navigate(PAGES.store.home)}>
+                Accueil
+              </button>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Catalogue</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
 
       <div className="flex items-center justify-between mb-6">
         <h1 className="font-serif text-2xl md:text-3xl font-bold">
@@ -288,20 +307,24 @@ export function CatalogPage() {
           {isLoading ? (
             <ProductCardSkeletonGrid count={8} />
           ) : filteredProducts.length === 0 ? (
-            <div className="text-center py-20 px-4">
-              <div className="max-w-md mx-auto">
-                <div className="mb-6 flex justify-center">
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-muted rounded-full blur-2xl opacity-50" />
-                    <Search className="h-20 w-20 text-muted-foreground relative" />
-                  </div>
-                </div>
-                <h2 className="font-serif text-2xl font-bold mb-2">Aucun produit trouvé</h2>
-                <p className="text-muted-foreground mb-6">
+            <Empty className="py-20 px-4 border-0">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Search className="size-6" aria-hidden />
+                </EmptyMedia>
+                <EmptyTitle>Aucun produit trouvé</EmptyTitle>
+                <EmptyDescription>
                   {activeFilterCount > 0
                     ? "Essayez de modifier vos critères de recherche ou de réinitialiser les filtres pour voir plus de résultats."
                     : "Nous n'avons pas trouvé de produits correspondant à votre recherche. Essayez d'autres mots-clés."}
-                </p>
+                  {searchQuery && (
+                    <span className="block mt-2">
+                      Recherche : <span className="font-medium text-foreground">"{searchQuery}"</span>
+                    </span>
+                  )}
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
                   {activeFilterCount > 0 && (
                     <Button onClick={clearFilters} className="gap-2">
@@ -309,17 +332,12 @@ export function CatalogPage() {
                       Réinitialiser les filtres
                     </Button>
                   )}
-                  <Button variant="outline" onClick={() => navigate("catalog")} className="gap-2">
+                  <Button variant="outline" onClick={() => navigate(PAGES.store.catalog)} className="gap-2">
                     Voir tout le catalogue
                   </Button>
                 </div>
-                {searchQuery && (
-                  <p className="text-sm text-muted-foreground mt-4">
-                    Recherche : <span className="font-medium text-foreground">"{searchQuery}"</span>
-                  </p>
-                )}
-              </div>
-            </div>
+              </EmptyContent>
+            </Empty>
           ) : (
             <>
               <div className={`grid grid-cols-2 ${gridCols === 3 ? "lg:grid-cols-3" : "lg:grid-cols-4"} gap-4 md:gap-6`}>
@@ -330,70 +348,15 @@ export function CatalogPage() {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="mt-8 flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">
-                    Affichage de {(currentPage - 1) * PRODUCTS_PER_PAGE + 1} à {Math.min(currentPage * PRODUCTS_PER_PAGE, filteredProducts.length)} sur {filteredProducts.length} produits
-                  </p>
-                  <Pagination>
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious
-                          onClick={() => {
-                            if (currentPage > 1) setCurrentPage(currentPage - 1)
-                          }}
-                          disabled={currentPage === 1}
-                          aria-label="Page précédente"
-                        />
-                      </PaginationItem>
-
-                      {/* Pages */}
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                        // Afficher la première page, la dernière, la page actuelle et quelques pages autour
-                        if (
-                          page === 1 ||
-                          page === totalPages ||
-                          (page >= currentPage - 1 && page <= currentPage + 1)
-                        ) {
-                          return (
-                            <PaginationItem key={page}>
-                              <PaginationLink
-                                href="#"
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  setCurrentPage(page)
-                                }}
-                                isActive={currentPage === page}
-                                aria-label={`Page ${page}`}
-                                aria-current={currentPage === page ? "page" : undefined}
-                              >
-                                {page}
-                              </PaginationLink>
-                            </PaginationItem>
-                          )
-                        } else if (
-                          page === currentPage - 2 ||
-                          page === currentPage + 2
-                        ) {
-                          return (
-                            <PaginationItem key={page}>
-                              <PaginationEllipsis />
-                            </PaginationItem>
-                          )
-                        }
-                        return null
-                      })}
-
-                      <PaginationItem>
-                        <PaginationNext
-                          onClick={() => {
-                            if (currentPage < totalPages) setCurrentPage(currentPage + 1)
-                          }}
-                          disabled={currentPage === totalPages}
-                          aria-label="Page suivante"
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
+                <div className="mt-8">
+                  <PaginationSimple
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalItems={filteredProducts.length}
+                    itemsPerPage={PRODUCTS_PER_PAGE}
+                    onPageChange={setCurrentPage}
+                    itemLabel="produits"
+                  />
                 </div>
               )}
             </>
