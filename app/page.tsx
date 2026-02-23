@@ -1,26 +1,31 @@
 "use client"
 
-import { useEffect } from "react"
 import dynamic from "next/dynamic"
+import type { ComponentType } from "react"
+import { Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import { AnimatePresence, motion } from "framer-motion"
-import { StoreProvider, useStore } from "@/lib/store-context"
+import { StoreProvider, useNavigationStore } from "@/lib/store-context"
 import { useAuthStore } from "@/lib/stores/auth-store"
-import { StoreHeader } from "@/components/store/header"
-import { StoreFooter } from "@/components/store/footer"
-import { HomePage } from "@/components/store/home-page"
+import { useSyncUrlWithStore } from "@/hooks/use-sync-url-with-store"
+import { StoreHeader } from "@/components/store/shared/header"
+import { StoreFooter } from "@/components/store/shared/footer"
+import { StoreDocumentHead } from "@/components/store/shared/store-document-head"
 import { pageVariants, getReducedMotionConfig, defaultTransition } from "@/lib/animations"
 import { PAGES } from "@/lib/routes"
+import type { StorePageKey, AdminPageKey } from "@/lib/routes"
 import { ProtectedRoute } from "@/lib/guards"
 import { PageSkeleton } from "@/components/ui/page-skeleton"
+import { ErrorBoundary } from "@/components/ui/error-boundary"
 
-const CatalogPage = dynamic(() => import("@/components/store/catalog-page").then((m) => ({ default: m.CatalogPage })), { loading: () => <PageSkeleton /> })
-const ProductPage = dynamic(() => import("@/components/store/product-page").then((m) => ({ default: m.ProductPage })), { loading: () => <PageSkeleton /> })
-const CartPage = dynamic(() => import("@/components/store/cart-page").then((m) => ({ default: m.CartPage })), { loading: () => <PageSkeleton /> })
-const CheckoutPage = dynamic(() => import("@/components/store/checkout-page").then((m) => ({ default: m.CheckoutPage })), { loading: () => <PageSkeleton /> })
-const WishlistPage = dynamic(() => import("@/components/store/wishlist-page").then((m) => ({ default: m.WishlistPage })), { loading: () => <PageSkeleton /> })
-const AccountPage = dynamic(() => import("@/components/store/account-page").then((m) => ({ default: m.AccountPage })), { loading: () => <PageSkeleton /> })
+const HomePage = dynamic(() => import("@/components/store/pages/home-page").then((m) => ({ default: m.HomePage })), { loading: () => <PageSkeleton /> })
+const CatalogPage = dynamic(() => import("@/components/store/pages/catalog-page").then((m) => ({ default: m.CatalogPage })), { loading: () => <PageSkeleton /> })
+const ProductPage = dynamic(() => import("@/components/store/pages/product-page").then((m) => ({ default: m.ProductPage })), { loading: () => <PageSkeleton /> })
+const CartPage = dynamic(() => import("@/components/store/pages/cart-page").then((m) => ({ default: m.CartPage })), { loading: () => <PageSkeleton /> })
+const CheckoutPage = dynamic(() => import("@/components/store/pages/checkout-page").then((m) => ({ default: m.CheckoutPage })), { loading: () => <PageSkeleton /> })
+const WishlistPage = dynamic(() => import("@/components/store/pages/wishlist-page").then((m) => ({ default: m.WishlistPage })), { loading: () => <PageSkeleton /> })
+const AccountPage = dynamic(() => import("@/components/store/pages/account-page").then((m) => ({ default: m.AccountPage })), { loading: () => <PageSkeleton /> })
 const AdminLayout = dynamic(() => import("@/components/admin/admin-layout").then((m) => ({ default: m.AdminLayout })), { loading: () => <PageSkeleton /> })
-const AdminLogin = dynamic(() => import("@/components/admin/admin-login").then((m) => ({ default: m.AdminLogin })), { loading: () => <PageSkeleton /> })
 const AdminDashboard = dynamic(() => import("@/components/admin/admin-dashboard").then((m) => ({ default: m.AdminDashboard })), { loading: () => <PageSkeleton /> })
 const AdminProducts = dynamic(() => import("@/components/admin/admin-products").then((m) => ({ default: m.AdminProducts })), { loading: () => <PageSkeleton /> })
 const AdminCategories = dynamic(() => import("@/components/admin/admin-categories").then((m) => ({ default: m.AdminCategories })), { loading: () => <PageSkeleton /> })
@@ -30,104 +35,97 @@ const AdminAnalytics = dynamic(() => import("@/components/admin/admin-analytics"
 const AdminPromos = dynamic(() => import("@/components/admin/admin-promos").then((m) => ({ default: m.AdminPromos })), { loading: () => <PageSkeleton /> })
 const AdminReviews = dynamic(() => import("@/components/admin/admin-reviews").then((m) => ({ default: m.AdminReviews })), { loading: () => <PageSkeleton /> })
 const AdminSettings = dynamic(() => import("@/components/admin/admin-settings").then((m) => ({ default: m.AdminSettings })), { loading: () => <PageSkeleton /> })
+const AdminHeroSlides = dynamic(() => import("@/components/admin/admin-hero-slides").then((m) => ({ default: m.AdminHeroSlides })), { loading: () => <PageSkeleton /> })
 
 const pageAnimationVariants = getReducedMotionConfig(pageVariants)
 
+const STORE_PAGE_MAP: Record<StorePageKey, ComponentType> = {
+  [PAGES.store.home]: HomePage,
+  [PAGES.store.catalog]: CatalogPage,
+  [PAGES.store.product]: ProductPage,
+  [PAGES.store.cart]: CartPage,
+  [PAGES.store.checkout]: CheckoutPage,
+  [PAGES.store.account]: AccountPage,
+  [PAGES.store.wishlist]: WishlistPage,
+  [PAGES.store.category]: CatalogPage,
+  [PAGES.store.promotions]: CatalogPage,
+}
+
+const ADMIN_PAGE_MAP: Record<AdminPageKey, ComponentType> = {
+  [PAGES.admin.dashboard]: AdminDashboard,
+  [PAGES.admin.products]: AdminProducts,
+  [PAGES.admin.categories]: AdminCategories,
+  [PAGES.admin.heroSlides]: AdminHeroSlides,
+  [PAGES.admin.orders]: AdminOrders,
+  [PAGES.admin.customers]: AdminCustomers,
+  [PAGES.admin.analytics]: AdminAnalytics,
+  [PAGES.admin.promos]: AdminPromos,
+  [PAGES.admin.reviews]: AdminReviews,
+  [PAGES.admin.settings]: AdminSettings,
+}
+
+/** Clés de page admin valides pour afficher la bonne vue dès le premier rendu (éviter flash boutique). */
+const ADMIN_PAGE_KEYS = new Set<string>(Object.values(PAGES.admin))
+
+const STORE_PAGES_WITH_ERROR_BOUNDARY = new Set<StorePageKey>([PAGES.store.cart, PAGES.store.checkout])
+
 function AppContent() {
-  const { currentView, currentPage, setCurrentView, navigate } = useStore()
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const { currentView, currentPage } = useNavigationStore()
+  const searchParams = useSearchParams()
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const hasHydrated = useAuthStore((s) => s._hasHydrated)
 
-  // Si authentifié mais currentView n'est pas admin, forcer le passage en mode admin
-  useEffect(() => {
-    if (isAuthenticated && currentView !== "admin") {
-      setCurrentView("admin")
-      navigate(PAGES.admin.dashboard)
-    }
-  }, [isAuthenticated, currentView, setCurrentView, navigate])
+  useSyncUrlWithStore()
 
-  // Admin view - protection par guard (fallback = page login)
-  if (currentView === "admin" || isAuthenticated) {
-    let adminContent
-    switch (currentPage) {
-      case PAGES.admin.dashboard:
-        adminContent = <AdminDashboard />
-        break
-      case PAGES.admin.products:
-        adminContent = <AdminProducts />
-        break
-      case PAGES.admin.categories:
-        adminContent = <AdminCategories />
-        break
-      case PAGES.admin.orders:
-        adminContent = <AdminOrders />
-        break
-      case PAGES.admin.customers:
-        adminContent = <AdminCustomers />
-        break
-      case PAGES.admin.analytics:
-        adminContent = <AdminAnalytics />
-        break
-      case PAGES.admin.promos:
-        adminContent = <AdminPromos />
-        break
-      case PAGES.admin.reviews:
-        adminContent = <AdminReviews />
-        break
-      case PAGES.admin.settings:
-        adminContent = <AdminSettings />
-        break
-      default:
-        adminContent = <AdminDashboard />
-    }
+  const urlViewAdmin = searchParams.get("view") === "admin"
+  const displayView =
+    urlViewAdmin && isAuthenticated && hasHydrated
+      ? "admin"
+      : urlViewAdmin && !hasHydrated
+        ? "pending"
+        : currentView
+  const pageParam = searchParams.get("page")
+  const displayPage =
+    displayView === "admin"
+      ? (pageParam && ADMIN_PAGE_KEYS.has(pageParam) ? pageParam : PAGES.admin.dashboard)
+      : currentPage
+
+  // Éviter le flash boutique : tant que l’URL est admin et qu’on n’a pas encore hydraté l’auth, afficher le skeleton
+  if (displayView === "pending") {
+    return <PageSkeleton />
+  }
+
+  if (displayView === "admin") {
+    const AdminComponent = ADMIN_PAGE_MAP[displayPage as AdminPageKey] ?? AdminDashboard
+    const adminContent = <AdminComponent />
 
     return (
-      <ProtectedRoute fallback={<AdminLogin />}>
-        <AdminLayout>{adminContent}</AdminLayout>
+      <ProtectedRoute>
+        <ErrorBoundary>
+          <AdminLayout>{adminContent}</AdminLayout>
+        </ErrorBoundary>
       </ProtectedRoute>
     )
   }
 
   // Store view
-  let pageContent
-  switch (currentPage) {
-    case PAGES.store.home:
-      pageContent = <HomePage />
-      break
-    case PAGES.store.catalog:
-      pageContent = <CatalogPage />
-      break
-    case PAGES.store.product:
-      pageContent = <ProductPage />
-      break
-    case PAGES.store.cart:
-      pageContent = <CartPage />
-      break
-    case PAGES.store.checkout:
-      pageContent = <CheckoutPage />
-      break
-    case PAGES.store.account:
-      pageContent = <AccountPage />
-      break
-    case PAGES.store.wishlist:
-      pageContent = <WishlistPage />
-      break
-    case PAGES.store.category:
-      pageContent = <CatalogPage />
-      break
-    case PAGES.store.promotions:
-      pageContent = <CatalogPage />
-      break
-    default:
-      pageContent = <HomePage />
-  }
+  const StoreComponent = STORE_PAGE_MAP[displayPage as StorePageKey] ?? HomePage
+  const pageContent = STORE_PAGES_WITH_ERROR_BOUNDARY.has(displayPage as StorePageKey) ? (
+    <ErrorBoundary>
+      <StoreComponent />
+    </ErrorBoundary>
+  ) : (
+    <StoreComponent />
+  )
 
   return (
     <div className="min-h-screen flex flex-col w-full">
+      <StoreDocumentHead />
       <StoreHeader />
       <main id="main-content" className="flex-1 w-full" role="main" tabIndex={-1}>
         <AnimatePresence mode="wait">
           <motion.div
-            key={currentPage}
+            key={displayPage}
             variants={pageAnimationVariants}
             initial="initial"
             animate="animate"
@@ -147,7 +145,9 @@ function AppContent() {
 export default function Home() {
   return (
     <StoreProvider>
-      <AppContent />
+      <Suspense fallback={<PageSkeleton />}>
+        <AppContent />
+      </Suspense>
     </StoreProvider>
   )
 }

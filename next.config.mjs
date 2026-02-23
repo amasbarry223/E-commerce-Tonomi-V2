@@ -4,7 +4,8 @@ const nextConfig = {
     ignoreBuildErrors: false, // Activer la vérification TypeScript
   },
   images: {
-    unoptimized: false, // Activer l'optimisation des images
+    unoptimized: false,
+    // Ajouter d'autres hostnames (CDN, uploads) dans remotePatterns si besoin.
     remotePatterns: [
       {
         protocol: 'https',

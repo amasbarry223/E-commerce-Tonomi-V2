@@ -41,7 +41,7 @@ export function useEmblaCarouselState(
   useEffect(() => {
     if (!emblaApi) return
 
-    onSelect()
+    queueMicrotask(onSelect)
     emblaApi.on("select", onSelect)
     emblaApi.on("reInit", onSelect)
 

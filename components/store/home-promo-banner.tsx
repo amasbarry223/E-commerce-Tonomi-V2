@@ -39,7 +39,7 @@ export function PromoBanner({ onNavigateToCatalog }: PromoBannerProps) {
       >
         <h2 className="font-serif text-3xl md:text-4xl font-bold mb-4">Soldes Exceptionnelles</h2>
         <p className="text-primary-foreground/70 mb-6 max-w-xl mx-auto">
-          Profitez de réductions allant jusqu'à -30% sur une sélection de nos plus beaux articles. Offre limitée !
+          Profitez de réductions allant jusqu&apos;à -30% sur une sélection de nos plus beaux articles. Offre limitée !
         </p>
         <Button
           onClick={onNavigateToCatalog}

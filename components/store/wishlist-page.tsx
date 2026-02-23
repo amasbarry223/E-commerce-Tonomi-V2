@@ -1,8 +1,9 @@
 "use client"
 
-import { useStore } from "@/lib/store-context"
+import { useNavigationStore, useUIStore } from "@/lib/store-context"
 import { PAGES } from "@/lib/routes"
-import { products } from "@/lib/data"
+import { getProducts } from "@/lib/services"
+import { pluralize } from "@/lib/formatters"
 import { SECTION_CONTAINER } from "@/lib/layout"
 import { ProductCard } from "./product-card"
 import { Button } from "@/components/ui/button"
@@ -10,7 +11,9 @@ import { Heart } from "lucide-react"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 
 export function WishlistPage() {
-  const { wishlist, navigate } = useStore()
+  const { navigate } = useNavigationStore()
+  const { wishlist } = useUIStore()
+  const products = getProducts()
   const wishlistProducts = products.filter((p) => wishlist.some((w) => w.productId === p.id))
 
   return (
@@ -31,7 +34,7 @@ export function WishlistPage() {
         </Empty>
       ) : (
         <>
-          <p className="text-muted-foreground mb-6">{wishlistProducts.length} article{wishlistProducts.length > 1 ? "s" : ""} en favori{wishlistProducts.length > 1 ? "s" : ""}</p>
+          <p className="text-muted-foreground mb-6">{wishlistProducts.length} {pluralize(wishlistProducts.length, "article")} en {pluralize(wishlistProducts.length, "favori", "favoris")}</p>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {wishlistProducts.map((product) => (
               <ProductCard key={product.id} product={product} />

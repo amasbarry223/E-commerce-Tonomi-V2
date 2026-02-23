@@ -3,6 +3,8 @@
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { useAuthStore } from './auth-store'
+import { addLog } from './logs-actions'
 
 export interface AdminUser {
   id: string
@@ -24,20 +26,24 @@ interface UsersStore {
   getUserByEmail: (email: string) => AdminUser | undefined
 }
 
+function getDefaultAdminUser(): AdminUser {
+  const email = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_ADMIN_DEFAULT_EMAIL) || 'admin@tonomi.com'
+  const password = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_ADMIN_DEFAULT_PASSWORD) || 'admin123'
+  return {
+    id: '1',
+    email,
+    password,
+    role: 'super-admin',
+    name: 'Administrateur Principal',
+    createdAt: new Date().toISOString(),
+    active: true,
+  }
+}
+
 export const useUsersStore = create<UsersStore>()(
   persist(
     (set, get) => ({
-      users: [
-        {
-          id: '1',
-          email: 'admin@tonomi.com',
-          password: 'admin123',
-          role: 'super-admin',
-          name: 'Administrateur Principal',
-          createdAt: new Date().toISOString(),
-          active: true,
-        },
-      ],
+      users: [getDefaultAdminUser()],
 
       addUser: (userData) => {
         const newUser: AdminUser = {
@@ -49,21 +55,13 @@ export const useUsersStore = create<UsersStore>()(
           users: [...state.users, newUser],
         }))
         
-        // Ajouter un log
-        try {
-          const { useLogsStore } = require('./logs-store')
-          const { useAuthStore } = require('./auth-store')
-          const logsStore = useLogsStore.getState()
-          const authStore = useAuthStore.getState()
-          logsStore.addLog({
-            action: 'create_user',
-            userId: authStore.user?.id || 'system',
-            userEmail: authStore.user?.email || 'system',
-            description: `Création de l'utilisateur ${userData.name} (${userData.email})`,
-          })
-        } catch {
-          // Ignorer si les stores ne sont pas disponibles
-        }
+        const authUser = useAuthStore.getState().user
+        addLog({
+          action: 'create_user',
+          userId: authUser?.id ?? 'system',
+          userEmail: authUser?.email ?? 'system',
+          description: `Création de l'utilisateur ${userData.name} (${userData.email})`,
+        })
       },
 
       updateUser: (id, updates) => {

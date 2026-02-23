@@ -7,7 +7,7 @@
 
 import { useCallback } from "react"
 import { toast } from "sonner"
-import { handleError, type ErrorHandlerOptions } from "@/src/lib/utils/error-handling"
+import { handleError, type ErrorHandlerOptions } from "@/lib/utils/error-handling"
 
 /**
  * Hook pour gérer les erreurs dans les composants React
@@ -57,7 +57,7 @@ export function useErrorHandler(defaultOptions: ErrorHandlerOptions = {}) {
     ): Promise<T | null> => {
       try {
         return await fn()
-      } catch (error) {
+      } catch (error: unknown) {
         handleErrorWithToast(error, options)
         return null
       }
@@ -69,7 +69,7 @@ export function useErrorHandler(defaultOptions: ErrorHandlerOptions = {}) {
     <T>(fn: () => T, options: ErrorHandlerOptions = {}): T | null => {
       try {
         return fn()
-      } catch (error) {
+      } catch (error: unknown) {
         handleErrorWithToast(error, options)
         return null
       }

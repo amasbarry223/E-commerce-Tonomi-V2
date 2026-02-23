@@ -1,47 +1,58 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { orders, customers, formatPrice, formatDate, getStatusColor, getStatusLabel, type Order } from "@/lib/data"
+import Image from "next/image"
+import { getOrders, getCustomers } from "@/lib/services"
+import type { Order } from "@/lib/types"
+import { formatPrice, formatDate, getStatusColor, getStatusLabel, pluralize } from "@/lib/formatters"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Search, Download, Eye, Printer, Package, Truck } from "lucide-react"
+import { Download, Eye, Printer, Package, Truck } from "lucide-react"
 import { toast } from "sonner"
-import { TOAST_MESSAGES } from "@/lib/constants"
+import { TOAST_MESSAGES, LAYOUT_CONSTANTS, ORDER_LABELS } from "@/lib/constants"
+import { downloadCsv, csvFilename } from "@/lib/utils/export-csv"
 import { PaginationSimple as Pagination } from "@/components/ui/pagination"
 import { usePagination } from "@/hooks/use-pagination"
-import { TableSkeleton } from "@/components/ui/table-skeleton"
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
+import { AdminSectionHeader } from "@/components/admin/admin-section-header"
+import { AdminTableToolbar } from "@/components/admin/admin-table-toolbar"
+import { AdminEmptyState } from "@/components/admin/admin-empty-state"
+
+/** Statuts affichés dans le filtre et le sélecteur de détail (admin) */
+const ADMIN_ORDER_STATUS_OPTIONS: Order["status"][] = ["pending", "confirmed", "shipped", "delivered", "cancelled", "refunded"]
 
 export function AdminOrders() {
+  const orders = getOrders()
+  const customers = getCustomers()
+  const customersMap = useMemo(() => new Map(customers.map(c => [c.id, c])), [customers])
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null)
   const [orderUpdates, setOrderUpdates] = useState<Record<string, { status?: Order["status"]; trackingNumber?: string }>>({})
-  const [loading, _setLoading] = useState(false)
   const filtered = useMemo(() => {
     let result = [...orders]
     if (search) {
       const q = search.toLowerCase()
       result = result.filter(o => {
-        const cust = customers.find(c => c.id === o.customerId)
+        const cust = customersMap.get(o.customerId)
         return o.orderNumber.toLowerCase().includes(q) ||
-          `${cust?.firstName} ${cust?.lastName}`.toLowerCase().includes(q)
+          `${cust?.firstName ?? ""} ${cust?.lastName ?? ""}`.trim().toLowerCase().includes(q)
       })
     }
-    if (statusFilter !== "all") result = result.filter(o => {
-      const update = orderUpdates[o.id]
-      const currentStatus = update?.status || o.status
-      return currentStatus === statusFilter
-    })
+    if (statusFilter !== "all") {
+      result = result.filter(o => {
+        const currentStatus = orderUpdates[o.id]?.status ?? o.status
+        return currentStatus === statusFilter
+      })
+    }
     return result.sort((a, b) => {
       const dateA = new Date(a.createdAt).getTime()
       const dateB = new Date(b.createdAt).getTime()
       return dateB - dateA !== 0 ? dateB - dateA : a.id.localeCompare(b.id)
     })
-  }, [search, statusFilter, orderUpdates])
+  }, [search, statusFilter, orderUpdates, orders, customersMap])
 
   const {
     paginatedData,
@@ -77,12 +88,11 @@ export function AdminOrders() {
   const handleExport = () => {
     const headers = ["Numéro", "Client", "Date", "Statut", "Paiement", "Total", "Articles"]
     const rows = filtered.map(order => {
-      const customer = customers.find(c => c.id === order.customerId)
-      const update = orderUpdates[order.id]
-      const status = update?.status || order.status
+      const customer = customersMap.get(order.customerId)
+      const status = orderUpdates[order.id]?.status ?? order.status
       return [
         order.orderNumber,
-        `${customer?.firstName || ""} ${customer?.lastName || ""}`.trim(),
+        `${customer?.firstName ?? ""} ${customer?.lastName ?? ""}`.trim(),
         formatDate(order.createdAt),
         getStatusLabel(status),
         order.paymentMethod,
@@ -90,63 +100,40 @@ export function AdminOrders() {
         order.items.length.toString()
       ]
     })
-
-    const csvContent = [
-      headers.join(","),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
-    ].join("\n")
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const link = document.createElement("a")
-    const url = URL.createObjectURL(blob)
-    link.setAttribute("href", url)
-    link.setAttribute("download", `commandes_${new Date().toISOString().split("T")[0]}.csv`)
-    link.style.visibility = "hidden"
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    downloadCsv(headers, rows, csvFilename("commandes"))
     toast.success(TOAST_MESSAGES.EXPORT_SUCCESS)
   }
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold">Gestion des commandes</h2>
-          <p className="text-sm text-muted-foreground">{orders.length} commandes</p>
-        </div>
+      <AdminSectionHeader
+        title="Gestion des commandes"
+        description={`${orders.length} commandes`}
+      >
         <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExport}>
           <Download className="h-3.5 w-3.5" /> Exporter
         </Button>
-      </div>
+      </AdminSectionHeader>
 
-      <div className="flex flex-col md:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher par numero ou client..." className="pl-10" />
-        </div>
+      <AdminTableToolbar
+        searchPlaceholder="Rechercher par numéro ou client..."
+        searchValue={search}
+        onSearchChange={setSearch}
+      >
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder="Statut" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tous les statuts</SelectItem>
-            <SelectItem value="pending">En attente</SelectItem>
-            <SelectItem value="confirmed">Confirmee</SelectItem>
-            <SelectItem value="shipped">Expediee</SelectItem>
-            <SelectItem value="delivered">Livree</SelectItem>
-            <SelectItem value="cancelled">Annulee</SelectItem>
+            {ADMIN_ORDER_STATUS_OPTIONS.map(status => (
+              <SelectItem key={status} value={status}>{getStatusLabel(status)}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
-      </div>
+      </AdminTableToolbar>
 
       <div className="bg-card border border-border rounded-lg overflow-hidden">
-        {loading ? (
-          <div className="p-4">
-            <TableSkeleton rowCount={10} columnCount={7} />
-          </div>
-        ) : (
-        <>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -162,37 +149,39 @@ export function AdminOrders() {
             </thead>
             <tbody>
               {paginatedData.map(order => {
-                const customer = customers.find(c => c.id === order.customerId)
+                const customer = customersMap.get(order.customerId)
+                const orderStatus = orderUpdates[order.id]?.status ?? order.status
                 return (
                   <tr key={order.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                     <td className="py-3 px-4">
                       <p className="font-mono text-xs font-bold">{order.orderNumber}</p>
-                      <p className="text-xs text-muted-foreground">{order.items.length} article{order.items.length > 1 ? "s" : ""}</p>
+                      <p className="text-xs text-muted-foreground">{order.items.length} {pluralize(order.items.length, "article")}</p>
                     </td>
                     <td className="py-3 px-4 hidden md:table-cell">
                       <div className="flex items-center gap-2">
                         {customer && (
-                        <img
-                          src={customer.avatar}
-                          alt={`Avatar de ${customer.firstName} ${customer.lastName}`}
-                          className="h-6 w-6 rounded-full object-cover"
-                          crossOrigin="anonymous"
-                        />
-                      )}
+                          <Image
+                            src={customer.avatar}
+                            alt={`Avatar de ${customer.firstName} ${customer.lastName}`}
+                            width={24}
+                            height={24}
+                            className="h-6 w-6 rounded-full object-cover"
+                          />
+                        )}
                         <span>{customer?.firstName} {customer?.lastName}</span>
                       </div>
                     </td>
                     <td className="py-3 px-4 text-muted-foreground text-xs hidden lg:table-cell">{formatDate(order.createdAt)}</td>
                     <td className="py-3 px-4">
-                      <Badge className={`${getStatusColor(orderUpdates[order.id]?.status || order.status)} text-xs`}>
-                        {getStatusLabel(orderUpdates[order.id]?.status || order.status)}
+                      <Badge className={`${getStatusColor(orderStatus)} text-xs`}>
+                        {getStatusLabel(orderStatus)}
                       </Badge>
                     </td>
                     <td className="py-3 px-4 text-xs hidden md:table-cell">{order.paymentMethod}</td>
                     <td className="py-3 px-4 text-right font-medium">{formatPrice(order.total)}</td>
                     <td className="py-3 px-4 text-right">
-                      <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-8 sm:w-8" onClick={() => setSelectedOrder(order.id)}>
-                        <Eye className="h-4 w-4" />
+                      <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-8 sm:w-8" onClick={() => setSelectedOrder(order.id)} aria-label={`Voir la commande ${order.orderNumber}`}>
+                        <Eye className="h-4 w-4" aria-hidden />
                       </Button>
                     </td>
                   </tr>
@@ -202,20 +191,14 @@ export function AdminOrders() {
           </table>
         </div>
         {filtered.length === 0 && (
-          <Empty className="py-12 border-0">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <Package className="size-6" />
-              </EmptyMedia>
-              <EmptyTitle>Aucune commande trouvée</EmptyTitle>
-              <EmptyDescription>Les commandes apparaîtront ici.</EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        )}
-        </>
+          <AdminEmptyState
+            title="Aucune commande trouvée"
+            description="Les commandes apparaîtront ici."
+            icon={Package}
+          />
         )}
         {/* Pagination dans la carte : toujours visible sous le tableau */}
-        {!loading && filtered.length > 0 && (
+        {filtered.length > 0 && (
           <div className="border-t border-border bg-muted/20 px-4 py-3 sm:px-6">
             <Pagination
               currentPage={currentPage}
@@ -236,7 +219,7 @@ export function AdminOrders() {
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span>Commande {viewOrder?.orderNumber}</span>
-              {viewOrder && <Badge className={`${getStatusColor(viewOrder.status)} text-xs`}>{getStatusLabel(viewOrder.status)}</Badge>}
+              {viewOrder && currentStatus != null && <Badge className={`${getStatusColor(currentStatus)} text-xs`}>{getStatusLabel(currentStatus)}</Badge>}
             </DialogTitle>
           </DialogHeader>
           {viewOrder && (
@@ -244,13 +227,14 @@ export function AdminOrders() {
               {/* Client info */}
               <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
                 {viewCustomer && (
-                <img
-                  src={viewCustomer.avatar}
-                  alt={`Avatar de ${viewCustomer.firstName} ${viewCustomer.lastName}`}
-                  className="h-10 w-10 rounded-full object-cover"
-                  crossOrigin="anonymous"
-                />
-              )}
+                  <Image
+                    src={viewCustomer.avatar}
+                    alt={`Avatar de ${viewCustomer.firstName} ${viewCustomer.lastName}`}
+                    width={40}
+                    height={40}
+                    className="h-10 w-10 rounded-full object-cover"
+                  />
+                )}
                 <div>
                   <p className="font-medium">{viewCustomer?.firstName} {viewCustomer?.lastName}</p>
                   <p className="text-sm text-muted-foreground">{viewCustomer?.email}</p>
@@ -262,8 +246,8 @@ export function AdminOrders() {
                 <h4 className="font-semibold text-sm mb-3">Articles</h4>
                 <div className="flex flex-col gap-3">
                   {viewOrder.items.map((item, i) => (
-                    <div key={i} className="flex gap-3 items-center">
-                      <img src={item.image} alt={item.name} className="h-12 w-12 rounded object-cover" crossOrigin="anonymous" />
+                    <div key={`${item.productId}-${item.name}-${i}`} className="flex gap-3 items-center">
+                      <Image src={item.image} alt={item.name} width={48} height={48} className="h-12 w-12 rounded object-cover" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{item.name}</p>
                         <p className="text-xs text-muted-foreground">{item.color} {item.size ? `| ${item.size}` : ""} | x{item.quantity}</p>
@@ -283,45 +267,38 @@ export function AdminOrders() {
                 </div>
                 <div>
                   <h4 className="font-semibold text-sm mb-2 flex items-center gap-1.5"><Truck className="h-4 w-4" /> Numéro de suivi</h4>
-                  <div className="flex gap-2">
-                    <Input
-                      value={currentTracking || ""}
-                      onChange={(e) => handleTrackingUpdate(viewOrder.id, e.target.value)}
-                      placeholder="Numéro de suivi"
-                      className="text-sm font-mono"
+                  {viewOrder && (
+                    <OrderTrackingInput
+                      key={viewOrder.id}
+                      orderId={viewOrder.id}
+                      initialTracking={currentTracking ?? ""}
+                      currentTracking={currentTracking}
+                      onSave={handleTrackingUpdate}
                     />
-                    {currentTracking && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleTrackingUpdate(viewOrder.id, "")}
-                      >
-                        Supprimer
-                      </Button>
-                    )}
-                  </div>
+                  )}
                 </div>
               </div>
 
               {/* Totals */}
               <div className="border-t border-border pt-4 flex flex-col gap-2 text-sm">
                 <div className="flex justify-between"><span className="text-muted-foreground">Sous-total</span><span>{formatPrice(viewOrder.subtotal)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Livraison</span><span>{viewOrder.shipping === 0 ? "Gratuite" : formatPrice(viewOrder.shipping)}</span></div>
-                {viewOrder.discount > 0 && <div className="flex justify-between text-emerald-600"><span>Reduction</span><span>-{formatPrice(viewOrder.discount)}</span></div>}
+                <div className="flex justify-between"><span className="text-muted-foreground">Livraison</span><span>{viewOrder.shipping === 0 ? LAYOUT_CONSTANTS.FREE_SHIPPING_LABEL : formatPrice(viewOrder.shipping)}</span></div>
+                {viewOrder.discount > 0 && <div className="flex justify-between text-emerald-600"><span>{ORDER_LABELS.DISCOUNT}</span><span>-{formatPrice(viewOrder.discount)}</span></div>}
                 <div className="flex justify-between"><span className="text-muted-foreground">TVA</span><span>{formatPrice(viewOrder.tax)}</span></div>
                 <div className="flex justify-between font-bold text-lg border-t border-border pt-2"><span>Total</span><span>{formatPrice(viewOrder.total)}</span></div>
               </div>
 
               {/* Actions */}
               <div className="flex gap-2">
-                <Select value={currentStatus} onValueChange={(value) => handleStatusUpdate(viewOrder.id, value as Order["status"])}>
-                  <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+                <Select
+                  value={currentStatus ?? ""}
+                  onValueChange={(value) => handleStatusUpdate(viewOrder.id, value as Order["status"])}
+                >
+                  <SelectTrigger className="w-48"><SelectValue placeholder="Statut" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pending">En attente</SelectItem>
-                    <SelectItem value="confirmed">Confirmee</SelectItem>
-                    <SelectItem value="shipped">Expediee</SelectItem>
-                    <SelectItem value="delivered">Livree</SelectItem>
-                    <SelectItem value="cancelled">Annulee</SelectItem>
+                    {ADMIN_ORDER_STATUS_OPTIONS.map(status => (
+                      <SelectItem key={status} value={status}>{getStatusLabel(status)}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <Button variant="outline" size="sm" className="gap-1.5"><Printer className="h-3.5 w-3.5" /> Facture</Button>
@@ -330,6 +307,46 @@ export function AdminOrders() {
           )}
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+function OrderTrackingInput({
+  orderId,
+  initialTracking,
+  currentTracking,
+  onSave,
+}: {
+  orderId: string
+  initialTracking: string
+  currentTracking: string | undefined
+  onSave: (id: string, value: string) => void
+}) {
+  const [trackingInput, setTrackingInput] = useState(initialTracking)
+  return (
+    <div className="flex gap-2">
+      <Input
+        value={trackingInput}
+        onChange={(e) => setTrackingInput(e.target.value)}
+        placeholder="Numéro de suivi"
+        className="text-sm font-mono"
+        aria-label="Numéro de suivi"
+      />
+      <Button variant="outline" size="sm" onClick={() => onSave(orderId, trackingInput)}>
+        Enregistrer
+      </Button>
+      {currentTracking && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            onSave(orderId, "")
+            setTrackingInput("")
+          }}
+        >
+          Supprimer
+        </Button>
+      )}
     </div>
   )
 }

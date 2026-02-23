@@ -1,59 +1,37 @@
 "use client"
 
-import { orders, products, customers, reviews, formatPrice, getStatusColor, getStatusLabel } from "@/lib/data"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import dynamic from "next/dynamic"
+import Image from "next/image"
+import { getOrders, getProducts, getCustomers } from "@/lib/services"
+import { formatPrice, getStatusColor, getStatusLabel } from "@/lib/formatters"
+import { useReviewsStore } from "@/lib/stores/reviews-store"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import {
-  Bar, BarChart, Line, LineChart, XAxis, YAxis, CartesianGrid,
-  ResponsiveContainer, PieChart, Pie, Cell,
-} from "recharts"
 import {
   DollarSign, ShoppingCart, Users, TrendingUp,
   Package, AlertTriangle, Star, Clock,
 } from "lucide-react"
+import { AdminChartsSkeleton } from "./admin-charts-skeleton"
 
-// Computed KPIs
-const totalRevenue = orders.filter(o => o.status !== "cancelled").reduce((s, o) => s + o.total, 0)
-const pendingOrders = orders.filter(o => o.status === "pending").length
-const totalCustomers = customers.length
-const averageOrder = totalRevenue / orders.filter(o => o.status !== "cancelled").length
-const lowStockProducts = products.filter(p => p.stock <= 10)
-const pendingReviews = reviews.filter(r => r.status === "pending")
-
-// Monthly sales data
-const monthlySales = [
-  { month: "Sep", revenue: 1250, orders: 8 },
-  { month: "Oct", revenue: 2890, orders: 15 },
-  { month: "Nov", revenue: 3420, orders: 22 },
-  { month: "Dec", revenue: 4100, orders: 28 },
-  { month: "Jan", revenue: 3650, orders: 24 },
-  { month: "Fev", revenue: 2980, orders: 19 },
-]
-
-// Top products
-const topProducts = [...products]
-  .sort((a, b) => b.reviewCount - a.reviewCount)
-  .slice(0, 5)
-  .map(p => ({ name: p.name.length > 20 ? p.name.slice(0, 20) + "..." : p.name, sales: p.reviewCount * 3, revenue: p.price * p.reviewCount }))
-
-// Category distribution
-const COLORS = ["#C19A6B", "#1a1a1a", "#808080", "#8B4513", "#556B2F", "#722F37"]
-const categoryData = [
-  { name: "Sacs a main", value: 35 },
-  { name: "Sacs a dos", value: 20 },
-  { name: "Portefeuilles", value: 18 },
-  { name: "Accessoires", value: 27 },
-]
+const LazyDashboardCharts = dynamic(
+  () => import("./admin-dashboard-charts").then((m) => ({ default: m.AdminDashboardCharts })),
+  { loading: () => <AdminChartsSkeleton /> }
+)
 
 export function AdminDashboard() {
-  const orderStatusData = [
-    { status: getStatusLabel("pending"), count: orders.filter((o) => o.status === "pending").length },
-    { status: getStatusLabel("confirmed"), count: orders.filter((o) => o.status === "confirmed").length },
-    { status: getStatusLabel("shipped"), count: orders.filter((o) => o.status === "shipped").length },
-    { status: getStatusLabel("delivered"), count: orders.filter((o) => o.status === "delivered").length },
-    { status: getStatusLabel("cancelled"), count: orders.filter((o) => o.status === "cancelled").length },
-  ]
+  const orders = getOrders()
+  const products = getProducts()
+  const customers = getCustomers()
+  const totalRevenue = orders.filter(o => o.status !== "cancelled").reduce((s, o) => s + o.total, 0)
+  const pendingOrders = orders.filter(o => o.status === "pending").length
+  const totalCustomers = customers.length
+  const averageOrder = orders.filter(o => o.status !== "cancelled").length > 0
+    ? totalRevenue / orders.filter(o => o.status !== "cancelled").length
+    : 0
+  const lowStockProducts = products.filter(p => p.stock <= 10)
+  const reviews = useReviewsStore((s) => s.reviews)
+  const pendingReviews = reviews.filter((r) => r.status === "pending")
+
   return (
     <div className="flex flex-col gap-6">
       {/* KPI Cards */}
@@ -65,7 +43,7 @@ export function AdminDashboard() {
                 <p className="text-sm text-muted-foreground">Revenus totaux</p>
                 <p className="text-2xl font-bold mt-1">{formatPrice(totalRevenue)}</p>
                 <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
-                  <TrendingUp className="h-3 w-3" /> +12.5% vs mois dernier
+                  <TrendingUp className="h-3 w-3" /> Données démo
                 </p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
@@ -97,7 +75,7 @@ export function AdminDashboard() {
                 <p className="text-sm text-muted-foreground">Clients</p>
                 <p className="text-2xl font-bold mt-1">{totalCustomers}</p>
                 <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
-                  <TrendingUp className="h-3 w-3" /> +2 ce mois
+                  <TrendingUp className="h-3 w-3" /> Données démo
                 </p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
@@ -114,7 +92,7 @@ export function AdminDashboard() {
                 <p className="text-sm text-muted-foreground">Panier moyen</p>
                 <p className="text-2xl font-bold mt-1">{formatPrice(averageOrder)}</p>
                 <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
-                  <TrendingUp className="h-3 w-3" /> +5.2%
+                  <TrendingUp className="h-3 w-3" /> Données démo
                 </p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
@@ -125,114 +103,8 @@ export function AdminDashboard() {
         </Card>
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Revenue Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Evolution des ventes</CardTitle>
-            <CardDescription>Revenus mensuels (6 derniers mois)</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={{
-                revenue: { label: "Revenus", color: "#C19A6B" },
-                orders: { label: "Commandes", color: "#1a1a1a" },
-              }}
-              className="h-[280px]"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={monthlySales} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="month" className="text-xs" tick={{ fontSize: 12 }} />
-                  <YAxis className="text-xs" tick={{ fontSize: 12 }} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Line type="monotone" dataKey="revenue" stroke="#C19A6B" strokeWidth={2} dot={{ r: 4 }} name="Revenus" />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        {/* Top Products */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Produits les plus vendus</CardTitle>
-            <CardDescription>Par nombre de ventes</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={{
-                sales: { label: "Ventes", color: "#C19A6B" },
-              }}
-              className="h-[280px]"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={topProducts} layout="vertical" margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis type="number" tick={{ fontSize: 12 }} />
-                  <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 11 }} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="sales" fill="#C19A6B" radius={[0, 4, 4, 0]} name="Ventes" />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        {/* Category Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Repartition par categorie</CardTitle>
-            <CardDescription>Pourcentage des ventes</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={{
-                value: { label: "Pourcentage" },
-              }}
-              className="h-[280px]"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={categoryData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={3} dataKey="value" label={({ name, value }) => `${name}: ${value}%`}>
-                    {categoryData.map((_, i) => (
-                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                </PieChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        {/* Order Status */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Statut des commandes</CardTitle>
-            <CardDescription>Repartition actuelle</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={{
-                count: { label: "Commandes", color: "#C19A6B" },
-              }}
-              className="h-[280px]"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={orderStatusData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="status" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="count" fill="#C19A6B" radius={[4, 4, 0, 0]} name="Commandes" />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Charts - lazy loaded (Recharts) */}
+      <LazyDashboardCharts />
 
       {/* Alerts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -252,7 +124,7 @@ export function AdminDashboard() {
                 {lowStockProducts.map(p => (
                   <div key={p.id} className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <img src={p.images[0]} alt={p.name} className="h-8 w-8 rounded object-cover" crossOrigin="anonymous" />
+                      <Image src={p.images[0] ?? "/placeholder.svg"} alt={p.name} width={32} height={32} className="h-8 w-8 rounded object-cover" />
                       <span className="text-sm truncate max-w-[200px]">{p.name}</span>
                     </div>
                     <Badge variant="destructive" className="text-xs">{p.stock} restant{p.stock > 1 ? "s" : ""}</Badge>
@@ -302,7 +174,7 @@ export function AdminDashboard() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Clock className="h-4 w-4" />
-              Commandes recentes
+              Commandes récentes
             </CardTitle>
           </CardHeader>
           <CardContent>

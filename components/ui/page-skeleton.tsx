@@ -5,7 +5,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 /** Skeleton affiché pendant le chargement lazy d’une page (Suspense fallback). */
 export function PageSkeleton() {
   return (
-    <div className="w-full min-h-[40vh] flex flex-col gap-6 p-4 md:p-6" aria-hidden>
+    <div className="w-full min-h-[40vh] flex flex-col gap-6 p-4 md:p-6" aria-busy="true" aria-label="Chargement en cours">
+      <div aria-live="polite" aria-atomic="true" className="sr-only">Chargement</div>
       <div className="flex gap-4">
         <Skeleton className="h-10 w-32" />
         <Skeleton className="h-10 flex-1 max-w-md" />

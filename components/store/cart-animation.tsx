@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Image from "next/image"
 
@@ -24,14 +24,23 @@ export function CartAnimation({
   onComplete,
 }: CartAnimationProps) {
   const [isVisible, setIsVisible] = useState(true)
+  const completeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Deux timers : (1) masquer l’animation après 800 ms, (2) appeler onComplete 300 ms après.
+  // Le cleanup annule les deux pour éviter les fuites mémoire.
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsVisible(false)
-      setTimeout(onComplete, 300) // Attendre la fin de l'animation
+      completeTimerRef.current = setTimeout(onComplete, 300)
     }, 800)
 
-    return () => clearTimeout(timer)
+    return () => {
+      clearTimeout(timer)
+      if (completeTimerRef.current !== null) {
+        clearTimeout(completeTimerRef.current)
+        completeTimerRef.current = null
+      }
+    }
   }, [onComplete])
 
   return (

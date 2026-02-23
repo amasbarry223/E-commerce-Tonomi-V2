@@ -10,16 +10,23 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import { useStore } from "@/lib/store-context"
+import { useCartStore, useNavigationStore, useUIStore } from "@/lib/store-context"
 import { PAGES } from "@/lib/routes"
-import { products, reviews, formatPrice, formatDate, categories } from "@/lib/data"
+import { getProducts, getCategories } from "@/lib/services"
+import { formatPrice, formatDate } from "@/lib/formatters"
+import { useReviewsStore } from "@/lib/stores/reviews-store"
+import { reviewSchema, getZodErrorMessage } from "@/lib/utils/validation"
+import { toast } from "sonner"
 import { LAYOUT_CONSTANTS } from "@/lib/constants"
 import { ProductCard } from "./product-card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Heart, ShoppingBag, Star, Minus, Plus, Truck, RotateCcw, ShieldCheck, MessageSquare } from "lucide-react"
+import { ShoppingBag, Star, Truck, RotateCcw, ShieldCheck, MessageSquare } from "lucide-react"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -33,9 +40,14 @@ import { CartAnimation, useCartAnimation } from "./cart-animation"
 import { useCartToast } from "@/hooks/use-cart-toast"
 import { useCartButtonRef } from "@/hooks/use-cart-button-ref"
 import { REVIEW_STATUS, PRODUCT_BADGE } from "@/lib/status-types"
+import { ProductPurchaseBlock } from "./product-purchase-block"
 
 export function ProductPage() {
-  const { selectedProductId, addToCart, toggleWishlist, isInWishlist, navigate } = useStore()
+  const products = getProducts()
+  const categories = getCategories()
+  const { selectedProductId, navigate, selectCategory } = useNavigationStore()
+  const { addToCart } = useCartStore()
+  const { toggleWishlist, isInWishlist } = useUIStore()
   const product = products.find(p => p.id === selectedProductId)
   const { showAddToCartToast } = useCartToast()
   const { animation, triggerAnimation, clearAnimation } = useCartAnimation()
@@ -44,23 +56,70 @@ export function ProductPage() {
   const [selectedSize, setSelectedSize] = useState(0)
   const [quantity, setQuantity] = useState(1)
   const [selectedImage, setSelectedImage] = useState(0)
+  const [reviewName, setReviewName] = useState("")
+  const [reviewRating, setReviewRating] = useState(5)
+  const [reviewTitle, setReviewTitle] = useState("")
+  const [reviewComment, setReviewComment] = useState("")
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false)
+
+  const reviews = useReviewsStore((s) => s.reviews)
+  const addReview = useReviewsStore((s) => s.addReview)
+
+  const cartButtonRef = useCartButtonRef()
 
   if (!product) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-20 text-center">
-        <p className="text-muted-foreground">Produit non trouvé</p>
-        <Button onClick={() => navigate(PAGES.store.catalog)} className="mt-4">Retour au catalogue</Button>
+      <div className="mx-auto max-w-7xl px-4 py-20">
+        <Empty className="py-16">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <ShoppingBag className="h-6 w-6" aria-hidden />
+            </EmptyMedia>
+            <EmptyTitle>Produit introuvable</EmptyTitle>
+            <EmptyDescription>
+              Ce produit n’existe pas ou a été déplacé. Vous pouvez continuer vos achats dans le catalogue.
+            </EmptyDescription>
+          </EmptyHeader>
+          <Button onClick={() => navigate(PAGES.store.catalog)} size="lg">Retour au catalogue</Button>
+        </Empty>
       </div>
     )
   }
 
-  const productReviews = reviews.filter(r => r.productId === product.id && r.status === REVIEW_STATUS.APPROVED)
+  const productReviews = reviews.filter((r) => r.productId === product.id && r.status === REVIEW_STATUS.APPROVED)
+
+  const handleSubmitReview = (e: React.FormEvent) => {
+    e.preventDefault()
+    const result = reviewSchema.safeParse({
+      customerName: reviewName.trim(),
+      rating: reviewRating,
+      title: reviewTitle.trim(),
+      comment: reviewComment.trim(),
+    })
+    if (!result.success) {
+      toast.error(getZodErrorMessage(result.error))
+      return
+    }
+    setIsSubmittingReview(true)
+    addReview({
+      productId: product.id,
+      customerId: "guest",
+      customerName: result.data.customerName,
+      rating: result.data.rating,
+      title: result.data.title,
+      comment: result.data.comment,
+    })
+    toast.success("Votre avis a bien été envoyé. Il sera visible après modération.")
+    setReviewName("")
+    setReviewRating(5)
+    setReviewTitle("")
+    setReviewComment("")
+    setIsSubmittingReview(false)
+  }
   const similar = products.filter(p => p.category === product.category && p.id !== product.id).slice(0, 4)
   const wishlisted = isInWishlist(product.id)
   const category = categories.find(c => c.id === product.category)
 
-  const cartButtonRef = useCartButtonRef()
-  
   const handleAddToCart = () => {
     // Use cached cart button ref and find image element with null checks
     const cartButton = cartButtonRef.current
@@ -80,7 +139,7 @@ export function ProductPage() {
       productId: product.id,
       name: product.name,
       price: product.price,
-      image: product.images[0],
+      image: product.images[0] ?? "",
       color: product.colors[selectedColor]?.name,
       size: product.sizes[selectedSize],
       quantity,
@@ -114,7 +173,13 @@ export function ProductPage() {
               <BreadcrumbSeparator />
               <BreadcrumbItem>
                 <BreadcrumbLink asChild>
-                  <button type="button" onClick={() => navigate(PAGES.store.catalog)}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      selectCategory(category.id)
+                      navigate(PAGES.store.catalog)
+                    }}
+                  >
                     {category.name}
                   </button>
                 </BreadcrumbLink>
@@ -200,86 +265,19 @@ export function ProductPage() {
 
           <p className="text-muted-foreground leading-relaxed mb-6">{product.shortDescription}</p>
 
-          {/* Color Selection */}
-          <div className="mb-6">
-            <p className="text-sm font-medium mb-2">Couleur : <span className="text-muted-foreground">{product.colors[selectedColor]?.name}</span></p>
-            <div className="flex gap-2" role="group" aria-label="Choisir la couleur">
-              {product.colors.map((color, i) => (
-                <button
-                  key={color.hex}
-                  onClick={() => setSelectedColor(i)}
-                  className={`h-10 w-10 rounded-full border-2 transition-all ${i === selectedColor ? "border-accent ring-2 ring-accent/20" : "border-border"}`}
-                  style={{ backgroundColor: color.hex }}
-                  title={color.name}
-                  aria-label={`Sélectionner couleur ${color.name}`}
-                  aria-pressed={i === selectedColor}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Size Selection */}
-          {product.sizes.length > 1 && (
-            <div className="mb-6" role="group" aria-label="Choisir la taille">
-              <p className="text-sm font-medium mb-2">Taille</p>
-              <div className="flex gap-2">
-                {product.sizes.map((size, i) => (
-                  <button
-                    key={size}
-                    onClick={() => setSelectedSize(i)}
-                    className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all ${i === selectedSize ? "border-accent bg-accent/10 text-foreground" : "border-border text-muted-foreground hover:border-foreground"}`}
-                    aria-label={`Sélectionner taille ${size}`}
-                    aria-pressed={i === selectedSize}
-                  >
-                    {size}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Quantity */}
-          <div className="mb-6">
-            <p className="text-sm font-medium mb-2">Quantité</p>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center border border-border rounded-lg" role="group" aria-label="Quantité">
-                <button
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="h-10 w-10 flex items-center justify-center hover:bg-secondary transition-colors"
-                  aria-label="Diminuer la quantité"
-                >
-                  <Minus className="h-4 w-4" />
-                </button>
-                <span className="w-12 text-center font-medium" aria-live="polite">{quantity}</span>
-                <button
-                  onClick={() => setQuantity(quantity + 1)}
-                  className="h-10 w-10 flex items-center justify-center hover:bg-secondary transition-colors"
-                  aria-label="Augmenter la quantité"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </div>
-              <span className="text-sm text-muted-foreground">{product.stock} en stock</span>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-3 mb-8">
-            <Button onClick={handleAddToCart} size="lg" className="flex-1 gap-2">
-              <ShoppingBag className="h-5 w-5" />
-              Ajouter au panier
-            </Button>
-            <Button
-              onClick={() => toggleWishlist(product.id)}
-              size="lg"
-              variant="outline"
-              className={wishlisted ? "text-red-500 border-red-500 hover:bg-red-50" : ""}
-              aria-label={wishlisted ? "Retirer des favoris" : "Ajouter aux favoris"}
-              aria-pressed={wishlisted}
-            >
-              <Heart className={`h-5 w-5 ${wishlisted ? "fill-current" : ""}`} />
-            </Button>
-          </div>
+          <ProductPurchaseBlock
+            product={product}
+            selectedColorIndex={selectedColor}
+            selectedSizeIndex={selectedSize}
+            quantity={quantity}
+            wishlisted={wishlisted}
+            onColorSelect={setSelectedColor}
+            onSizeSelect={setSelectedSize}
+            onQuantityChange={(delta) => setQuantity((q) => Math.max(1, Math.min(product.stock, q + delta)))}
+            onAddToCart={handleAddToCart}
+            onToggleWishlist={() => toggleWishlist(product.id)}
+            showShippingHint={true}
+          />
 
           {/* Trust */}
           <div className="grid grid-cols-3 gap-4 p-4 bg-secondary/50 rounded-lg">
@@ -335,34 +333,96 @@ export function ProductPage() {
         </TabsContent>
 
         <TabsContent value="reviews" className="pt-6">
-          {productReviews.length === 0 ? (
-            <Empty className="py-8 border-0">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <MessageSquare className="size-6" aria-hidden />
-                </EmptyMedia>
-                <EmptyTitle>Aucun avis pour le moment</EmptyTitle>
-                <EmptyDescription>Soyez le premier à laisser un avis sur ce produit.</EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : (
-            <div className="flex flex-col gap-6 max-w-3xl">
-              {productReviews.map(review => (
-                <div key={review.id} className="border-b border-border pb-6">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="flex items-center gap-0.5">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Star key={i} className={`h-3.5 w-3.5 ${i < review.rating ? "fill-amber-400 text-amber-400" : "text-muted"}`} />
-                      ))}
+          <div className="flex flex-col gap-8 max-w-3xl">
+            {productReviews.length === 0 ? (
+              <Empty className="py-8 border-0">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <MessageSquare className="size-6" aria-hidden />
+                  </EmptyMedia>
+                  <EmptyTitle>Aucun avis pour le moment</EmptyTitle>
+                  <EmptyDescription>Soyez le premier à laisser un avis sur ce produit.</EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              <div className="flex flex-col gap-6">
+                {productReviews.map(review => (
+                  <div key={review.id} className="border-b border-border pb-6">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-0.5">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star key={i} className={`h-3.5 w-3.5 ${i < review.rating ? "fill-amber-400 text-amber-400" : "text-muted"}`} />
+                        ))}
+                      </div>
+                      <span className="font-medium text-sm">{review.title}</span>
                     </div>
-                    <span className="font-medium text-sm">{review.title}</span>
+                    <p className="text-sm text-muted-foreground mb-2">{review.comment}</p>
+                    <p className="text-xs text-muted-foreground">{review.customerName} - {formatDate(review.createdAt)}</p>
                   </div>
-                  <p className="text-sm text-muted-foreground mb-2">{review.comment}</p>
-                  <p className="text-xs text-muted-foreground">{review.customerName} - {formatDate(review.createdAt)}</p>
+                ))}
+              </div>
+            )}
+
+            <section className="border-t border-border pt-8" aria-labelledby="review-form-title">
+              <h3 id="review-form-title" className="font-semibold text-lg mb-4">Laisser un avis</h3>
+              <form onSubmit={handleSubmitReview} className="flex flex-col gap-4">
+                <div>
+                  <Label htmlFor="review-name">Votre nom *</Label>
+                  <Input
+                    id="review-name"
+                    value={reviewName}
+                    onChange={(e) => setReviewName(e.target.value)}
+                    placeholder="Ex. Marie D."
+                    className="mt-1"
+                    maxLength={80}
+                  />
                 </div>
-              ))}
-            </div>
-          )}
+                <div>
+                  <Label>Note *</Label>
+                  <div className="flex items-center gap-1 mt-1" role="group" aria-label="Note de 1 à 5 étoiles">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setReviewRating(n)}
+                        className="p-0.5 rounded focus:outline-none focus:ring-2 focus:ring-ring"
+                        aria-label={`${n} étoile${n > 1 ? "s" : ""}`}
+                        aria-pressed={reviewRating === n}
+                      >
+                        <Star className={`h-8 w-8 ${reviewRating >= n ? "fill-amber-400 text-amber-400" : "text-muted"}`} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="review-title">Titre de l&apos;avis *</Label>
+                  <Input
+                    id="review-title"
+                    value={reviewTitle}
+                    onChange={(e) => setReviewTitle(e.target.value)}
+                    placeholder="Ex. Magnifique !"
+                    className="mt-1"
+                    maxLength={120}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="review-comment">Commentaire *</Label>
+                  <Textarea
+                    id="review-comment"
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                    placeholder="Décrivez votre expérience avec ce produit..."
+                    className="mt-1 min-h-[120px]"
+                    maxLength={2000}
+                    rows={4}
+                  />
+                </div>
+                <Button type="submit" disabled={isSubmittingReview}>
+                  {isSubmittingReview ? "Envoi..." : "Publier mon avis"}
+                </Button>
+              </form>
+            </section>
+          </div>
         </TabsContent>
       </Tabs>
 

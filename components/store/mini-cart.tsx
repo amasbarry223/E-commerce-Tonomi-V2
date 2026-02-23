@@ -1,9 +1,9 @@
 "use client"
 
-import React from "react"
-import { useStore } from "@/lib/store-context"
+import React, { useState } from "react"
+import { useCartStore, useNavigationStore } from "@/lib/store-context"
 import { PAGES } from "@/lib/routes"
-import { formatPrice } from "@/lib/data"
+import { formatPrice, pluralize } from "@/lib/formatters"
 import { LAYOUT_CONSTANTS } from "@/lib/constants"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -17,7 +17,9 @@ import { useCartToast } from "@/hooks/use-cart-toast"
  * Affiche un aperçu rapide du panier avec les articles et le total
  */
 export const MiniCart = React.memo(function MiniCart() {
-  const { cart, cartCount, cartTotal, removeFromCart, navigate } = useStore()
+  const [open, setOpen] = useState(false)
+  const { cart, cartCount, cartTotal, removeFromCart, promoDiscount, appliedPromo } = useCartStore()
+  const { navigate } = useNavigationStore()
   const { showRemoveFromCartToast } = useCartToast()
 
   const handleRemove = (item: typeof cart[0]) => {
@@ -26,16 +28,16 @@ export const MiniCart = React.memo(function MiniCart() {
   }
 
   const shipping = cartTotal >= LAYOUT_CONSTANTS.FREE_SHIPPING_THRESHOLD ? 0 : LAYOUT_CONSTANTS.STANDARD_SHIPPING_COST
-  const total = cartTotal + shipping
+  const total = cartTotal - promoDiscount + shipping
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button 
           variant="ghost" 
           size="icon" 
           className="relative"
-          aria-label={`Voir mon panier${cartCount > 0 ? ` (${cartCount} article${cartCount > 1 ? 's' : ''})` : ' (vide)'}`}
+          aria-label={`Voir mon panier${cartCount > 0 ? ` (${cartCount} ${pluralize(cartCount, "article")})` : ' (vide)'}`}
         >
           <ShoppingBag className="h-5 w-5" />
           {cartCount > 0 && (
@@ -63,7 +65,7 @@ export const MiniCart = React.memo(function MiniCart() {
               <h3 className="font-semibold text-lg">Mon Panier</h3>
               {cartCount > 0 && (
                 <span className="text-sm text-muted-foreground">
-                  {cartCount} article{cartCount > 1 ? "s" : ""}
+                  {cartCount} {pluralize(cartCount, "article")}
                 </span>
               )}
             </div>
@@ -73,9 +75,20 @@ export const MiniCart = React.memo(function MiniCart() {
           <div className="flex-1 overflow-y-auto">
             <AnimatePresence mode="popLayout">
               {cart.length === 0 ? (
-                <div className="p-8 text-center">
-                  <ShoppingBag className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                <div className="p-6 text-center space-y-4">
+                  <ShoppingBag className="h-12 w-12 text-muted-foreground mx-auto" aria-hidden />
                   <p className="text-muted-foreground text-sm">Votre panier est vide</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-2"
+                    onClick={() => {
+                      setOpen(false)
+                      navigate(PAGES.store.catalog)
+                    }}
+                  >
+                    Continuer mes achats
+                  </Button>
                 </div>
               ) : (
                 <div className="p-2">
@@ -133,6 +146,12 @@ export const MiniCart = React.memo(function MiniCart() {
                 <span className="text-muted-foreground">Sous-total</span>
                 <span className="font-medium">{formatPrice(cartTotal)}</span>
               </div>
+              {appliedPromo && promoDiscount > 0 && (
+                <div className="flex items-center justify-between text-sm text-emerald-600">
+                  <span>Code promo ({appliedPromo})</span>
+                  <span className="font-medium">-{formatPrice(promoDiscount)}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Livraison</span>
                 <span className="font-medium">
@@ -150,6 +169,7 @@ export const MiniCart = React.memo(function MiniCart() {
               </div>
               <Button
                 onClick={() => {
+                  setOpen(false)
                   navigate(PAGES.store.cart)
                 }}
                 className="w-full gap-2"

@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 
@@ -11,7 +12,7 @@ interface ProductCardSkeletonProps {
  * Skeleton loader pour ProductCard
  * Utilisé pendant le chargement des produits pour améliorer la perception de performance
  */
-export function ProductCardSkeleton({ className }: ProductCardSkeletonProps) {
+export const ProductCardSkeleton = React.memo(function ProductCardSkeleton({ className }: ProductCardSkeletonProps) {
   return (
     <div className={cn("bg-card rounded-lg overflow-hidden border border-border", className)}>
       {/* Image skeleton */}
@@ -48,13 +49,13 @@ export function ProductCardSkeleton({ className }: ProductCardSkeletonProps) {
       </div>
     </div>
   )
-}
+})
 
 /**
  * Composant pour afficher plusieurs skeletons en grille
  * Utile pour les pages de catalogue
  */
-export function ProductCardSkeletonGrid({ 
+export const ProductCardSkeletonGrid = React.memo(function ProductCardSkeletonGrid({ 
   count = 8, 
   className 
 }: { 
@@ -68,5 +69,5 @@ export function ProductCardSkeletonGrid({
       ))}
     </div>
   )
-}
+})
 

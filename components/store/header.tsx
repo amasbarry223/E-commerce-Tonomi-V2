@@ -2,24 +2,28 @@
 
 import React, { useState, useMemo } from "react"
 import Image from "next/image"
-import { useStore } from "@/lib/store-context"
+import { useNavigationStore, useUIStore } from "@/lib/store-context"
+import { useCustomerAuthStore } from "@/lib/stores/customer-auth-store"
 import { PAGES } from "@/lib/routes"
-import { categories } from "@/lib/data"
+import { getCategories } from "@/lib/services"
 import { SECTION_PADDING, EXCLUDED_CATEGORY_IDS } from "@/lib/layout"
 import { LAYOUT_CONSTANTS } from "@/lib/constants"
-import { Search, Heart, Sun, Moon, Menu, User } from "lucide-react"
+import { Heart, Sun, Moon, Menu, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
 import { VisuallyHidden } from "@/components/ui/visually-hidden"
-import { SearchAutocomplete } from "./search-autocomplete"
 import { MiniCart } from "./mini-cart"
 
 export const StoreHeader = React.memo(function StoreHeader() {
-  const { wishlist, darkMode, toggleDarkMode, navigate, selectCategory } = useStore()
+  const { navigate, selectCategory } = useNavigationStore()
+  const { wishlist, darkMode, toggleDarkMode } = useUIStore()
+  const currentCustomerId = useCustomerAuthStore((s) => s.currentCustomerId)
+  const getCustomerById = useCustomerAuthStore((s) => s.getCustomerById)
+  const customer = currentCustomerId ? getCustomerById(currentCustomerId) : null
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const mainCategories = useMemo(
-    () => categories.filter((c) => !EXCLUDED_CATEGORY_IDS.includes(c.id)),
+    () => getCategories().filter((c) => !EXCLUDED_CATEGORY_IDS.includes(c.id)),
     []
   )
 
@@ -74,11 +78,18 @@ export const StoreHeader = React.memo(function StoreHeader() {
                   Catalogue
                 </button>
                 <button 
-                  onClick={() => { selectCategory(null); navigate(PAGES.store.promotions); setMobileMenuOpen(false) }} 
+                  onClick={() => { selectCategory("cat-6"); navigate(PAGES.store.catalog); setMobileMenuOpen(false) }} 
                   className="text-left text-lg font-medium text-red-500 hover:text-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
                   aria-label="Voir les promotions"
                 >
                   Promotions
+                </button>
+                <button 
+                  onClick={() => { navigate(PAGES.store.account); setMobileMenuOpen(false) }} 
+                  className="text-left text-lg font-medium hover:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
+                  aria-label="Mon compte"
+                >
+                  Mon compte
                 </button>
               </nav>
             </SheetContent>
@@ -130,7 +141,7 @@ export const StoreHeader = React.memo(function StoreHeader() {
               </button>
             ))}
             <button 
-              onClick={() => { selectCategory(null); navigate(PAGES.store.promotions); }} 
+              onClick={() => { selectCategory("cat-6"); navigate(PAGES.store.catalog); }} 
               className="text-sm tracking-wide text-red-500 font-medium hover:text-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
               aria-label="Voir les promotions"
             >
@@ -140,21 +151,6 @@ export const StoreHeader = React.memo(function StoreHeader() {
 
           {/* Actions */}
           <div className="flex items-center gap-1">
-            {/* Recherche avec autocomplétion */}
-            <div className="hidden md:block">
-              <SearchAutocomplete />
-            </div>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="md:hidden"
-              onClick={() => navigate(PAGES.store.catalog)}
-              aria-label="Rechercher"
-            >
-              <Search className="h-5 w-5" />
-              <span className="sr-only">Rechercher</span>
-            </Button>
-
             <Button 
               variant="ghost" 
               size="icon" 
@@ -188,11 +184,21 @@ export const StoreHeader = React.memo(function StoreHeader() {
               variant="ghost" 
               size="icon" 
               onClick={() => navigate(PAGES.store.account)}
-              aria-label="Voir mon compte"
+              aria-label="Mon compte"
             >
               <User className="h-5 w-5" />
-              <span className="sr-only">Compte</span>
+              <span className="sr-only">Mon compte</span>
             </Button>
+            {!customer && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="hidden sm:inline-flex"
+                onClick={() => navigate(PAGES.store.account)}
+              >
+                S&apos;inscrire
+              </Button>
+            )}
 
             <MiniCart />
           </div>

@@ -1,33 +1,40 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
-import { customers, orders, formatPrice, formatDate, getSegmentLabel, getSegmentColor } from "@/lib/data"
+import { useState, useMemo } from "react"
+import dynamic from "next/dynamic"
+import Image from "next/image"
+import { getCustomers, getOrders } from "@/lib/services"
+import { formatPrice, formatDate, getSegmentLabel, getSegmentColor } from "@/lib/formatters"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
+import { Card, CardContent } from "@/components/ui/card"
 import { Search, Users, Eye, Mail, ShoppingBag, MapPin, Download } from "lucide-react"
 import { toast } from "sonner"
 import { TOAST_MESSAGES } from "@/lib/constants"
+import { downloadCsv, csvFilename } from "@/lib/utils/export-csv"
 import { PaginationSimple as Pagination } from "@/components/ui/pagination"
 import { usePagination } from "@/hooks/use-pagination"
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
+import { AdminSectionHeader } from "@/components/admin/admin-section-header"
+import { AdminEmptyState } from "@/components/admin/admin-empty-state"
+import { useSimulatedLoading } from "@/hooks/use-simulated-loading"
+import { AdminChartsSkeleton } from "./admin-charts-skeleton"
+
+const AdminCustomersCharts = dynamic(
+  () => import("./admin-customers-charts").then((m) => ({ default: m.AdminCustomersCharts })),
+  { loading: () => <AdminChartsSkeleton /> }
+)
 
 export function AdminCustomers() {
+  const customers = getCustomers()
+  const orders = getOrders()
   const [search, setSearch] = useState("")
   const [segmentFilter, setSegmentFilter] = useState("all")
   const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 400)
-    return () => clearTimeout(t)
-  }, [])
+  const [loading] = useSimulatedLoading(400)
 
   const filtered = useMemo(() => {
     let result = [...customers]
@@ -92,35 +99,20 @@ export function AdminCustomers() {
       customer.totalSpent.toString(),
       formatDate(customer.createdAt)
     ])
-
-    const csvContent = [
-      headers.join(","),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
-    ].join("\n")
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const link = document.createElement("a")
-    const url = URL.createObjectURL(blob)
-    link.setAttribute("href", url)
-    link.setAttribute("download", `clients_${new Date().toISOString().split("T")[0]}.csv`)
-    link.style.visibility = "hidden"
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    downloadCsv(headers, rows, csvFilename("clients"))
     toast.success(TOAST_MESSAGES.EXPORT_SUCCESS)
   }
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold">Gestion des clients</h2>
-          <p className="text-sm text-muted-foreground">{customers.length} clients enregistres</p>
-        </div>
+      <AdminSectionHeader
+        title="Gestion des clients"
+        description={`${customers.length} clients enregistrés`}
+      >
         <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExport}>
           <Download className="h-3.5 w-3.5" /> Exporter
         </Button>
-      </div>
+      </AdminSectionHeader>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -151,57 +143,7 @@ export function AdminCustomers() {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Revenus par segment</CardTitle>
-            <CardDescription>Répartition du CA par segment client</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={{
-                revenue: { label: "Revenus", color: "#C19A6B" },
-              }}
-              className="h-[280px]"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={revenueBySegment} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="segment" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="revenue" fill="#C19A6B" radius={[4, 4, 0, 0]} name="Revenus" />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Évolution du nombre de clients</CardTitle>
-            <CardDescription>Croissance sur 6 mois</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={{
-                count: { label: "Clients", color: "#C19A6B" },
-              }}
-              className="h-[280px]"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={customerGrowth} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Line type="monotone" dataKey="count" stroke="#C19A6B" strokeWidth={2} dot={{ r: 4, fill: "#C19A6B" }} name="Clients" />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-      </div>
+      <AdminCustomersCharts revenueBySegment={revenueBySegment} customerGrowth={customerGrowth} />
 
       <div className="flex flex-col md:flex-row gap-3">
         <div className="relative flex-1">
@@ -231,7 +173,7 @@ export function AdminCustomers() {
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground">Client</th>
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground hidden md:table-cell">Segment</th>
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground hidden lg:table-cell">Commandes</th>
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Total depense</th>
+                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Total dépensé</th>
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground hidden lg:table-cell">Inscrit le</th>
                 <th className="text-right py-3 px-4 font-medium text-muted-foreground">Actions</th>
               </tr>
@@ -241,11 +183,12 @@ export function AdminCustomers() {
                 <tr key={customer.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-3">
-                      <img
+                      <Image
                         src={customer.avatar}
                         alt={`Photo de profil de ${customer.firstName} ${customer.lastName}`}
+                        width={36}
+                        height={36}
                         className="h-9 w-9 rounded-full object-cover"
-                        crossOrigin="anonymous"
                       />
                       <div>
                         <p className="font-medium">{customer.firstName} {customer.lastName}</p>
@@ -261,11 +204,11 @@ export function AdminCustomers() {
                   <td className="py-3 px-4 text-xs text-muted-foreground hidden lg:table-cell">{formatDate(customer.createdAt)}</td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-8 sm:w-8" onClick={() => setSelectedCustomer(customer.id)}>
-                        <Eye className="h-4 w-4" />
+                      <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-8 sm:w-8" onClick={() => setSelectedCustomer(customer.id)} aria-label={`Voir le détail de ${customer.firstName} ${customer.lastName}`}>
+                        <Eye className="h-4 w-4" aria-hidden />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-8 sm:w-8">
-                        <Mail className="h-4 w-4" />
+                      <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-8 sm:w-8" aria-label={`Envoyer un email à ${customer.firstName} ${customer.lastName}`} onClick={() => window.open(`mailto:${customer.email}`)}>
+                        <Mail className="h-4 w-4" aria-hidden />
                       </Button>
                     </div>
                   </td>
@@ -276,15 +219,11 @@ export function AdminCustomers() {
           )}
         </div>
         {!loading && filtered.length === 0 && (
-          <Empty className="py-12 border-0">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <Users className="size-6" />
-              </EmptyMedia>
-              <EmptyTitle>Aucun client trouvé</EmptyTitle>
-              <EmptyDescription>Les clients apparaîtront ici.</EmptyDescription>
-            </EmptyHeader>
-          </Empty>
+          <AdminEmptyState
+            title={customers.length > 0 ? "Aucun client ne correspond aux critères" : "Aucun client trouvé"}
+            description={customers.length > 0 ? "Modifiez les filtres ou la recherche pour afficher des résultats." : "Les clients apparaîtront ici."}
+            icon={Users}
+          />
         )}
         {/* Pagination dans la carte : toujours visible sous le tableau */}
         {!loading && filtered.length > 0 && (
@@ -311,11 +250,12 @@ export function AdminCustomers() {
           {viewCustomer && (
             <div className="flex flex-col gap-6">
               <div className="flex items-center gap-4">
-                <img
+                <Image
                 src={viewCustomer.avatar}
                 alt={`Photo de profil de ${viewCustomer.firstName} ${viewCustomer.lastName}`}
+                width={64}
+                height={64}
                 className="h-16 w-16 rounded-full object-cover"
-                crossOrigin="anonymous"
               />
                 <div>
                   <h3 className="font-bold text-lg">{viewCustomer.firstName} {viewCustomer.lastName}</h3>
@@ -330,7 +270,7 @@ export function AdminCustomers() {
                   <p className="text-lg font-bold">{viewCustomer.orderCount}</p>
                 </div>
                 <div className="text-center p-3 bg-muted/50 rounded-lg">
-                  <p className="text-xs text-muted-foreground">Total depense</p>
+                  <p className="text-xs text-muted-foreground">Total dépensé</p>
                   <p className="text-lg font-bold">{formatPrice(viewCustomer.totalSpent)}</p>
                 </div>
                 <div className="text-center p-3 bg-muted/50 rounded-lg">
@@ -351,7 +291,7 @@ export function AdminCustomers() {
 
               {customerOrders.length > 0 && (
                 <div>
-                  <h4 className="font-semibold text-sm mb-2 flex items-center gap-1.5"><ShoppingBag className="h-4 w-4" /> Dernieres commandes</h4>
+                  <h4 className="font-semibold text-sm mb-2 flex items-center gap-1.5"><ShoppingBag className="h-4 w-4" /> Dernières commandes</h4>
                   <div className="flex flex-col gap-2">
                     {customerOrders.slice(0, 3).map(order => (
                       <div key={order.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg text-sm">

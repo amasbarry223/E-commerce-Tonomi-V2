@@ -2,7 +2,7 @@
 
 import React, { useState } from "react"
 import Image from "next/image"
-import { useStore } from "@/lib/store-context"
+import { useNavigationStore, useUIStore } from "@/lib/store-context"
 import { PAGES } from "@/lib/routes"
 import { SECTION_CONTAINER } from "@/lib/layout"
 import { LAYOUT_CONSTANTS } from "@/lib/constants"
@@ -11,12 +11,13 @@ import { Button } from "@/components/ui/button"
 import { Mail, MapPin, Phone, Truck, ShieldCheck, RotateCcw, CreditCard } from "lucide-react"
 import { LegalInfoDialog } from "@/components/store/legal-info-dialog"
 import { toast } from "sonner"
-import { emailFieldSchema } from "@/src/lib/utils/validation"
+import { emailFieldSchema } from "@/lib/utils/validation"
 
 const INFO_LINKS = ["À propos", "Livraison", "Retours & Échanges", "Conditions Générales", "Politique de Confidentialité", "FAQ"] as const
 
 export const StoreFooter = React.memo(function StoreFooter() {
-  const { navigate, subscribeNewsletter, newsletterSubscribed } = useStore()
+  const { navigate, selectCategory } = useNavigationStore()
+  const { subscribeNewsletter, newsletterSubscribed } = useUIStore()
   const [email, setEmail] = useState("")
   const [infoDialogPage, setInfoDialogPage] = useState<string | null>(null)
   const [infoDialogOpen, setInfoDialogOpen] = useState(false)
@@ -33,13 +34,14 @@ export const StoreFooter = React.memo(function StoreFooter() {
     setEmailError("")
     const result = emailFieldSchema.safeParse(email.trim())
     if (!result.success) {
-      const msg = result.error.errors[0]?.message ?? "Email invalide"
+      const msg = result.error.issues[0]?.message ?? "Email invalide"
       setEmailError(msg)
       toast.error(msg)
       return
     }
     subscribeNewsletter()
     setEmail("")
+    toast.success("Merci pour votre inscription à la newsletter !")
   }
 
   return (
@@ -88,8 +90,8 @@ export const StoreFooter = React.memo(function StoreFooter() {
             </p>
             <div className="flex flex-col gap-2 text-sm text-primary-foreground/70">
               <span className="flex items-center gap-2"><MapPin className="h-4 w-4" /> 12 Rue du Faubourg, 75008 Paris</span>
-              <span className="flex items-center gap-2"><Phone className="h-4 w-4" /> +33 1 42 68 53 00</span>
-              <span className="flex items-center gap-2"><Mail className="h-4 w-4" /> contact@tonomi.com</span>
+              <span className="flex items-center gap-2"><Phone className="h-4 w-4" /><a href="tel:+33142685300" className="hover:text-primary-foreground transition-colors">+33 1 42 68 53 00</a></span>
+              <span className="flex items-center gap-2"><Mail className="h-4 w-4" /><a href="mailto:contact@tonomi.com" className="hover:text-primary-foreground transition-colors">contact@tonomi.com</a></span>
             </div>
           </div>
 
@@ -97,8 +99,19 @@ export const StoreFooter = React.memo(function StoreFooter() {
           <div>
             <h4 className="font-semibold mb-4 text-sm tracking-wider uppercase">Boutique</h4>
             <nav className="flex flex-col gap-2">
-              {["Sacs à main", "Sacs à dos", "Portefeuilles", "Accessoires", "Nouveautés", "Promotions"].map(item => (
-                <button key={item} onClick={() => navigate(PAGES.store.catalog)} className="text-sm text-primary-foreground/70 hover:text-primary-foreground transition-colors text-left">
+              {["Sacs à main", "Sacs à dos", "Portefeuilles", "Accessoires", "Nouveautés", "Promotions", "Mon compte"].map(item => (
+                <button
+                  key={item}
+                  onClick={() => {
+                    if (item === "Promotions") selectCategory("cat-6")
+                    else if (item === "Mon compte") navigate(PAGES.store.account)
+                    else {
+                      selectCategory(null)
+                      navigate(PAGES.store.catalog)
+                    }
+                  }}
+                  className="text-sm text-primary-foreground/70 hover:text-primary-foreground transition-colors text-left"
+                >
                   {item}
                 </button>
               ))}
@@ -132,11 +145,12 @@ export const StoreFooter = React.memo(function StoreFooter() {
                     placeholder="votre@email.com"
                     type="email"
                     className="bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground placeholder:text-primary-foreground/40 text-sm"
+                    aria-label="Adresse email pour la newsletter"
                     aria-invalid={!!emailError}
                     aria-describedby={emailError ? "newsletter-email-error" : undefined}
                   />
                   <Button type="submit" variant="secondary" size="sm" className="shrink-0">
-                    OK
+                    S&apos;inscrire
                   </Button>
                 </div>
                 {emailError && (

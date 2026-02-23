@@ -35,6 +35,7 @@ function EmptyHeader({ className, ...props }: React.ComponentProps<'div'>) {
   )
 }
 
+/** Variants pour le bloc média (icône ou illustration) de l'état vide */
 const emptyMediaVariants = cva(
   'flex shrink-0 items-center justify-center mb-2 [&_svg]:pointer-events-none [&_svg]:shrink-0',
   {
@@ -50,6 +51,9 @@ const emptyMediaVariants = cva(
   },
 )
 
+/**
+ * Bloc pour l'icône ou l'illustration de l'état vide (variant: default | icon).
+ */
 function EmptyMedia({
   className,
   variant = 'default',
@@ -65,6 +69,7 @@ function EmptyMedia({
   )
 }
 
+/** Titre principal de l'état vide (ex: "Aucun produit trouvé") */
 function EmptyTitle({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
@@ -75,6 +80,7 @@ function EmptyTitle({ className, ...props }: React.ComponentProps<'div'>) {
   )
 }
 
+/** Description ou message secondaire de l'état vide (peut contenir des liens). */
 function EmptyDescription({ className, ...props }: React.ComponentProps<'p'>) {
   return (
     <div
@@ -88,6 +94,7 @@ function EmptyDescription({ className, ...props }: React.ComponentProps<'p'>) {
   )
 }
 
+/** Zone pour les actions (boutons, liens) sous la description de l'état vide. */
 function EmptyContent({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div

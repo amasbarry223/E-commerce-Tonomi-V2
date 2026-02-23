@@ -12,7 +12,7 @@ export function MotionProvider({ children }: MotionProviderProps) {
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
-    setReducedMotion(mediaQuery.matches)
+    queueMicrotask(() => setReducedMotion(mediaQuery.matches))
 
     const handleChange = (e: MediaQueryListEvent) => {
       setReducedMotion(e.matches)

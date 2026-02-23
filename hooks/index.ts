@@ -1,4 +1,17 @@
-// Réexport des hooks partagés
+// Réexport des hooks partagés — point d'entrée unique pour la réutilisabilité
 export { useCartToast } from "./use-cart-toast"
 export { useSubmitState } from "./use-submit-state"
-
+export { useCheckoutForm } from "./use-checkout-form"
+export type { CheckoutFormData } from "./use-checkout-form"
+export { usePagination } from "./use-pagination"
+export { useErrorHandler } from "./use-error-handler"
+export { useIsMobile } from "./use-mobile"
+export { useToast, toast } from "./use-toast"
+export { useSimulatedLoading } from "./use-simulated-loading"
+export { useCartButtonRef } from "./use-cart-button-ref"
+export { useEmblaCarouselState } from "./use-embla-carousel"
+export { useResponsiveItems } from "./use-responsive-items"
+export { useReducedMotion } from "./use-reduced-motion"
+export { useSyncUrlWithStore } from "./use-sync-url-with-store"
+export { useRedirectToStorePage } from "./use-redirect-to-store-page"
+export type { StorePageRoute } from "./use-redirect-to-store-page"

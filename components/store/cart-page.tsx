@@ -2,9 +2,10 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import { useStore } from "@/lib/store-context"
+import { useCartStore, useNavigationStore } from "@/lib/store-context"
 import { PAGES } from "@/lib/routes"
-import { formatPrice } from "@/lib/data"
+import { formatPrice, pluralize } from "@/lib/formatters"
+import { OrderSummary } from "./order-summary"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,7 +15,8 @@ import { useErrorHandler } from "@/hooks/use-error-handler"
 import { LAYOUT_CONSTANTS, ANIMATION_DELAYS } from "@/lib/constants"
 
 export function CartPage() {
-  const { cart, removeFromCart, updateCartQuantity, cartTotal, navigate, applyPromoCode, promoDiscount, appliedPromo } = useStore()
+  const { cart, removeFromCart, updateCartQuantity, cartTotal, applyPromoCode, promoDiscount, appliedPromo } = useCartStore()
+  const { navigate } = useNavigationStore()
   const { showRemoveFromCartToast, showUpdateCartToast, showPromoAppliedToast, showPromoErrorToast } = useCartToast()
   const { safeAsync } = useErrorHandler({ context: "CartPage" })
   const [promoCode, setPromoCode] = useState("")
@@ -86,7 +88,7 @@ export function CartPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
-      <h1 className="font-serif text-2xl md:text-3xl font-bold mb-8">Mon Panier ({cart.length} article{cart.length > 1 ? "s" : ""})</h1>
+      <h1 className="font-serif text-2xl md:text-3xl font-bold mb-8">Mon Panier ({cart.length} {pluralize(cart.length, "article")})</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Cart Items */}
@@ -184,29 +186,15 @@ export function CartPage() {
               )}
             </div>
 
-            <div className="flex flex-col gap-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Sous-total</span>
-                <span>{formatPrice(cartTotal)}</span>
-              </div>
-              {promoDiscount > 0 && (
-                <div className="flex justify-between text-emerald-600">
-                  <span>Réduction ({appliedPromo})</span>
-                  <span>-{formatPrice(promoDiscount)}</span>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Livraison</span>
-                <span>{shipping === 0 ? LAYOUT_CONSTANTS.FREE_SHIPPING_LABEL : formatPrice(shipping)}</span>
-              </div>
-              {shipping > 0 && (
-                <p className="text-xs text-muted-foreground">{LAYOUT_CONSTANTS.FREE_SHIPPING_THRESHOLD_LABEL}</p>
-              )}
-              <div className="border-t border-border pt-3 flex justify-between font-bold text-lg">
-                <span>Total</span>
-                <span>{formatPrice(total)}</span>
-              </div>
-            </div>
+            <OrderSummary
+              cartTotal={cartTotal}
+              promoDiscount={promoDiscount}
+              appliedPromo={appliedPromo}
+              shippingCost={shipping}
+              total={total}
+              title="Récapitulatif"
+              showFreeShippingHint={shipping > 0}
+            />
 
             <Button 
               onClick={() => navigate(PAGES.store.checkout)} 

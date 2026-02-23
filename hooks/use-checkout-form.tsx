@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
 import { logger } from "@/lib/utils/logger"
-import { checkoutSchema, type CheckoutFormData } from "@/src/lib/utils/validation"
+import { checkoutSchema, type CheckoutFormData } from "@/lib/utils/validation"
 
 export type { CheckoutFormData }
 
@@ -48,7 +48,7 @@ export function useCheckoutForm(options: UseCheckoutFormOptions = {}) {
         await new Promise((resolve) => setTimeout(resolve, 1000))
         toast.success("Formulaire validé avec succès !")
       }
-    } catch (error) {
+    } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Une erreur s'est produite"
       toast.error("Erreur lors de la validation", {
         description: errorMessage,

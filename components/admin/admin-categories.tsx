@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
-import { categories as initialCategories } from "@/lib/data"
+import { useState, useMemo } from "react"
+import Image from "next/image"
+import { getCategories } from "@/lib/services"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -11,40 +12,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Edit, Trash2, FolderOpen, Image as ImageIcon, Search as SearchIcon, Eye, MoreHorizontal, Upload, X } from "lucide-react"
+import { Search as SearchIcon, Plus, Edit, Trash2, FolderOpen, Image as ImageIcon, Eye, MoreHorizontal, Upload, X } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { toast } from "sonner"
-import { VALIDATION_LIMITS } from "@/lib/constants"
-import { categorySchema } from "@/src/lib/utils/validation"
+import { VALIDATION_LIMITS, TOAST_MESSAGES, AUTH_DELAYS_MS } from "@/lib/constants"
+import { categorySchema, getZodErrorMessage } from "@/lib/utils/validation"
 import { PaginationSimple as Pagination } from "@/components/ui/pagination"
 import { usePagination } from "@/hooks/use-pagination"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
+import { AdminSectionHeader } from "@/components/admin/admin-section-header"
+import { AdminTableToolbar } from "@/components/admin/admin-table-toolbar"
+import { AdminEmptyState } from "@/components/admin/admin-empty-state"
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog"
-
-/**
- * Safe image preview component that handles errors without XSS risk
- */
-function ImagePreview({ src, alt }: { src: string; alt: string }) {
-  const [hasError, setHasError] = useState(false)
-
-  if (hasError) {
-    return (
-      <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-        Image non disponible
-      </div>
-    )
-  }
-
-  return (
-    <img
-      src={src}
-      alt={alt}
-      className="w-full h-full object-cover"
-      onError={() => setHasError(true)}
-    />
-  )
-}
+import { SafeImage } from "@/components/ui/safe-image"
+import { useSimulatedLoading } from "@/hooks/use-simulated-loading"
 
 // Define the structure for a Category (must match lib/data.ts interface)
 interface Category {
@@ -60,6 +41,7 @@ interface Category {
 }
 
 export function AdminCategories() {
+  const initialCategories = getCategories()
   const [allCategories, setAllCategories] = useState<Category[]>(initialCategories)
   const [showAddEditDialog, setShowAddEditDialog] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
@@ -76,11 +58,8 @@ export function AdminCategories() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [loading, setLoading] = useState(true)
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 200)
-    return () => clearTimeout(t)
-  }, [])
+  const [loading, _setLoading] = useSimulatedLoading(AUTH_DELAYS_MS.ADMIN_LOADING)
+  const [categoryFieldErrors, setCategoryFieldErrors] = useState<Record<string, string>>({})
 
   const filteredCategories = useMemo(() => {
     if (!searchQuery) return allCategories
@@ -111,6 +90,7 @@ export function AdminCategories() {
     setCategoryMetaTitle("")
     setCategoryMetaDescription("")
     setCategoryParentId("")
+    setCategoryFieldErrors({})
   }
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -145,6 +125,7 @@ export function AdminCategories() {
   }
 
   const handleAddEditClick = (category?: Category) => {
+    setCategoryFieldErrors({})
     if (category) {
       setEditingCategory(category)
       setCategoryName(category.name)
@@ -173,10 +154,16 @@ export function AdminCategories() {
     })
 
     if (!validationResult.success) {
-      const firstError = validationResult.error.errors[0]
-      toast.error(firstError.message || "Erreur de validation")
+      const errors: Record<string, string> = {}
+      validationResult.error.issues.forEach((err) => {
+        const path = (err.path[0] as string) ?? "form"
+        if (!errors[path]) errors[path] = err.message ?? "Erreur"
+      })
+      setCategoryFieldErrors(errors)
+      toast.error(getZodErrorMessage(validationResult.error, TOAST_MESSAGES.VALIDATION_CORRECT_FIELDS))
       return
     }
+    setCategoryFieldErrors({})
     setIsSubmitting(true)
     if (editingCategory) {
       // Edit existing category
@@ -255,11 +242,10 @@ export function AdminCategories() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold">Gestion des Catégories</h2>
-          <p className="text-sm text-muted-foreground">{allCategories.length} catégories</p>
-        </div>
+      <AdminSectionHeader
+        title="Gestion des Catégories"
+        description={`${allCategories.length} catégories`}
+      >
         <Dialog open={showAddEditDialog} onOpenChange={setShowAddEditDialog}>
           <DialogTrigger asChild>
             <Button size="sm" className="gap-1.5" onClick={() => handleAddEditClick()}>
@@ -306,7 +292,14 @@ export function AdminCategories() {
                     className="mt-1.5"
                     placeholder="Ex: Sacs à main"
                     required
+                    aria-invalid={!!categoryFieldErrors.name}
+                    aria-describedby={categoryFieldErrors.name ? "category-name-error" : undefined}
                   />
+                  {categoryFieldErrors.name && (
+                    <p id="category-name-error" className="text-xs text-destructive mt-0.5" role="alert">
+                      {categoryFieldErrors.name}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -320,7 +313,14 @@ export function AdminCategories() {
                     className="mt-1.5 font-mono"
                     placeholder="sacs-a-main"
                     required
+                    aria-invalid={!!categoryFieldErrors.slug}
+                    aria-describedby={categoryFieldErrors.slug ? "category-slug-error" : undefined}
                   />
+                  {categoryFieldErrors.slug && (
+                    <p id="category-slug-error" className="text-xs text-destructive mt-0.5" role="alert">
+                      {categoryFieldErrors.slug}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground mt-1">
                     URL-friendly version du nom (généré automatiquement)
                   </p>
@@ -336,7 +336,14 @@ export function AdminCategories() {
                     onChange={(e) => setCategoryDescription(e.target.value)}
                     className="mt-1.5 min-h-[100px]"
                     placeholder="Description de la catégorie..."
+                    aria-invalid={!!categoryFieldErrors.description}
+                    aria-describedby={categoryFieldErrors.description ? "category-description-error" : undefined}
                   />
+                  {categoryFieldErrors.description && (
+                    <p id="category-description-error" className="text-xs text-destructive mt-0.5" role="alert">
+                      {categoryFieldErrors.description}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -366,7 +373,11 @@ export function AdminCategories() {
                   <Label htmlFor="category-image" className="text-sm font-medium">
                     Image de la catégorie <span className="text-destructive">*</span>
                   </Label>
-                  
+                  {(categoryFieldErrors.image && !imagePreview) && (
+                    <p id="category-image-error" className="text-xs text-destructive mt-0.5" role="alert">
+                      {categoryFieldErrors.image}
+                    </p>
+                  )}
                   {!imagePreview ? (
                     <div className="mt-1.5">
                       <label
@@ -378,7 +389,7 @@ export function AdminCategories() {
                           <p className="mb-2 text-sm text-muted-foreground">
                             <span className="font-semibold">Cliquez pour télécharger</span> ou glissez-déposez
                           </p>
-                          <p className="text-xs text-muted-foreground">PNG, JPG, WEBP jusqu'à 5MB</p>
+                          <p className="text-xs text-muted-foreground">PNG, JPG, WEBP jusqu&apos;à 5MB</p>
                         </div>
                         <input
                           id="category-image-upload"
@@ -392,14 +403,14 @@ export function AdminCategories() {
                   ) : (
                     <div className="mt-1.5 space-y-3">
                       <div className="relative aspect-[4/3] w-full max-w-xs rounded-lg overflow-hidden border border-border bg-muted">
-                        <ImagePreview src={imagePreview} alt="Aperçu de l'image" />
+                        <SafeImage src={imagePreview ?? ""} alt={"Aperçu de l'image"} className="w-full h-full object-cover" />
                         <Button
                           type="button"
                           variant="destructive"
                           size="icon"
                           className="absolute top-2 right-2 h-11 w-11 sm:h-8 sm:w-8"
                           onClick={handleRemoveImage}
-                          aria-label="Supprimer l'image"
+                          aria-label={"Supprimer l'image"}
                         >
                           <X className="h-4 w-4" aria-hidden />
                         </Button>
@@ -412,7 +423,7 @@ export function AdminCategories() {
                         className="gap-2"
                       >
                         <Upload className="h-4 w-4" />
-                        Remplacer l'image
+                        Remplacer l&apos;image
                       </Button>
                       <input
                         id="category-image-upload"
@@ -423,7 +434,11 @@ export function AdminCategories() {
                       />
                     </div>
                   )}
-                  
+                  {imagePreview && categoryFieldErrors.image && (
+                    <p id="category-image-error" className="text-xs text-destructive mt-0.5" role="alert">
+                      {categoryFieldErrors.image}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground mt-2">
                     Téléchargez une image pour votre catégorie (recommandé: 800x600px)
                   </p>
@@ -442,7 +457,14 @@ export function AdminCategories() {
                     className="mt-1.5"
                     placeholder={categoryName || "Titre SEO"}
                     maxLength={VALIDATION_LIMITS.META_TITLE_MAX_LENGTH}
+                    aria-invalid={!!categoryFieldErrors.metaTitle}
+                    aria-describedby={categoryFieldErrors.metaTitle ? "category-meta-title-error" : undefined}
                   />
+                  {categoryFieldErrors.metaTitle && (
+                    <p id="category-meta-title-error" className="text-xs text-destructive mt-0.5" role="alert">
+                      {categoryFieldErrors.metaTitle}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground mt-1">
                     {categoryMetaTitle.length}/{VALIDATION_LIMITS.META_TITLE_MAX_LENGTH} caractères
                   </p>
@@ -459,7 +481,14 @@ export function AdminCategories() {
                     className="mt-1.5 min-h-[80px]"
                     placeholder="Description pour les moteurs de recherche..."
                     maxLength={VALIDATION_LIMITS.META_DESCRIPTION_MAX_LENGTH}
+                    aria-invalid={!!categoryFieldErrors.metaDescription}
+                    aria-describedby={categoryFieldErrors.metaDescription ? "category-meta-description-error" : undefined}
                   />
+                  {categoryFieldErrors.metaDescription && (
+                    <p id="category-meta-description-error" className="text-xs text-destructive mt-0.5" role="alert">
+                      {categoryFieldErrors.metaDescription}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground mt-1">
                     {categoryMetaDescription.length}/{VALIDATION_LIMITS.META_DESCRIPTION_MAX_LENGTH} caractères
                   </p>
@@ -471,7 +500,7 @@ export function AdminCategories() {
                   <div className="flex items-start gap-4 mb-3">
                     {(imagePreview || categoryImage) && (
                       <div className="relative aspect-[4/3] w-24 h-24 rounded-lg overflow-hidden border border-border flex-shrink-0 bg-muted">
-                        <ImagePreview src={imagePreview || categoryImage} alt={categoryName || "Catégorie"} />
+                        <SafeImage src={imagePreview || categoryImage} alt={categoryName || "Catégorie"} className="w-full h-full object-cover" />
                       </div>
                     )}
                     <div className="flex-1">
@@ -498,7 +527,7 @@ export function AdminCategories() {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground mt-3 text-center">
-                  Aperçu de la catégorie tel qu'elle apparaîtra dans la liste
+                  Aperçu de la catégorie tel qu&apos;elle apparaîtra dans la liste
                 </p>
               </TabsContent>
             </Tabs>
@@ -514,17 +543,13 @@ export function AdminCategories() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
+      </AdminSectionHeader>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Rechercher une catégorie..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-        />
-      </div>
+      <AdminTableToolbar
+        searchPlaceholder="Rechercher une catégorie..."
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+      />
 
       <div className="bg-card border border-border rounded-lg overflow-hidden">
         {loading ? (
@@ -546,22 +571,18 @@ export function AdminCategories() {
             {filteredCategories.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="py-0 border-0">
-                  <Empty className="py-12 border-0">
-                    <EmptyHeader>
-                      <EmptyMedia variant="icon">
-                        <FolderOpen className="size-6" aria-hidden />
-                      </EmptyMedia>
-                      <EmptyTitle>Aucune catégorie trouvée</EmptyTitle>
-                      <EmptyDescription>Ajoutez une catégorie pour commencer.</EmptyDescription>
-                    </EmptyHeader>
-                  </Empty>
+                  <AdminEmptyState
+                    title="Aucune catégorie trouvée"
+                    description="Ajoutez une catégorie pour commencer."
+                    icon={FolderOpen}
+                  />
                 </TableCell>
               </TableRow>
             ) : (
               paginatedData.map((category, index) => (
                 <TableRow key={category.id} index={index}>
                   <TableCell>
-                    <img src={category.image} alt={category.name} className="h-10 w-10 rounded object-cover" crossOrigin="anonymous" />
+                    <Image src={category.image} alt={category.name} width={40} height={40} className="h-10 w-10 rounded object-cover" />
                   </TableCell>
                   <TableCell className="font-medium">{category.name}</TableCell>
                   <TableCell className="text-muted-foreground">{category.slug}</TableCell>
@@ -569,7 +590,7 @@ export function AdminCategories() {
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-8 sm:w-8">
+                        <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-8 sm:w-8" aria-label={`Actions pour ${category.name}`}>
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>

@@ -9,16 +9,28 @@ import {
 import { Button } from "@/components/ui/button"
 
 export interface ConfirmDeleteDialogProps {
+  /** Contrôle l'ouverture du dialog */
   open: boolean
+  /** Callback lors du changement d'état open/fermé */
   onOpenChange: (open: boolean) => void
+  /** Titre du dialog (ex: "Supprimer le produit") */
   title: string
+  /** Description / avertissement affiché sous le titre */
   description: string
+  /** Callback appelé au clic sur le bouton de confirmation (peut être async) */
   onConfirm: () => void | Promise<void>
+  /** Affiche un état de chargement sur les boutons */
   loading?: boolean
+  /** Libellé du bouton de confirmation (défaut: "Supprimer") */
   confirmLabel?: string
+  /** Libellé du bouton d'annulation (défaut: "Annuler") */
   cancelLabel?: string
 }
 
+/**
+ * Dialog de confirmation de suppression (réutilisable admin et store).
+ * Affiche un titre, une description et deux boutons (annuler / confirmer).
+ */
 export function ConfirmDeleteDialog({
   open,
   onOpenChange,
@@ -36,14 +48,12 @@ export function ConfirmDeleteDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+      <DialogContent className="max-w-sm p-4 sm:p-5">
+        <DialogHeader className="space-y-1.5 pb-2">
+          <DialogTitle className="text-base">{title}</DialogTitle>
+          <p className="text-xs text-muted-foreground leading-snug">{description}</p>
         </DialogHeader>
-        <div className="py-4">
-          <p className="text-sm text-muted-foreground">{description}</p>
-        </div>
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-2 pt-1">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}

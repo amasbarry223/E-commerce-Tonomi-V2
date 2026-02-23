@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Home, Search } from "lucide-react"
-import { ROUTES } from "@/lib/routes"
+import { Home } from "lucide-react"
+import { ROUTES, PAGES } from "@/lib/routes"
 
 export default function NotFound() {
   return (
@@ -20,10 +20,7 @@ export default function NotFound() {
             </Link>
           </Button>
           <Button asChild variant="outline" className="gap-2">
-            <Link href={ROUTES.login}>
-              <Search className="h-4 w-4" aria-hidden />
-              Connexion admin
-            </Link>
+            <Link href={`${ROUTES.home}?page=${PAGES.store.catalog}`}>Catalogue</Link>
           </Button>
         </div>
       </div>

@@ -46,9 +46,8 @@ export function useResponsiveItems(itemsPerView: ItemsPerViewConfig): number {
   const handlerRef = useRef<() => void>(() => {})
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Mettre à jour la référence du handler sans recréer l'effet
-  handlerRef.current = useCallback(() => {
-    setCurrentItemsPerView(getItemsPerView())
+  useEffect(() => {
+    handlerRef.current = () => setCurrentItemsPerView(getItemsPerView())
   }, [getItemsPerView])
 
   useEffect(() => {
@@ -73,7 +72,7 @@ export function useResponsiveItems(itemsPerView: ItemsPerViewConfig): number {
 
   // Recalculer si itemsPerView change (comparaison profonde)
   useEffect(() => {
-    setCurrentItemsPerView(getItemsPerView())
+    queueMicrotask(() => setCurrentItemsPerView(getItemsPerView()))
   }, [itemsPerViewKey, getItemsPerView])
 
   return currentItemsPerView

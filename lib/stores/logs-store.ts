@@ -24,7 +24,7 @@ export interface LogEntry {
   userId: string
   userEmail: string
   description: string
-  details?: Record<string, any>
+  details?: Record<string, unknown>
   timestamp: string
   ipAddress?: string
 }

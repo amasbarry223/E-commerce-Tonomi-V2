@@ -1,58 +1,316 @@
 "use client"
 
+import { useState } from "react"
 import Image from "next/image"
-import { useStore } from "@/lib/store-context"
+import { useNavigationStore, useUIStore } from "@/lib/store-context"
 import { PAGES } from "@/lib/routes"
-import { customers, orders, products, formatPrice, formatDate, getStatusColor, getStatusLabel } from "@/lib/data"
+import { getOrders, getProducts } from "@/lib/services"
+import { formatPrice, formatDate, getStatusColor, getStatusLabel } from "@/lib/formatters"
+import { useCustomerAuthStore } from "@/lib/stores/customer-auth-store"
+import { clientRegisterSchema, clientLoginSchema, getZodErrorMessage } from "@/lib/utils/validation"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Package, Heart, MapPin, User, ShoppingBag } from "lucide-react"
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card"
+import { Package, Heart, MapPin, User, ShoppingBag, Info, LogOut } from "lucide-react"
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from "@/components/ui/empty"
 import { ProductCard } from "./product-card"
+import { toast } from "sonner"
 
-export function AccountPage() {
-  const { wishlist, navigate } = useStore()
-  const customer = customers[0] // Simulated logged-in user
-  const customerOrders = orders.filter(o => o.customerId === customer.id)
-  const wishlistProducts = products.filter(p => wishlist.some(w => w.productId === p.id))
+type GuestMode = "guest" | "signup" | "login"
+
+function AccountSignupForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => void; onSwitchToLogin: () => void }) {
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
+  const register = useCustomerAuthStore((s) => s.register)
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+    const result = clientRegisterSchema.safeParse({ firstName, lastName, email, password })
+    if (!result.success) {
+      setError(getZodErrorMessage(result.error))
+      return
+    }
+    setLoading(true)
+    try {
+      register(result.data.firstName, result.data.lastName, result.data.email, result.data.password)
+      toast.success("Compte créé. Vous êtes connecté.")
+      onSuccess()
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Une erreur est survenue.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Card className="w-full max-w-md">
+      <CardHeader>
+        <CardDescription>Créer un compte client</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Inscription optionnelle. Vous pourrez retrouver vos commandes et favoris.
+        </p>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="signup-firstName">Prénom</Label>
+              <Input
+                id="signup-firstName"
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="Prénom"
+                autoComplete="given-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="signup-lastName">Nom</Label>
+              <Input
+                id="signup-lastName"
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Nom"
+                autoComplete="family-name"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="signup-email">Email</Label>
+            <Input
+              id="signup-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="vous@exemple.com"
+              autoComplete="email"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="signup-password">Mot de passe</Label>
+            <Input
+              id="signup-password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              autoComplete="new-password"
+            />
+          </div>
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? "Création..." : "S&apos;inscrire"}
+          </Button>
+        </form>
+        <p className="text-center text-sm text-muted-foreground">
+          Déjà un compte ?{" "}
+          <button type="button" onClick={onSwitchToLogin} className="underline hover:no-underline text-foreground">
+            Se connecter
+          </button>
+        </p>
+      </CardContent>
+    </Card>
+  )
+}
+
+function AccountLoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => void; onSwitchToSignup: () => void }) {
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
+  const login = useCustomerAuthStore((s) => s.login)
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+    const result = clientLoginSchema.safeParse({ email, password })
+    if (!result.success) {
+      setError(getZodErrorMessage(result.error))
+      return
+    }
+    setLoading(true)
+    const ok = login(result.data.email, result.data.password)
+    setLoading(false)
+    if (ok) {
+      toast.success("Vous êtes connecté.")
+      onSuccess()
+    } else {
+      setError("Email ou mot de passe incorrect.")
+    }
+  }
+
+  return (
+    <Card className="w-full max-w-md">
+      <CardHeader>
+        <CardDescription>Se connecter à mon compte</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="space-y-2">
+            <Label htmlFor="login-email">Email</Label>
+            <Input
+              id="login-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="vous@exemple.com"
+              autoComplete="email"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="login-password">Mot de passe</Label>
+            <Input
+              id="login-password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              autoComplete="current-password"
+            />
+          </div>
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? "Connexion..." : "Se connecter"}
+          </Button>
+        </form>
+        <p className="text-center text-sm text-muted-foreground">
+          Pas encore de compte ?{" "}
+          <button type="button" onClick={onSwitchToSignup} className="underline hover:no-underline text-foreground">
+            S&apos;inscrire
+          </button>
+        </p>
+      </CardContent>
+    </Card>
+  )
+}
+
+function AccountGuestView({
+  mode,
+  onSignup,
+  onLogin,
+  onShowSignup,
+  onShowLogin,
+}: {
+  mode: GuestMode
+  onSignup: () => void
+  onLogin: () => void
+  onShowSignup: () => void
+  onShowLogin: () => void
+}) {
+  return (
+    <div className="mx-auto max-w-5xl px-4 py-8 space-y-8">
+      <Alert className="rounded-lg border-amber-500/50 bg-amber-500/10" role="status">
+        <Info className="h-4 w-4 text-amber-600 dark:text-amber-400" aria-hidden />
+        <AlertDescription>
+          <strong>Mode démo</strong> — Vous pouvez acheter sans compte. Créer un compte est optionnel pour retrouver
+          vos commandes et favoris. Les pages Connexion et Inscription du back-office concernent uniquement les
+          administrateurs.
+        </AlertDescription>
+      </Alert>
+
+      {mode === "guest" && (
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <Button onClick={onShowSignup} variant="default" size="lg">
+            S&apos;inscrire
+          </Button>
+          <Button onClick={onShowLogin} variant="outline" size="lg">
+            Se connecter
+          </Button>
+        </div>
+      )}
+      {mode === "signup" && <AccountSignupForm onSuccess={onSignup} onSwitchToLogin={onShowLogin} />}
+      {mode === "login" && <AccountLoginForm onSuccess={onLogin} onSwitchToSignup={onShowSignup} />}
+    </div>
+  )
+}
+
+function AccountAuthenticatedView() {
+  const { navigate } = useNavigationStore()
+  const { wishlist } = useUIStore()
+  const currentCustomerId = useCustomerAuthStore((s) => s.currentCustomerId)
+  const getCustomerById = useCustomerAuthStore((s) => s.getCustomerById)
+  const logout = useCustomerAuthStore((s) => s.logout)
+
+  const orders = getOrders()
+  const products = getProducts()
+  const customer = currentCustomerId ? getCustomerById(currentCustomerId) : null
+  if (!customer) return null
+
+  const customerOrders = orders.filter((o) => o.customerId === customer.id)
+  const wishlistProducts = products.filter((p) => wishlist.some((w) => w.productId === p.id))
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-8">
-        <div className="relative h-16 w-16 rounded-full overflow-hidden shrink-0">
-          <Image 
-            src={customer.avatar} 
-            alt={`${customer.firstName} ${customer.lastName}`} 
-            fill
-            className="object-cover"
-            sizes="64px"
-          />
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+        <div className="flex items-center gap-4">
+          <div className="relative h-16 w-16 rounded-full overflow-hidden shrink-0">
+            <Image
+              src={customer.avatar}
+              alt={`${customer.firstName} ${customer.lastName}`}
+              fill
+              className="object-cover"
+              sizes="64px"
+            />
+          </div>
+          <div>
+            <h1 className="font-serif text-2xl font-bold">
+              {customer.firstName} {customer.lastName}
+            </h1>
+            <p className="text-sm text-muted-foreground">{customer.email}</p>
+          </div>
         </div>
-        <div>
-          <h1 className="font-serif text-2xl font-bold">{customer.firstName} {customer.lastName}</h1>
-          <p className="text-sm text-muted-foreground">{customer.email}</p>
-        </div>
+        <Button variant="outline" size="sm" onClick={() => logout()} className="gap-2">
+          <LogOut className="h-4 w-4" />
+          Se déconnecter
+        </Button>
       </div>
 
       <Tabs defaultValue="orders">
         <TabsList className="w-full justify-start bg-transparent border-b border-border rounded-none p-0 overflow-x-auto">
-          <TabsTrigger value="orders" className="rounded-none border-b-2 border-transparent data-[state=active]:border-accent data-[state=active]:bg-transparent px-4 py-3 gap-2">
+          <TabsTrigger
+            value="orders"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-accent data-[state=active]:bg-transparent px-4 py-3 gap-2"
+          >
             <Package className="h-4 w-4" /> Commandes
           </TabsTrigger>
-          <TabsTrigger value="wishlist" className="rounded-none border-b-2 border-transparent data-[state=active]:border-accent data-[state=active]:bg-transparent px-4 py-3 gap-2">
+          <TabsTrigger
+            value="wishlist"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-accent data-[state=active]:bg-transparent px-4 py-3 gap-2"
+          >
             <Heart className="h-4 w-4" /> Favoris ({wishlist.length})
           </TabsTrigger>
-          <TabsTrigger value="addresses" className="rounded-none border-b-2 border-transparent data-[state=active]:border-accent data-[state=active]:bg-transparent px-4 py-3 gap-2">
+          <TabsTrigger
+            value="addresses"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-accent data-[state=active]:bg-transparent px-4 py-3 gap-2"
+          >
             <MapPin className="h-4 w-4" /> Adresses
           </TabsTrigger>
-          <TabsTrigger value="profile" className="rounded-none border-b-2 border-transparent data-[state=active]:border-accent data-[state=active]:bg-transparent px-4 py-3 gap-2">
+          <TabsTrigger
+            value="profile"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-accent data-[state=active]:bg-transparent px-4 py-3 gap-2"
+          >
             <User className="h-4 w-4" /> Profil
           </TabsTrigger>
         </TabsList>
 
-        {/* Orders */}
         <TabsContent value="orders" className="pt-6">
           {customerOrders.length === 0 ? (
             <Empty className="py-12 border-0">
@@ -66,7 +324,7 @@ export function AccountPage() {
             </Empty>
           ) : (
             <div className="flex flex-col gap-4">
-              {customerOrders.map(order => (
+              {customerOrders.map((order) => (
                 <div key={order.id} className="bg-card border border-border rounded-lg p-4 md:p-6">
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                     <div>
@@ -79,9 +337,9 @@ export function AccountPage() {
                     {order.items.map((item, i) => (
                       <div key={i} className="flex gap-3 items-center">
                         <div className="relative h-12 w-12 rounded overflow-hidden shrink-0">
-                          <Image 
-                            src={item.image} 
-                            alt={item.name} 
+                          <Image
+                            src={item.image}
+                            alt={item.name}
                             fill
                             className="object-cover"
                             sizes="48px"
@@ -107,41 +365,65 @@ export function AccountPage() {
           )}
         </TabsContent>
 
-        {/* Wishlist */}
         <TabsContent value="wishlist" className="pt-6">
           {wishlistProducts.length === 0 ? (
-            <div className="text-center py-12">
-              <Heart className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-              <p className="text-muted-foreground mb-4">Votre liste de favoris est vide</p>
-              <Button onClick={() => navigate(PAGES.store.catalog)} variant="outline">Découvrir nos articles</Button>
-            </div>
+            <Empty className="py-12 border-0">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Heart className="size-6" aria-hidden />
+                </EmptyMedia>
+                <EmptyTitle>Votre liste de favoris est vide</EmptyTitle>
+                <EmptyDescription>Les articles que vous ajoutez aux favoris apparaîtront ici.</EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button onClick={() => navigate(PAGES.store.catalog)} variant="outline">
+                  Découvrir nos articles
+                </Button>
+              </EmptyContent>
+            </Empty>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {wishlistProducts.map(product => (
+              {wishlistProducts.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>
           )}
         </TabsContent>
 
-        {/* Addresses */}
         <TabsContent value="addresses" className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {customer.addresses.map(addr => (
-              <div key={addr.id} className="bg-card border border-border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-sm">{addr.label}</span>
-                  {addr.isDefault && <Badge variant="secondary" className="text-xs">Par défaut</Badge>}
+          {customer.addresses.length === 0 ? (
+            <Empty className="py-12 border-0">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <MapPin className="size-6" aria-hidden />
+                </EmptyMedia>
+                <EmptyTitle>Aucune adresse</EmptyTitle>
+                <EmptyDescription>Ajoutez une adresse lors de votre prochaine commande.</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {customer.addresses.map((addr) => (
+                <div key={addr.id} className="bg-card border border-border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-sm">{addr.label}</span>
+                    {addr.isDefault && (
+                      <Badge variant="secondary" className="text-xs">
+                        Par défaut
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground">{addr.street}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {addr.zipCode} {addr.city}
+                  </p>
+                  <p className="text-sm text-muted-foreground">{addr.country}</p>
                 </div>
-                <p className="text-sm text-muted-foreground">{addr.street}</p>
-                <p className="text-sm text-muted-foreground">{addr.zipCode} {addr.city}</p>
-                <p className="text-sm text-muted-foreground">{addr.country}</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
-        {/* Profile */}
         <TabsContent value="profile" className="pt-6">
           <div className="bg-card border border-border rounded-lg p-6 max-w-lg">
             <h3 className="font-semibold mb-4">Informations personnelles</h3>
@@ -160,7 +442,7 @@ export function AccountPage() {
               </div>
               <div className="flex justify-between py-2 border-b border-border">
                 <span className="text-muted-foreground">Téléphone</span>
-                <span>{customer.phone}</span>
+                <span>{customer.phone || "—"}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-border">
                 <span className="text-muted-foreground">Client depuis</span>
@@ -179,5 +461,24 @@ export function AccountPage() {
         </TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+export function AccountPage() {
+  const currentCustomerId = useCustomerAuthStore((s) => s.currentCustomerId)
+  const [guestMode, setGuestMode] = useState<GuestMode>("guest")
+
+  if (currentCustomerId) {
+    return <AccountAuthenticatedView />
+  }
+
+  return (
+    <AccountGuestView
+      mode={guestMode}
+      onSignup={() => setGuestMode("guest")}
+      onLogin={() => setGuestMode("guest")}
+      onShowSignup={() => setGuestMode("signup")}
+      onShowLogin={() => setGuestMode("login")}
+    />
   )
 }

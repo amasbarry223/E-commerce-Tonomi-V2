@@ -40,7 +40,7 @@ function DialogOverlay({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
   // Exclure les props HTML qui entrent en conflit avec Framer Motion
-  const { onDrag: _onDrag, onDragStart: _onDragStart, onDragEnd: _onDragEnd, ...motionProps } = props as any
+  const { onDrag: _onDrag, onDragStart: _onDragStart, onDragEnd: _onDragEnd, ...motionProps } = props as Omit<React.ComponentProps<typeof DialogPrimitive.Overlay>, 'onDrag' | 'onDragStart' | 'onDragEnd'>
   
   return (
     <DialogPrimitive.Overlay asChild>
@@ -54,7 +54,7 @@ function DialogOverlay({
         initial="hidden"
         animate="visible"
         exit="exit"
-        {...(motionProps as any)}
+        {...motionProps}
       />
     </DialogPrimitive.Overlay>
   )
@@ -98,7 +98,7 @@ function DialogContent({
     onEscapeKeyDown,
     onPointerDownOutside,
     ...motionProps 
-  } = props as any
+  } = props as Omit<React.ComponentProps<typeof DialogPrimitive.Content>, 'onDrag' | 'onDragStart' | 'onDragEnd'>
   
   return (
     <DialogPortal data-slot="dialog-portal">
@@ -121,7 +121,7 @@ function DialogContent({
           animate="visible"
           exit="exit"
           transition={defaultTransition}
-          {...(motionProps as any)}
+          {...motionProps}
         >
           {children}
           {showCloseButton && (

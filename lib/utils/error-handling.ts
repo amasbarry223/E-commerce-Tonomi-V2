@@ -4,6 +4,7 @@
  */
 
 import { logger } from "@/lib/utils/logger"
+import { captureException } from "@/lib/utils/sentry"
 
 /**
  * Classe d'erreur personnalisée pour l'application
@@ -57,6 +58,12 @@ export function handleError(
     ...(errorInstance instanceof AppError ? errorInstance.metadata : {}),
   })
 
+  captureException(errorInstance, {
+    context: context || "handleError",
+    ...metadata,
+    ...(errorInstance instanceof AppError ? errorInstance.metadata : {}),
+  })
+
   if (onError) {
     onError(errorInstance)
   }
@@ -85,7 +92,7 @@ export async function safeAsync<T>(
 ): Promise<T | null> {
   try {
     return await fn()
-  } catch (error) {
+  } catch (error: unknown) {
     handleError(error, options)
     return null
   }
@@ -100,7 +107,7 @@ export function safeSync<T>(
 ): T | null {
   try {
     return fn()
-  } catch (error) {
+  } catch (error: unknown) {
     handleError(error, options)
     return null
   }

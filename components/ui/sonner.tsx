@@ -15,6 +15,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       richColors={true}
       closeButton={true}
       duration={4000}
+      containerAriaLabel="Notifications"
       style={
         {
           '--normal-bg': 'var(--popover)',

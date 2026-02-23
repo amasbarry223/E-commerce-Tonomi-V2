@@ -1,7 +1,10 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
-import { reviews, products, formatDate } from "@/lib/data"
+import { useState, useMemo } from "react"
+import Image from "next/image"
+import { getProducts } from "@/lib/services"
+import { formatDate } from "@/lib/formatters"
+import { useReviewsStore } from "@/lib/stores/reviews-store"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -9,8 +12,11 @@ import { Star, Check, X, MessageSquare, Clock } from "lucide-react"
 import { toast } from "sonner"
 import { PaginationSimple as Pagination } from "@/components/ui/pagination"
 import { usePagination } from "@/hooks/use-pagination"
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
+import { AdminSectionHeader } from "@/components/admin/admin-section-header"
+import { AdminTableToolbar } from "@/components/admin/admin-table-toolbar"
+import { AdminEmptyState } from "@/components/admin/admin-empty-state"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
+import { useSimulatedLoading } from "@/hooks/use-simulated-loading"
 
 const statusColors: Record<string, string> = {
   approved: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
@@ -23,21 +29,21 @@ const statusLabels: Record<string, string> = {
 }
 
 export function AdminReviews() {
+  const products = getProducts()
+  const reviews = useReviewsStore((s) => s.reviews)
+  const approveReview = useReviewsStore((s) => s.approveReview)
+  const rejectReview = useReviewsStore((s) => s.rejectReview)
+
   const [statusFilter, setStatusFilter] = useState("all")
   const [ratingFilter, setRatingFilter] = useState("all")
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 400)
-    return () => clearTimeout(t)
-  }, [])
+  const [loading] = useSimulatedLoading(400)
 
   const filtered = useMemo(() => {
     let result = [...reviews]
     if (statusFilter !== "all") result = result.filter(r => r.status === statusFilter)
     if (ratingFilter !== "all") result = result.filter(r => r.rating === Number(ratingFilter))
     return result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-  }, [statusFilter, ratingFilter])
+  }, [reviews, statusFilter, ratingFilter])
 
   const {
     paginatedData,
@@ -49,30 +55,25 @@ export function AdminReviews() {
   } = usePagination(filtered, { itemsPerPage: 10 })
 
   const pendingCount = reviews.filter(r => r.status === "pending").length
-  const avgRating = (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
+  const avgRating = reviews.length > 0
+    ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
+    : "0"
 
   const handleApproveReview = (reviewId: string) => {
     const review = reviews.find(r => r.id === reviewId)
-    if (review) {
-      toast.success(`Avis de "${review.customerName}" approuvé avec succès`)
-    }
+    approveReview(reviewId)
+    toast.success(review ? `Avis de "${review.customerName}" approuvé` : "Avis approuvé")
   }
 
   const handleRejectReview = (reviewId: string) => {
     const review = reviews.find(r => r.id === reviewId)
-    if (review) {
-      toast.success(`Avis de "${review.customerName}" rejeté`)
-    }
+    rejectReview(reviewId)
+    toast.success(review ? `Avis de "${review.customerName}" rejeté` : "Avis rejeté")
   }
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold">Avis clients</h2>
-          <p className="text-sm text-muted-foreground">{reviews.length} avis | Note moyenne : {avgRating}/5 | {pendingCount} en attente</p>
-        </div>
-      </div>
+      <AdminSectionHeader title="Avis clients" description={`${reviews.length} avis | Note moyenne : ${avgRating}/5 | ${pendingCount} en attente`} />
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
@@ -93,7 +94,7 @@ export function AdminReviews() {
         </div>
       </div>
 
-      <div className="flex gap-3">
+      <AdminTableToolbar>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-40"><SelectValue placeholder="Statut" /></SelectTrigger>
           <SelectContent>
@@ -114,7 +115,7 @@ export function AdminReviews() {
             <SelectItem value="1">1 etoile</SelectItem>
           </SelectContent>
         </Select>
-      </div>
+      </AdminTableToolbar>
 
       <div className="flex flex-col gap-4">
         {loading ? (
@@ -128,7 +129,7 @@ export function AdminReviews() {
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-3 mb-3">
                 <div className="flex items-start gap-4">
                   {product && (
-                    <img src={product.images[0]} alt={product.name} className="h-12 w-12 rounded object-cover shrink-0 hidden md:block" crossOrigin="anonymous" />
+                    <Image src={product.images[0] ?? "/placeholder.svg"} alt={product.name} width={48} height={48} className="h-12 w-12 rounded object-cover shrink-0 hidden md:block" />
                   )}
                   <div>
                     <div className="flex items-center gap-2 mb-1">
@@ -175,15 +176,11 @@ export function AdminReviews() {
       </div>
 
       {!loading && filtered.length === 0 && (
-        <Empty className="py-12 border-0">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <MessageSquare className="size-6" />
-            </EmptyMedia>
-            <EmptyTitle>Aucun avis trouvé</EmptyTitle>
-            <EmptyDescription>Les avis clients apparaîtront ici.</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+        <AdminEmptyState
+          title="Aucun avis trouvé"
+          description="Les avis clients apparaîtront ici."
+          icon={MessageSquare}
+        />
       )}
 
       {/* Pagination : barre visible sous la liste */}

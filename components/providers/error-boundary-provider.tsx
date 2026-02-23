@@ -3,6 +3,7 @@
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 import { type ReactNode } from "react"
 import { logger } from "@/lib/utils/logger"
+import { captureException } from "@/lib/utils/sentry"
 
 interface ErrorBoundaryProviderProps {
   children: ReactNode
@@ -16,12 +17,13 @@ export function ErrorBoundaryProvider({ children }: ErrorBoundaryProviderProps) 
   return (
     <ErrorBoundary
       onError={(error, errorInfo) => {
-        // Log l'erreur de manière centralisée
         logger.logError(error, "ErrorBoundaryProvider", {
           componentStack: errorInfo.componentStack,
         })
-        // Ici vous pouvez envoyer l'erreur à un service de logging
-        // Exemple: Sentry.captureException(error, { extra: errorInfo })
+        captureException(error, {
+          context: "ErrorBoundaryProvider",
+          componentStack: errorInfo.componentStack ?? undefined,
+        })
       }}
     >
       {children}

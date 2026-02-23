@@ -6,7 +6,7 @@
  */
 
 // Standard library imports
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useMemo } from "react"
 
 // Third-party imports
 import { motion } from "framer-motion"
@@ -17,16 +17,14 @@ import { defaultTransition } from "@/lib/animations"
 import { SECTION_CONTAINER, SECTION_FULL } from "@/lib/layout"
 import { CAROUSEL_ITEMS_PER_VIEW } from "@/lib/responsive"
 import { PRODUCT_BADGE } from "@/lib/status-types"
-import { products } from "@/lib/data"
-import { useStore } from "@/lib/store-context"
+import { getProducts } from "@/lib/services"
+import { useNavigationStore } from "@/lib/store-context"
 import { PAGES } from "@/lib/routes"
+import { useSimulatedLoading } from "@/hooks/use-simulated-loading"
 import { ProductCarousel } from "./product-carousel"
 import { HeroSlider } from "./home-hero-slider"
 import { CategoriesGrid } from "./home-categories-grid"
 import { PromoBanner } from "./home-promo-banner"
-
-// Constants
-const LOADING_DELAY = ANIMATION_DELAYS.LOADING_DELAY
 
 // Configuration par défaut pour les carrousels
 const DEFAULT_CAROUSEL_CONFIG = {
@@ -38,32 +36,33 @@ const DEFAULT_CAROUSEL_CONFIG = {
  * Combine le hero slider, les catégories, et les carrousels de produits
  */
 export function HomePage() {
-  const { navigate } = useStore()
-  const [isLoading, setIsLoading] = useState(true)
+  const { navigate, selectCategory } = useNavigationStore()
+  const [isLoading] = useSimulatedLoading(ANIMATION_DELAYS.LOADING_DELAY)
 
-  // Simulate initial loading
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), LOADING_DELAY)
-    return () => clearTimeout(timer)
-  }, [])
+  const handleCategoryClick = useCallback((cat: { id: string }) => {
+    selectCategory(cat.id)
+    navigate(PAGES.store.catalog)
+  }, [navigate, selectCategory])
 
   const handleNavigateToCatalog = useCallback(() => {
     navigate(PAGES.store.catalog)
   }, [navigate])
+
+  const products = useMemo(() => getProducts(), [])
 
   const featured = useMemo(() => {
     return [...products]
       .filter(p => p.featured)
       .sort((a, b) => a.id.localeCompare(b.id))
       .slice(0, 10)
-  }, [])
+  }, [products])
 
   const newProducts = useMemo(() => {
     return [...products]
       .filter(p => p.badge === PRODUCT_BADGE.NEW)
       .sort((a, b) => a.id.localeCompare(b.id))
       .slice(0, 8)
-  }, [])
+  }, [products])
 
   const bestSellers = useMemo(() => {
     return [...products]
@@ -72,7 +71,7 @@ export function HomePage() {
         return diff !== 0 ? diff : a.id.localeCompare(b.id)
       })
       .slice(0, 8)
-  }, [])
+  }, [products])
 
   return (
     <div className="w-full">
@@ -80,7 +79,7 @@ export function HomePage() {
       <HeroSlider onNavigateToCatalog={handleNavigateToCatalog} />
 
       {/* Nos Catégories */}
-      <CategoriesGrid onCategoryClick={handleNavigateToCatalog} />
+      <CategoriesGrid onCategoryClick={handleCategoryClick} />
 
       {/* Nouveautés - Carrousel */}
       <motion.section

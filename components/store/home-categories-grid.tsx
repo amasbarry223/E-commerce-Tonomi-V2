@@ -6,7 +6,7 @@
  */
 
 // Standard library imports
-import { useMemo } from "react"
+import React, { useMemo } from "react"
 
 // Third-party imports
 import { motion } from "framer-motion"
@@ -15,11 +15,12 @@ import Image from "next/image"
 // Internal imports
 import { defaultTransition } from "@/lib/animations"
 import { EXCLUDED_CATEGORY_IDS, SECTION_CONTAINER } from "@/lib/layout"
-import { categories } from "@/lib/data"
+import { getCategories } from "@/lib/services"
+import type { Category } from "@/lib/types"
 import { useReducedMotion } from "@/hooks/use-reduced-motion"
 
 interface CategoriesGridProps {
-  onCategoryClick: () => void
+  onCategoryClick: (category: Category) => void
 }
 
 /**
@@ -27,12 +28,13 @@ interface CategoriesGridProps {
  * 
  * @param onCategoryClick - Callback appelé lors du clic sur une catégorie
  */
-export function CategoriesGrid({ onCategoryClick }: CategoriesGridProps) {
+export const CategoriesGrid = React.memo(function CategoriesGrid({ onCategoryClick }: CategoriesGridProps) {
+  const categories = getCategories()
   const reducedMotion = useReducedMotion()
 
   const mainCategories = useMemo(
     () => categories.filter(c => !EXCLUDED_CATEGORY_IDS.includes(c.id)),
-    []
+    [categories]
   )
 
   return (
@@ -55,7 +57,7 @@ export function CategoriesGrid({ onCategoryClick }: CategoriesGridProps) {
         {mainCategories.map((cat, index) => (
           <motion.button
             key={cat.id}
-            onClick={onCategoryClick}
+            onClick={() => onCategoryClick(cat)}
             className="group relative aspect-[4/3] rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             aria-label={`Voir les produits de la catégorie ${cat.name}`}
             initial={{ opacity: 0, y: 20 }}
@@ -85,5 +87,5 @@ export function CategoriesGrid({ onCategoryClick }: CategoriesGridProps) {
       </div>
     </motion.section>
   )
-}
+})
 

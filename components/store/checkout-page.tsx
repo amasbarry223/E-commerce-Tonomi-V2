@@ -2,27 +2,30 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import { useStore } from "@/lib/store-context"
+import { useCartStore, useNavigationStore } from "@/lib/store-context"
 import { PAGES } from "@/lib/routes"
 import type { CartItem } from "@/lib/store-context"
-import { formatPrice } from "@/lib/data"
+import { formatPrice } from "@/lib/formatters"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Field, FieldError } from "@/components/ui/field"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { CheckCircle2, CreditCard, Truck, ShieldCheck, MapPin, Package } from "lucide-react"
+import { CheckCircle2, CreditCard, Truck, ShieldCheck, MapPin, Package, ShoppingCart } from "lucide-react"
 import { motion } from "framer-motion"
 import { useCheckoutForm } from "@/hooks/use-checkout-form"
 import { logger } from "@/lib/utils/logger"
 import { toast } from "sonner"
-import { LAYOUT_CONSTANTS, ANIMATION_DELAYS, ORDER_CONSTANTS } from "@/lib/constants"
-import { paymentCardSchema, type CheckoutFormData } from "@/src/lib/utils/validation"
+import { LAYOUT_CONSTANTS, ANIMATION_DELAYS, ORDER_CONSTANTS, SHIPPING_LABELS } from "@/lib/constants"
+import { paymentCardSchema, type CheckoutFormData } from "@/lib/utils/validation"
+import { OrderSummary } from "./order-summary"
 
 export function CheckoutPage() {
-  const { cart, cartTotal, promoDiscount, clearCart, navigate } = useStore()
+  const { cart, cartTotal, promoDiscount, clearCart } = useCartStore()
+  const { navigate } = useNavigationStore()
   const [step, setStep] = useState(1)
   const [orderPlaced, setOrderPlaced] = useState(false)
+  const [placedOrderNumber, setPlacedOrderNumber] = useState<string | null>(null)
   const [shipping, setShipping] = useState("standard")
   const [card, setCard] = useState("")
   const [exp, setExp] = useState("")
@@ -45,11 +48,12 @@ export function CheckoutPage() {
       const orderTotal = cartTotal - promoDiscount + cost
       setOrderRecap({
         data: data,
-        shipping: shipping === "express" ? "Express (1-2 jours)" : "Standard (3-5 jours)",
+        shipping: shipping === "express" ? SHIPPING_LABELS.EXPRESS : SHIPPING_LABELS.STANDARD,
         shippingCost: cost,
         total: orderTotal,
         lines: [...cart],
       })
+      setPlacedOrderNumber(ORDER_CONSTANTS.ORDER_NUMBER_PREFIX + Date.now().toString(36).toUpperCase().slice(-6))
       setOrderPlaced(true)
       clearCart()
     },
@@ -71,15 +75,14 @@ export function CheckoutPage() {
     const result = paymentCardSchema.safeParse({ card, exp, cvc })
     if (!result.success) {
       const errs: Record<string, string> = {}
-      result.error.errors.forEach((e) => {
+      result.error.issues.forEach((e) => {
         const p = e.path[0] as string
         if (!errs[p]) errs[p] = e.message
       })
       setCardErrors(errs)
-      const first = result.error.errors[0]
+      const first = result.error.issues[0]
       if (first) {
         toast.error(first.message)
-        logger.logError(new Error(first.message), "CheckoutPage", { step: 3 })
       }
       return
     }
@@ -107,7 +110,6 @@ export function CheckoutPage() {
   }
 
   if (orderPlaced) {
-    const orderNumber = ORDER_CONSTANTS.ORDER_NUMBER_PREFIX + Date.now().toString(36).toUpperCase().slice(-6)
     return (
       <div className="mx-auto max-w-lg px-4 py-12">
         <div className="text-center mb-8">
@@ -115,7 +117,7 @@ export function CheckoutPage() {
           <h1 className="font-serif text-2xl font-bold mb-2">Commande confirmée !</h1>
           <p className="text-muted-foreground mb-2">Merci pour votre commande.</p>
           <p className="text-sm text-muted-foreground mb-2">Vous recevrez un email de confirmation avec les détails de suivi.</p>
-          <p className="font-mono text-lg font-bold mb-6">Numéro de commande : {orderNumber}</p>
+          <p className="font-mono text-lg font-bold mb-6">Numéro de commande : {placedOrderNumber ?? "—"}</p>
         </div>
         {orderRecap && (
           <div className="bg-card border border-border rounded-lg p-6 text-left space-y-4 mb-8">
@@ -131,7 +133,7 @@ export function CheckoutPage() {
             </div>
             <div>
               <p className="text-xs font-medium text-muted-foreground uppercase mb-1">Livraison</p>
-              <p className="text-sm">{orderRecap.shipping} — {orderRecap.shippingCost === 0 ? "Offert" : formatPrice(orderRecap.shippingCost)}</p>
+              <p className="text-sm">{orderRecap.shipping} — {orderRecap.shippingCost === 0 ? LAYOUT_CONSTANTS.FREE_SHIPPING_LABEL : formatPrice(orderRecap.shippingCost)}</p>
             </div>
             <div>
               <p className="text-xs font-medium text-muted-foreground uppercase mb-2">Articles</p>
@@ -162,8 +164,14 @@ export function CheckoutPage() {
   if (cart.length === 0) {
     return (
       <div className="mx-auto max-w-lg px-4 py-20 text-center">
-        <p className="text-muted-foreground mb-4">Votre panier est vide</p>
-        <Button onClick={() => navigate(PAGES.store.catalog)}>Voir le catalogue</Button>
+        <div className="flex justify-center mb-4">
+          <div className="rounded-full bg-muted p-4">
+            <ShoppingCart className="h-10 w-10 text-muted-foreground" aria-hidden />
+          </div>
+        </div>
+        <h2 className="font-serif text-xl font-semibold text-foreground mb-2">Votre panier est vide</h2>
+        <p className="text-muted-foreground mb-6">Ajoutez des articles à votre panier pour pouvoir passer commande.</p>
+        <Button onClick={() => navigate(PAGES.store.catalog)} size="lg">Découvrir le catalogue</Button>
       </div>
     )
   }
@@ -173,7 +181,7 @@ export function CheckoutPage() {
       <h1 className="font-serif text-2xl md:text-3xl font-bold mb-8">Passer commande</h1>
 
       {/* Steps indicator */}
-      <div className="flex items-center gap-2 md:gap-4 mb-8">
+      <nav className="flex items-center gap-2 md:gap-4 mb-8" aria-label="Étapes de la commande">
         {[
           { label: "Adresse", icon: MapPin },
           { label: "Livraison", icon: Package },
@@ -185,7 +193,11 @@ export function CheckoutPage() {
           const isActive = step === stepNumber
 
           return (
-            <div key={stepInfo.label} className="flex items-center flex-1">
+            <div
+              key={stepInfo.label}
+              className="flex items-center flex-1"
+              aria-current={isActive ? "step" : undefined}
+            >
               <div className="flex items-center gap-2 flex-1">
                 <motion.div
                   className={`relative h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
@@ -235,7 +247,7 @@ export function CheckoutPage() {
             </div>
           )
         })}
-      </div>
+      </nav>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
@@ -356,7 +368,7 @@ export function CheckoutPage() {
                       id="phone" 
                       {...form.register("phone")}
                       className="mt-1"
-                      placeholder="+33 6 12 34 56 78"
+                      placeholder="+223 77 77 30 34 ou +33 6 12 34 56 78"
                       autoComplete="tel"
                       aria-invalid={errors.phone ? "true" : "false"}
                       aria-describedby={errors.phone ? "phone-error" : undefined}
@@ -388,7 +400,7 @@ export function CheckoutPage() {
                     <RadioGroupItem value="standard" />
                     <Truck className="h-5 w-5 text-muted-foreground" />
                     <div className="flex-1">
-                      <p className="font-medium text-sm">Standard (3-5 jours)</p>
+                      <p className="font-medium text-sm">{SHIPPING_LABELS.STANDARD}</p>
                       <p className="text-xs text-muted-foreground">{cartTotal >= LAYOUT_CONSTANTS.FREE_SHIPPING_THRESHOLD ? LAYOUT_CONSTANTS.FREE_SHIPPING_LABEL : formatPrice(LAYOUT_CONSTANTS.STANDARD_SHIPPING_COST)}</p>
                     </div>
                   </label>
@@ -396,8 +408,8 @@ export function CheckoutPage() {
                     <RadioGroupItem value="express" />
                     <Truck className="h-5 w-5 text-accent" />
                     <div className="flex-1">
-                      <p className="font-medium text-sm">Express (1-2 jours)</p>
-                      <p className="text-xs text-muted-foreground">9,99 &euro;</p>
+                      <p className="font-medium text-sm">{SHIPPING_LABELS.EXPRESS}</p>
+                      <p className="text-xs text-muted-foreground">{formatPrice(LAYOUT_CONSTANTS.EXPRESS_SHIPPING_COST)}</p>
                     </div>
                   </label>
                 </RadioGroup>
@@ -442,6 +454,7 @@ export function CheckoutPage() {
                       placeholder="4242 4242 4242 4242"
                       className="mt-1"
                       maxLength={19 + 4}
+                      autoComplete="cc-number"
                       aria-invalid={!!cardErrors.card}
                       aria-describedby={cardErrors.card ? "card-error" : undefined}
                     />
@@ -463,6 +476,7 @@ export function CheckoutPage() {
                         placeholder="MM/AA"
                         className="mt-1"
                         maxLength={5}
+                        autoComplete="cc-exp"
                         aria-invalid={!!cardErrors.exp}
                         aria-describedby={cardErrors.exp ? "exp-error" : undefined}
                       />
@@ -479,6 +493,7 @@ export function CheckoutPage() {
                         placeholder="123"
                         className="mt-1"
                         maxLength={4}
+                        autoComplete="cc-csc"
                         aria-invalid={!!cardErrors.cvc}
                         aria-describedby={cardErrors.cvc ? "cvc-error" : undefined}
                       />
@@ -538,26 +553,12 @@ export function CheckoutPage() {
                 </div>
               ))}
             </div>
-            <div className="border-t border-border pt-3 flex flex-col gap-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Sous-total</span>
-                <span>{formatPrice(cartTotal)}</span>
-              </div>
-              {promoDiscount > 0 && (
-                <div className="flex justify-between text-emerald-600">
-                  <span>Réduction</span>
-                  <span>-{formatPrice(promoDiscount)}</span>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Livraison</span>
-                <span>{shippingCost === 0 ? LAYOUT_CONSTANTS.FREE_SHIPPING_LABEL : formatPrice(shippingCost)}</span>
-              </div>
-              <div className="border-t border-border pt-2 flex justify-between font-bold">
-                <span>Total</span>
-                <span>{formatPrice(total)}</span>
-              </div>
-            </div>
+            <OrderSummary
+              cartTotal={cartTotal}
+              promoDiscount={promoDiscount}
+              shippingCost={shippingCost}
+              total={total}
+            />
           </div>
         </div>
       </div>

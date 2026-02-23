@@ -3,7 +3,7 @@
 import { useCallback } from "react"
 import { toast } from "sonner"
 import { ShoppingBag, Trash2, CheckCircle2 } from "lucide-react"
-import { useStore } from "@/lib/store-context"
+import { useNavigationStore } from "@/lib/store-context"
 import { PAGES } from "@/lib/routes"
 
 /**
@@ -25,7 +25,7 @@ import { PAGES } from "@/lib/routes"
  * ```
  */
 export function useCartToast() {
-  const { navigate } = useStore()
+  const { navigate } = useNavigationStore()
 
   const showAddToCartToast = useCallback((productName: string) => {
     toast.success("Ajouté au panier", {

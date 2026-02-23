@@ -122,19 +122,20 @@ function ErrorFallback({
         </div>
         
         <div className="space-y-2">
-          <h2 className="text-2xl font-bold">Une erreur s'est produite</h2>
+          <h2 className="text-2xl font-bold">Une erreur inattendue s&apos;est produite</h2>
           <p className="text-muted-foreground">
-            {error?.message || "Une erreur inattendue s'est produite. Veuillez réessayer."}
+            Vous pouvez réessayer ou retourner à l&apos;accueil. Si le problème persiste, contactez le support.
           </p>
         </div>
 
-        {process.env.NODE_ENV === "development" && error && (
+        {error && (
           <details className="mt-4 w-full text-left">
             <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
-              Détails techniques (dev only)
+              Détails techniques
             </summary>
-            <pre className="mt-2 p-4 bg-muted rounded-md text-xs overflow-auto max-h-64">
-              {error.stack}
+            <pre className="mt-2 p-4 bg-muted rounded-md text-xs overflow-auto max-h-64" role="status">
+              {error.message}
+              {error.stack && `\n\n${error.stack}`}
             </pre>
           </details>
         )}
@@ -156,7 +157,7 @@ function ErrorFallback({
           aria-label="Retour à l'accueil"
         >
           <Home className="h-4 w-4" aria-hidden="true" />
-          Retour à l'accueil
+          Retour à l&apos;accueil
         </Button>
       </div>
     </div>

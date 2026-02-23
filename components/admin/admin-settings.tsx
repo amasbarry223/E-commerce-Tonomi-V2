@@ -1,10 +1,10 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,29 +14,56 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Store, Truck, CreditCard, Bell, Shield, Users, FileText, Plus, Trash2, Edit, Search, Filter } from "lucide-react"
 import { useUsersStore, type AdminUser } from "@/lib/stores/users-store"
-import { LAYOUT_CONSTANTS } from "@/lib/constants"
-import { formatDate, formatDateShort } from "@/lib/data"
-import { userSchema } from "@/src/lib/utils/validation"
+import { formatDate, formatDateShort } from "@/lib/formatters"
+import { userSchema, getZodErrorMessage } from "@/lib/utils/validation"
 import { useLogsStore, type LogAction } from "@/lib/stores/logs-store"
 import { useAuthStore } from "@/lib/stores/auth-store"
 import { toast } from "sonner"
 import { PaginationSimple as Pagination } from "@/components/ui/pagination"
 import { usePagination } from "@/hooks/use-pagination"
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
+import { AdminEmptyState } from "@/components/admin/admin-empty-state"
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog"
+import { AdminSettingsGeneral } from "./admin-settings-general"
+import { AdminSettingsShipping } from "./admin-settings-shipping"
+import { RoleGuard } from "@/lib/guards"
+import { ROUTES } from "@/lib/routes"
 
 export function AdminSettings() {
   return (
+    <RoleGuard
+      role="super-admin"
+      fallback={
+        <div className="flex flex-col gap-6 w-full">
+          <div>
+            <h2 className="text-xl font-bold">Paramètres</h2>
+            <p className="text-sm text-muted-foreground mt-1">Configuration de la boutique</p>
+          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Accès réservé</CardTitle>
+              <CardDescription>
+                Seuls les super-administrateurs peuvent accéder aux paramètres (utilisateurs, logs, etc.).
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild>
+                <Link href={ROUTES.dashboard}>Retour au tableau de bord</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      }
+    >
     <div className="flex flex-col gap-6 w-full">
       <div>
-        <h2 className="text-xl font-bold">Parametres</h2>
+        <h2 className="text-xl font-bold">Paramètres</h2>
         <p className="text-sm text-muted-foreground">Configuration de la boutique</p>
       </div>
 
       <Tabs defaultValue="general">
         <TabsList className="w-full justify-start bg-transparent border-b border-border rounded-none p-0 overflow-x-auto">
           <TabsTrigger value="general" className="rounded-none border-b-2 border-transparent data-[state=active]:border-accent data-[state=active]:bg-transparent px-4 py-3 gap-2 text-sm">
-            <Store className="h-4 w-4" /> General
+            <Store className="h-4 w-4" /> Général
           </TabsTrigger>
           <TabsTrigger value="shipping" className="rounded-none border-b-2 border-transparent data-[state=active]:border-accent data-[state=active]:bg-transparent px-4 py-3 gap-2 text-sm">
             <Truck className="h-4 w-4" /> Livraison
@@ -56,149 +83,19 @@ export function AdminSettings() {
         </TabsList>
 
         <TabsContent value="general" className="pt-6">
-          <div className="flex flex-col gap-6">
-            {/* Grille pour les deux cartes principales côte à côte */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8">
-              <Card className="h-fit">
-                <CardHeader>
-                  <CardTitle className="text-lg">Informations de la boutique</CardTitle>
-                  <CardDescription>Details generaux de votre boutique</CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-5">
-                  <div>
-                    <Label className="text-base font-medium">Nom de la boutique</Label>
-                    <Input defaultValue="TONOMI ACCESSOIRES" className="mt-2 h-11 text-base" />
-                  </div>
-                  <div>
-                    <Label className="text-base font-medium">Description</Label>
-                    <Textarea defaultValue="Boutique en ligne de maroquinerie de luxe. Decouvrez nos collections de sacs, portefeuilles et accessoires en cuir veritable." className="mt-2 min-h-[120px] text-base" />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    <div>
-                      <Label className="text-base font-medium">Email de contact</Label>
-                      <Input defaultValue="contact@tonomi.com" className="mt-2 h-11 text-base" />
-                    </div>
-                    <div>
-                      <Label className="text-base font-medium">Telephone</Label>
-                      <Input defaultValue="+33 1 23 45 67 89" className="mt-2 h-11 text-base" />
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-base font-medium">Adresse</Label>
-                    <Input defaultValue="12 Rue du Faubourg Saint-Honore, 75008 Paris" className="mt-2 h-11 text-base" />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    <div>
-                      <Label className="text-base font-medium">Devise</Label>
-                      <Select defaultValue="EUR">
-                        <SelectTrigger className="mt-2 h-11 text-base"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="EUR">EUR - Euro</SelectItem>
-                          <SelectItem value="USD">USD - Dollar US</SelectItem>
-                          <SelectItem value="GBP">GBP - Livre Sterling</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-base font-medium">Langue</Label>
-                      <Select defaultValue="fr">
-                        <SelectTrigger className="mt-2 h-11 text-base"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="fr">Francais</SelectItem>
-                          <SelectItem value="en">English</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="h-fit">
-                <CardHeader>
-                  <CardTitle className="text-lg">SEO</CardTitle>
-                  <CardDescription>Optimisation pour les moteurs de recherche</CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-5">
-                  <div>
-                    <Label className="text-base font-medium">Titre de la page</Label>
-                    <Input defaultValue="TONOMI ACCESSOIRES - Maroquinerie de luxe en ligne" className="mt-2 h-11 text-base" />
-                  </div>
-                  <div>
-                    <Label className="text-base font-medium">Meta description</Label>
-                    <Textarea defaultValue="Decouvrez notre collection de sacs en cuir, portefeuilles et accessoires de luxe. Livraison gratuite des 100EUR." className="mt-2 min-h-[120px] text-base" />
-                  </div>
-                  <div>
-                    <Label className="text-base font-medium">Mots-clés (séparés par des virgules)</Label>
-                    <Input defaultValue="maroquinerie, sacs, portefeuilles, accessoires, cuir, luxe" className="mt-2 h-11 text-base" />
-                  </div>
-                  <div>
-                    <Label className="text-base font-medium">URL canonique</Label>
-                    <Input defaultValue="https://www.tonomi.com" className="mt-2 h-11 text-base" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="flex justify-end">
-              <Button>Sauvegarder</Button>
-            </div>
-          </div>
+          <AdminSettingsGeneral />
         </TabsContent>
 
         <TabsContent value="shipping" className="pt-6">
-          <div className="flex flex-col gap-6 w-full">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Options de livraison</CardTitle>
-                <CardDescription>Configurez les méthodes et tarifs de livraison</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-4">
-                <div className="flex items-center justify-between p-4 border border-border rounded-lg">
-                  <div>
-                    <p className="font-medium text-sm">Livraison standard</p>
-                    <p className="text-xs text-muted-foreground">3-5 jours ouvrables</p>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <Input defaultValue="5.99" className="w-24 text-sm" />
-                    <Switch defaultChecked />
-                  </div>
-                </div>
-                <div className="flex items-center justify-between p-4 border border-border rounded-lg">
-                  <div>
-                    <p className="font-medium text-sm">Livraison express</p>
-                    <p className="text-xs text-muted-foreground">1-2 jours ouvrables</p>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <Input defaultValue="9.99" className="w-24 text-sm" />
-                    <Switch defaultChecked />
-                  </div>
-                </div>
-                <div className="flex items-center justify-between p-4 border border-border rounded-lg">
-                  <div>
-                    <p className="font-medium text-sm">{LAYOUT_CONSTANTS.FREE_SHIPPING_LABEL_LONG}</p>
-                    <p className="text-xs text-muted-foreground">{"A partir d'un montant minimum"}</p>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-1">
-                      <span className="text-sm text-muted-foreground">Des</span>
-                      <Input defaultValue="100" className="w-20 text-sm" />
-                      <span className="text-sm text-muted-foreground">EUR</span>
-                    </div>
-                    <Switch defaultChecked />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <div className="flex justify-end"><Button>Sauvegarder</Button></div>
-          </div>
+          <AdminSettingsShipping />
         </TabsContent>
 
         <TabsContent value="payments" className="pt-6">
           <div className="flex flex-col gap-6 w-full">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Methodes de paiement</CardTitle>
-                <CardDescription>Activez et configurez les moyens de paiement acceptés</CardDescription>
+                <CardTitle className="text-base">Méthodes de paiement</CardTitle>
+                <CardDescription>Activez et configurez les moyens de paiement acceptés. Configuration démo – non persistée.</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 <div className="flex items-center justify-between p-4 border border-border rounded-lg">
@@ -220,14 +117,14 @@ export function AdminSettings() {
                     </div>
                     <div>
                       <p className="font-medium text-sm">PayPal</p>
-                      <p className="text-xs text-muted-foreground">Paiement securise via PayPal</p>
+                      <p className="text-xs text-muted-foreground">Paiement sécurisé via PayPal</p>
                     </div>
                   </div>
                   <Switch defaultChecked />
                 </div>
               </CardContent>
             </Card>
-            <div className="flex justify-end"><Button>Sauvegarder</Button></div>
+            <div className="flex justify-end"><Button onClick={() => toast.info("Configuration démo – les modifications ne sont pas enregistrées.")}>Sauvegarder</Button></div>
           </div>
         </TabsContent>
 
@@ -236,15 +133,15 @@ export function AdminSettings() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Notifications email</CardTitle>
-                <CardDescription>Gerez les emails automatiques envoyés aux clients et administrateurs</CardDescription>
+                <CardDescription>Gérez les emails automatiques envoyés aux clients et administrateurs. Configuration démo – non persistée.</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-3">
                 {[
-                  { label: "Confirmation de commande", desc: "Email envoye au client apres commande", default: true },
-                  { label: "Expedition de commande", desc: "Notification de suivi d'expedition", default: true },
+                  { label: "Confirmation de commande", desc: "Email envoyé au client après commande", default: true },
+                  { label: "Expédition de commande", desc: "Notification de suivi d'expédition", default: true },
                   { label: "Nouvelle commande (admin)", desc: "Notification pour l'administrateur", default: true },
                   { label: "Stock faible", desc: "Alerte quand un produit est en stock faible", default: false },
-                  { label: "Nouvel avis client", desc: "Notification quand un avis est poste", default: false },
+                  { label: "Nouvel avis client", desc: "Notification quand un avis est posté", default: false },
                 ].map(item => (
                   <div key={item.label} className="flex items-center justify-between py-3 border-b border-border last:border-0">
                     <div>
@@ -256,7 +153,7 @@ export function AdminSettings() {
                 ))}
               </CardContent>
             </Card>
-            <div className="flex justify-end"><Button>Sauvegarder</Button></div>
+            <div className="flex justify-end"><Button onClick={() => toast.info("Configuration démo – les modifications ne sont pas enregistrées.")}>Sauvegarder</Button></div>
           </div>
         </TabsContent>
 
@@ -269,6 +166,7 @@ export function AdminSettings() {
         </TabsContent>
       </Tabs>
     </div>
+    </RoleGuard>
   )
 }
 
@@ -336,7 +234,7 @@ function UsersManagement() {
     }
     const parsed = userSchema.safeParse(toValidate)
     if (!parsed.success) {
-      toast.error(parsed.error.errors.map((e) => e.message).join('. ') || 'Vérifiez les champs.')
+      toast.error(getZodErrorMessage(parsed.error, 'Vérifiez les champs.'))
       return
     }
     setIsSubmitting(true)
@@ -351,20 +249,13 @@ function UsersManagement() {
         updates.password = parsed.data.password
       }
       updateUser(editingUser.id, updates)
-      try {
-        const { useLogsStore } = require('@/lib/stores/logs-store')
-        const { useAuthStore } = require('@/lib/stores/auth-store')
-        const logsStore = useLogsStore.getState()
-        const authStore = useAuthStore.getState()
-        logsStore.addLog({
+      const authUser = useAuthStore.getState().user
+        useLogsStore.getState().addLog({
           action: 'update_user',
-          userId: authStore.user?.id || 'system',
-          userEmail: authStore.user?.email || 'system',
+          userId: authUser?.id ?? 'system',
+          userEmail: authUser?.email ?? 'system',
           description: `Modification de l'utilisateur ${formData.name} (${formData.email})`,
         })
-      } catch {
-        // Ignorer si les stores ne sont pas disponibles
-      }
       toast.success(`Utilisateur "${parsed.data.name}" modifié avec succès`)
     } else {
       addUser({
@@ -393,14 +284,11 @@ function UsersManagement() {
     const user = users.find(u => u.id === userToDelete)
     if (user) {
       deleteUser(userToDelete)
-      const { useLogsStore } = require('@/lib/stores/logs-store')
-      const { useAuthStore } = require('@/lib/stores/auth-store')
-      const logsStore = useLogsStore.getState()
-      const authStore = useAuthStore.getState()
-      logsStore.addLog({
+      const authUser = useAuthStore.getState().user
+      useLogsStore.getState().addLog({
         action: 'delete_user',
-        userId: authStore.user?.id || 'system',
-        userEmail: authStore.user?.email || 'system',
+        userId: authUser?.id ?? 'system',
+        userEmail: authUser?.email ?? 'system',
         description: `Suppression de l'utilisateur ${user.name} (${user.email})`,
       })
       toast.success(`Utilisateur "${user.name}" supprimé avec succès`)
@@ -677,7 +565,7 @@ function UsersManagement() {
               ) : (
                 <>
                   <Plus className="h-3.5 w-3.5" />
-                  Créer l'utilisateur
+                  Créer l&apos;utilisateur
                 </>
               )}
             </Button>
@@ -789,15 +677,11 @@ function LogsManagement() {
                     {filteredLogs.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={5} className="py-0 border-0">
-                          <Empty className="py-12 border-0">
-                            <EmptyHeader>
-                              <EmptyMedia variant="icon">
-                                <FileText className="size-6" aria-hidden />
-                              </EmptyMedia>
-                              <EmptyTitle>Aucun log trouvé</EmptyTitle>
-                              <EmptyDescription>Les logs d'activité apparaîtront ici.</EmptyDescription>
-                            </EmptyHeader>
-                          </Empty>
+                          <AdminEmptyState
+                            title="Aucun log trouvé"
+                            description="Les logs d'activité apparaîtront ici."
+                            icon={FileText}
+                          />
                         </TableCell>
                       </TableRow>
                     ) : (

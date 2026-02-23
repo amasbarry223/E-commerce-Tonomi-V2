@@ -61,6 +61,15 @@ function Button({
 }: ButtonProps) {
   const [ripples, setRipples] = React.useState<Array<{ id: number; x: number; y: number }>>([])
   const buttonRef = React.useRef<HTMLButtonElement>(null)
+  const rippleTimeoutsRef = React.useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map())
+
+  React.useEffect(() => {
+    const timeouts = rippleTimeoutsRef.current
+    return () => {
+      timeouts.forEach((id) => clearTimeout(id))
+      timeouts.clear()
+    }
+  }, [])
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (ripple && buttonRef.current) {
@@ -70,9 +79,11 @@ function Button({
       const id = Date.now()
       
       setRipples((prev) => [...prev, { id, x, y }])
-      setTimeout(() => {
-        setRipples((prev) => prev.filter((ripple) => ripple.id !== id))
+      const timeoutId = setTimeout(() => {
+        rippleTimeoutsRef.current.delete(id)
+        setRipples((prev) => prev.filter((r) => r.id !== id))
       }, 600)
+      rippleTimeoutsRef.current.set(id, timeoutId)
     }
     
     if (!loading && !disabled && onClick) {

@@ -1,16 +1,18 @@
 "use client"
 
-import { useState, useRef, useEffect, useMemo, useCallback } from "react"
-import { useStore } from "@/lib/store-context"
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react"
+import { useNavigationStore } from "@/lib/store-context"
 import { PAGES } from "@/lib/routes"
-import { products, type Product } from "@/lib/data"
-import { formatPrice } from "@/lib/data"
+import { getProducts } from "@/lib/services"
+import type { Product } from "@/lib/types"
+import { formatPrice } from "@/lib/formatters"
 import { Search, X, ArrowRight } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
 import { cn } from "@/lib/utils"
+import { useDebouncedValue } from "@/hooks/use-debounced-value"
 
 interface SearchSuggestion {
   product: Product
@@ -18,22 +20,29 @@ interface SearchSuggestion {
   matchText: string
 }
 
+interface SearchAutocompleteProps {
+  /** Appelé après une navigation (sélection produit ou recherche catalogue). Utile pour fermer un Sheet mobile. */
+  onAfterNavigate?: () => void
+}
+
 /**
  * Composant de recherche avec autocomplétion
- * Affiche des suggestions de produits pendant la saisie
+ * Affiche des suggestions de produits pendant la saisie (debounce 250 ms pour limiter les recalculs)
  */
-export function SearchAutocomplete() {
-  const { searchQuery, setSearchQuery, navigate, selectProduct } = useStore()
+function SearchAutocompleteInner({ onAfterNavigate }: SearchAutocompleteProps = {}) {
+  const { searchQuery, setSearchQuery, navigate, selectProduct } = useNavigationStore()
+  const products = getProducts()
+  const debouncedQuery = useDebouncedValue(searchQuery, 250)
   const [isOpen, setIsOpen] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Filtrer les produits selon la recherche
+  // Filtrer les produits selon la recherche (basé sur la valeur debounced)
   const suggestions = useMemo<SearchSuggestion[]>(() => {
-    if (!searchQuery.trim() || searchQuery.length < 2) return []
+    if (!debouncedQuery.trim() || debouncedQuery.length < 2) return []
 
-    const query = searchQuery.toLowerCase().trim()
+    const query = debouncedQuery.toLowerCase().trim()
     const results: SearchSuggestion[] = []
 
     products
@@ -73,7 +82,7 @@ export function SearchAutocomplete() {
 
     // Limiter à 8 résultats pour la performance
     return results.slice(0, 8)
-  }, [searchQuery])
+  }, [debouncedQuery])
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
@@ -88,15 +97,17 @@ export function SearchAutocomplete() {
     setIsOpen(false)
     setSearchQuery("")
     inputRef.current?.blur()
-  }, [selectProduct, navigate, setSearchQuery])
+    onAfterNavigate?.()
+  }, [selectProduct, navigate, setSearchQuery, onAfterNavigate])
 
   const performSearch = useCallback(() => {
     if (searchQuery.trim()) {
       navigate(PAGES.store.catalog)
       setIsOpen(false)
       inputRef.current?.blur()
+      onAfterNavigate?.()
     }
-  }, [searchQuery, navigate])
+  }, [searchQuery, navigate, onAfterNavigate])
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
@@ -136,21 +147,20 @@ export function SearchAutocomplete() {
         inputRef.current?.blur()
         break
     }
-  }, [isOpen, suggestions, highlightedIndex, handleSelectProduct, handleSubmit])
+  }, [isOpen, suggestions, highlightedIndex, handleSelectProduct, performSearch])
 
   // Fermer le dropdown si on clique en dehors
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false)
-      }
+  const handleClickOutside = useCallback((event: MouseEvent) => {
+    if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      setIsOpen(false)
     }
+  }, [])
 
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside)
-      return () => document.removeEventListener("mousedown", handleClickOutside)
-    }
-  }, [isOpen])
+  useEffect(() => {
+    if (!isOpen) return
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [isOpen, handleClickOutside])
 
   const hasResults = suggestions.length > 0
   const showSuggestions = isOpen && searchQuery.length >= 2
@@ -243,7 +253,7 @@ export function SearchAutocomplete() {
                     >
                       <div className="relative h-12 w-12 rounded-md overflow-hidden shrink-0 bg-secondary">
                         <Image
-                          src={product.images[0]}
+                          src={product.images[0] ?? "/placeholder.svg"}
                           alt={product.name}
                           fill
                           className="object-cover"
@@ -266,7 +276,7 @@ export function SearchAutocomplete() {
               </div>
             ) : (
               <div className="p-6 text-center text-sm text-muted-foreground">
-                <p>Aucun produit trouvé pour "{searchQuery}"</p>
+                <p>Aucun produit trouvé pour &quot;{searchQuery}&quot;</p>
                 <Button
                   type="button"
                   variant="outline"
@@ -285,4 +295,4 @@ export function SearchAutocomplete() {
   )
 }
 
-
+export const SearchAutocomplete = React.memo(SearchAutocompleteInner)

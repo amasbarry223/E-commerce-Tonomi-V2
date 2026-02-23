@@ -37,13 +37,27 @@ export function ImageLightbox({
   // Réinitialiser l'index et le zoom quand la lightbox s'ouvre
   useEffect(() => {
     if (isOpen) {
-      setCurrentIndex(initialIndex)
-      setZoom(1)
-      setPosition({ x: 0, y: 0 })
+      queueMicrotask(() => {
+        setCurrentIndex(initialIndex)
+        setZoom(1)
+        setPosition({ x: 0, y: 0 })
+      })
     }
   }, [isOpen, initialIndex])
 
-  // Navigation clavier
+  const goToPrevious = useCallback(() => {
+    setCurrentIndex(prev => (prev - 1 + images.length) % images.length)
+    setZoom(1)
+    setPosition({ x: 0, y: 0 })
+  }, [images.length])
+
+  const goToNext = useCallback(() => {
+    setCurrentIndex(prev => (prev + 1) % images.length)
+    setZoom(1)
+    setPosition({ x: 0, y: 0 })
+  }, [images.length])
+
+  // Navigation clavier (deps complètes pour éviter closure stale)
   useEffect(() => {
     if (!isOpen) return
 
@@ -75,19 +89,7 @@ export function ImageLightbox({
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [isOpen, currentIndex, images.length])
-
-  const goToPrevious = useCallback(() => {
-    setCurrentIndex(prev => (prev - 1 + images.length) % images.length)
-    setZoom(1)
-    setPosition({ x: 0, y: 0 })
-  }, [images.length])
-
-  const goToNext = useCallback(() => {
-    setCurrentIndex(prev => (prev + 1) % images.length)
-    setZoom(1)
-    setPosition({ x: 0, y: 0 })
-  }, [images.length])
+  }, [isOpen, goToPrevious, goToNext, onClose])
 
   const handleZoomIn = () => {
     setZoom(prev => Math.min(prev + 0.5, 3))

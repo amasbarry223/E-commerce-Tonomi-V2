@@ -2,9 +2,10 @@
 
 import React, { useState, useRef } from "react"
 import Image from "next/image"
-import { useStore } from "@/lib/store-context"
+import { useCartActions, useNavigationStore, useUIStore } from "@/lib/store-context"
 import { PAGES } from "@/lib/routes"
-import { type Product, formatPrice, getBadgeColor, getStatusLabel } from "@/lib/data"
+import type { Product } from "@/lib/types"
+import { formatPrice, getBadgeColor, getStatusLabel } from "@/lib/formatters"
 import { Heart, ShoppingBag, Star, Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { motion } from "framer-motion"
@@ -18,7 +19,9 @@ import { useCartButtonRef } from "@/hooks/use-cart-button-ref"
 const cardAnimationVariants = getReducedMotionConfig(cardVariants)
 
 export const ProductCard = React.memo(function ProductCard({ product, index = 0 }: { product: Product; index?: number }) {
-  const { addToCart, toggleWishlist, isInWishlist, navigate, selectProduct } = useStore()
+  const { addToCart } = useCartActions()
+  const { navigate, selectProduct } = useNavigationStore()
+  const { toggleWishlist, isInWishlist } = useUIStore()
   const { showAddToCartToast } = useCartToast()
   const [isAddingToCart, setIsAddingToCart] = useState(false)
   const [quickViewOpen, setQuickViewOpen] = useState(false)
@@ -45,10 +48,11 @@ export const ProductCard = React.memo(function ProductCard({ product, index = 0 
       // Use cached cart button ref
       const cartButton = cartButtonRef.current
       
-      // Déclencher l'animation
-      if (imageRef.current && cartButton) {
+      // Déclencher l'animation uniquement si une image existe
+      const firstImage = product.images[0]
+      if (imageRef.current && cartButton && firstImage) {
         triggerAnimation(
-          product.images[0],
+          firstImage,
           product.name,
           imageRef.current,
           cartButton
@@ -62,9 +66,9 @@ export const ProductCard = React.memo(function ProductCard({ product, index = 0 
         productId: product.id,
         name: product.name,
         price: product.price,
-        image: product.images[0],
+        image: firstImage ?? "",
         color: product.colors[0]?.name,
-        size: product.sizes[0],
+        size: product.sizes[0] ?? undefined,
         quantity: 1,
       })
       
@@ -99,7 +103,7 @@ export const ProductCard = React.memo(function ProductCard({ product, index = 0 
           className="h-full w-full"
         >
           <Image
-            src={product.images[0]}
+            src={product.images[0] ?? "/placeholder.svg"}
             alt={product.name}
             fill
             className="object-cover"

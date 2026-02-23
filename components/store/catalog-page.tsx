@@ -8,10 +8,12 @@
  * @dependencies useStore, lib/data, Empty, Breadcrumb, ProductCard, PaginationSimple
  */
 
-import { useState, useMemo, useEffect, useCallback } from "react"
-import { useStore } from "@/lib/store-context"
+import React, { useState, useMemo, useEffect, useCallback } from "react"
+import { useNavigationStore } from "@/lib/store-context"
+import { useSimulatedLoading } from "@/hooks/use-simulated-loading"
 import { PAGES } from "@/lib/routes"
-import { products, categories, formatPrice } from "@/lib/data"
+import { getProducts, getCategories } from "@/lib/services"
+import { formatPrice, pluralize } from "@/lib/formatters"
 import { SECTION_CONTAINER } from "@/lib/layout"
 import { ProductCard } from "./product-card"
 import { ProductCardSkeletonGrid } from "./product-card-skeleton"
@@ -37,8 +39,118 @@ const BRANDS = ["Maison Élégance", "Bohème Paris", "Cristal de Paris", "Urban
 const PRICE_RANGE_DEFAULT: [number, number] = [0, 300]
 const PRODUCTS_PER_PAGE = 12
 
+const products = getProducts()
+const categories = getCategories()
+
+type CatalogFilterContentProps = {
+  selectedCategory: string
+  setSelectedCategory: (v: string) => void
+  priceRange: number[]
+  setPriceRange: (v: number[]) => void
+  selectedBrands: string[]
+  selectedMaterials: string[]
+  toggleBrand: (brand: string) => void
+  toggleMaterial: (material: string) => void
+  clearFilters: () => void
+  activeFilterCount: number
+}
+
+function CatalogFilterContentInner({
+  selectedCategory,
+  setSelectedCategory,
+  priceRange,
+  setPriceRange,
+  selectedBrands,
+  selectedMaterials,
+  toggleBrand,
+  toggleMaterial,
+  clearFilters,
+  activeFilterCount,
+}: CatalogFilterContentProps) {
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <h4 className="font-semibold mb-3 text-sm">Catégories</h4>
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => setSelectedCategory("all")}
+            className={`text-left text-sm py-1 transition-colors ${selectedCategory === "all" ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
+            aria-current={selectedCategory === "all" ? "true" : undefined}
+          >
+            Toutes ({products.length})
+          </button>
+          {categories.map(cat => (
+            <button
+              type="button"
+              key={cat.id}
+              onClick={() => setSelectedCategory(cat.id)}
+              className={`text-left text-sm py-1 transition-colors ${selectedCategory === cat.id ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
+              aria-current={selectedCategory === cat.id ? "true" : undefined}
+            >
+              {cat.name} ({products.filter(p => p.category === cat.id).length})
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <h4 className="font-semibold mb-3 text-sm">Prix</h4>
+        <Slider
+          value={priceRange}
+          onValueChange={setPriceRange}
+          min={0}
+          max={300}
+          step={10}
+          className="mb-2"
+          aria-label="Plage de prix en euros"
+          aria-valuetext={`De ${formatPrice(priceRange[0])} à ${formatPrice(priceRange[1])}`}
+        />
+        <div className="flex justify-between text-xs text-muted-foreground">
+          <span>{formatPrice(priceRange[0])}</span>
+          <span>{formatPrice(priceRange[1])}</span>
+        </div>
+      </div>
+      <div>
+        <h4 className="font-semibold mb-3 text-sm">Marques</h4>
+        <div className="flex flex-col gap-2">
+          {BRANDS.map(brand => (
+            <label key={brand} className="flex items-center gap-2 text-sm cursor-pointer">
+              <Checkbox
+                checked={selectedBrands.includes(brand)}
+                onCheckedChange={() => toggleBrand(brand)}
+              />
+              <span className="text-muted-foreground">{brand}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+      <div>
+        <h4 className="font-semibold mb-3 text-sm">Matière</h4>
+        <div className="flex flex-col gap-2">
+          {MATERIALS.slice(0, 6).map(material => (
+            <label key={material} className="flex items-center gap-2 text-sm cursor-pointer">
+              <Checkbox
+                checked={selectedMaterials.includes(material)}
+                onCheckedChange={() => toggleMaterial(material)}
+              />
+              <span className="text-muted-foreground">{material}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+      {activeFilterCount > 0 && (
+        <Button variant="outline" onClick={clearFilters} size="sm" className="gap-2">
+          <X className="h-3.5 w-3.5" /> Effacer les filtres
+        </Button>
+      )}
+    </div>
+  )
+}
+
+const CatalogFilterContent = React.memo(CatalogFilterContentInner)
+
 export function CatalogPage() {
-  const { searchQuery, selectedCategorySlug, selectCategory, navigate } = useStore()
+  const { searchQuery, setSearchQuery, selectedCategoryId, selectCategory, navigate } = useNavigationStore()
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
   const [priceRange, setPriceRange] = useState<number[]>([...PRICE_RANGE_DEFAULT])
   const [selectedBrands, setSelectedBrands] = useState<string[]>([])
@@ -46,19 +158,15 @@ export function CatalogPage() {
   const [sortBy, setSortBy] = useState<string>("popularity")
   const [gridCols, setGridCols] = useState<3 | 4>(4)
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading] = useSimulatedLoading(500)
   const [currentPage, setCurrentPage] = useState(1)
 
   useEffect(() => {
-    setSelectedCategory(selectedCategorySlug ?? "all")
-    setCurrentPage(1) // Reset à la page 1 quand les filtres changent
-  }, [selectedCategorySlug, searchQuery])
-
-  // Simuler le chargement initial pour démontrer les skeleton loaders
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 500)
-    return () => clearTimeout(timer)
-  }, [])
+    queueMicrotask(() => {
+      setSelectedCategory(selectedCategoryId ?? "all")
+      setCurrentPage(1) // Reset à la page 1 quand les filtres changent
+    })
+  }, [selectedCategoryId, searchQuery])
 
   const toggleBrand = useCallback((brand: string) => {
     setSelectedBrands(prev =>
@@ -139,86 +247,18 @@ export function CatalogPage() {
     [selectedCategory, selectedBrands.length, selectedMaterials.length, priceRange]
   )
 
-  const FilterContent = () => (
-    <div className="flex flex-col gap-6">
-      {/* Categories */}
-      <div>
-        <h4 className="font-semibold mb-3 text-sm">Catégories</h4>
-        <div className="flex flex-col gap-2">
-          <button
-            onClick={() => setSelectedCategory("all")}
-            className={`text-left text-sm py-1 transition-colors ${selectedCategory === "all" ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            Toutes ({products.length})
-          </button>
-          {categories.map(cat => (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
-              className={`text-left text-sm py-1 transition-colors ${selectedCategory === cat.id ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              {cat.name} ({products.filter(p => p.category === cat.id).length})
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Price Range */}
-      <div>
-        <h4 className="font-semibold mb-3 text-sm">Prix</h4>
-        <Slider
-          value={priceRange}
-          onValueChange={setPriceRange}
-          min={0}
-          max={300}
-          step={10}
-          className="mb-2"
-        />
-        <div className="flex justify-between text-xs text-muted-foreground">
-          <span>{formatPrice(priceRange[0])}</span>
-          <span>{formatPrice(priceRange[1])}</span>
-        </div>
-      </div>
-
-      {/* Brands */}
-      <div>
-        <h4 className="font-semibold mb-3 text-sm">Marques</h4>
-        <div className="flex flex-col gap-2">
-          {BRANDS.map(brand => (
-            <label key={brand} className="flex items-center gap-2 text-sm cursor-pointer">
-              <Checkbox
-                checked={selectedBrands.includes(brand)}
-                onCheckedChange={() => toggleBrand(brand)}
-              />
-              <span className="text-muted-foreground">{brand}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Materials */}
-      <div>
-        <h4 className="font-semibold mb-3 text-sm">Matière</h4>
-        <div className="flex flex-col gap-2">
-          {MATERIALS.slice(0, 6).map(material => (
-            <label key={material} className="flex items-center gap-2 text-sm cursor-pointer">
-              <Checkbox
-                checked={selectedMaterials.includes(material)}
-                onCheckedChange={() => toggleMaterial(material)}
-              />
-              <span className="text-muted-foreground">{material}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {activeFilterCount > 0 && (
-        <Button variant="outline" onClick={clearFilters} size="sm" className="gap-2">
-          <X className="h-3.5 w-3.5" /> Effacer les filtres
-        </Button>
-      )}
-    </div>
-  )
+  const filterContentProps: CatalogFilterContentProps = {
+    selectedCategory,
+    setSelectedCategory,
+    priceRange,
+    setPriceRange,
+    selectedBrands,
+    selectedMaterials,
+    toggleBrand,
+    toggleMaterial,
+    clearFilters,
+    activeFilterCount,
+  }
 
   return (
     <div className={`${SECTION_CONTAINER} py-8`}>
@@ -243,13 +283,13 @@ export function CatalogPage() {
         <h1 className="font-serif text-2xl md:text-3xl font-bold">
           {searchQuery ? `Résultats pour "${searchQuery}"` : "Tous nos articles"}
         </h1>
-        <span className="text-sm text-muted-foreground">{filteredProducts.length} article{filteredProducts.length > 1 ? "s" : ""}</span>
+        <span className="text-sm text-muted-foreground">{filteredProducts.length} {pluralize(filteredProducts.length, "article")}</span>
       </div>
 
       <div className="flex gap-8">
         {/* Desktop Filters */}
         <aside className="hidden lg:block w-64 shrink-0">
-          <FilterContent />
+          <CatalogFilterContent {...filterContentProps} />
         </aside>
 
         <div className="flex-1">
@@ -274,23 +314,35 @@ export function CatalogPage() {
                     <SheetTitle>Filtres</SheetTitle>
                   </SheetHeader>
                   <div className="mt-6">
-                    <FilterContent />
+                    <CatalogFilterContent {...filterContentProps} />
                   </div>
                 </SheetContent>
               </Sheet>
 
-              <div className="hidden md:flex items-center gap-1">
-                <button onClick={() => setGridCols(3)} className={`p-1.5 rounded ${gridCols === 3 ? "bg-secondary" : ""}`}>
-                  <Grid3X3 className="h-4 w-4" />
+              <div className="hidden md:flex items-center gap-1" role="group" aria-label="Vue de la grille">
+                <button
+                  type="button"
+                  onClick={() => setGridCols(3)}
+                  className={`p-1.5 rounded ${gridCols === 3 ? "bg-secondary" : ""}`}
+                  aria-label="Vue 3 colonnes"
+                  aria-pressed={gridCols === 3}
+                >
+                  <Grid3X3 className="h-4 w-4" aria-hidden />
                 </button>
-                <button onClick={() => setGridCols(4)} className={`p-1.5 rounded ${gridCols === 4 ? "bg-secondary" : ""}`}>
-                  <LayoutGrid className="h-4 w-4" />
+                <button
+                  type="button"
+                  onClick={() => setGridCols(4)}
+                  className={`p-1.5 rounded ${gridCols === 4 ? "bg-secondary" : ""}`}
+                  aria-label="Vue 4 colonnes"
+                  aria-pressed={gridCols === 4}
+                >
+                  <LayoutGrid className="h-4 w-4" aria-hidden />
                 </button>
               </div>
             </div>
 
             <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-48" aria-label="Trier par">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -316,10 +368,10 @@ export function CatalogPage() {
                 <EmptyDescription>
                   {activeFilterCount > 0
                     ? "Essayez de modifier vos critères de recherche ou de réinitialiser les filtres pour voir plus de résultats."
-                    : "Nous n'avons pas trouvé de produits correspondant à votre recherche. Essayez d'autres mots-clés."}
+                    : "Nous n&apos;avons pas trouvé de produits correspondant à votre recherche. Essayez d&apos;autres mots-clés."}
                   {searchQuery && (
                     <span className="block mt-2">
-                      Recherche : <span className="font-medium text-foreground">"{searchQuery}"</span>
+                      Recherche : <span className="font-medium text-foreground">&quot;{searchQuery}&quot;</span>
                     </span>
                   )}
                 </EmptyDescription>
@@ -332,7 +384,15 @@ export function CatalogPage() {
                       Réinitialiser les filtres
                     </Button>
                   )}
-                  <Button variant="outline" onClick={() => navigate(PAGES.store.catalog)} className="gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSearchQuery("")
+                      clearFilters()
+                      navigate(PAGES.store.catalog)
+                    }}
+                    className="gap-2"
+                  >
                     Voir tout le catalogue
                   </Button>
                 </div>

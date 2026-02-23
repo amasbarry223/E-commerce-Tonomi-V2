@@ -1,6 +1,7 @@
 "use client"
 
-import { promoCodes, formatPrice, formatDate } from "@/lib/data"
+import { getPromoCodes } from "@/lib/services"
+import { formatPrice, formatDate } from "@/lib/formatters"
 import { LAYOUT_CONSTANTS } from "@/lib/constants"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -18,15 +19,18 @@ import { PaginationSimple as Pagination } from "@/components/ui/pagination"
 import { usePagination } from "@/hooks/use-pagination"
 import { useSubmitState } from "@/hooks/use-submit-state"
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog"
-import { promoCodeSchema } from "@/src/lib/utils/validation"
+import { promoCodeSchema, getZodErrorMessage } from "@/lib/utils/validation"
 import { TOAST_MESSAGES } from "@/lib/constants"
+import { AdminSectionHeader } from "@/components/admin/admin-section-header"
 
 export function AdminPromos() {
+  const promoCodes = getPromoCodes()
   const [showAdd, setShowAdd] = useState(false)
   const [promoToDelete, setPromoToDelete] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const { isSubmitting, submit } = useSubmitState()
   const [isDeleting, setIsDeleting] = useState(false)
+  const [promoFieldErrors, setPromoFieldErrors] = useState<Record<string, string>>({})
 
   const filtered = useMemo(() => promoCodes, [promoCodes])
   const activeCount = filtered.filter(p => p.active && new Date(p.endDate) > new Date()).length
@@ -70,12 +74,23 @@ export function AdminPromos() {
     startDate: string
     endDate: string
   }) => {
-    const result = promoCodeSchema.safeParse(formValues)
-    if (!result.success) {
-      const first = result.error.errors[0]
-      toast.error(first?.message ?? TOAST_MESSAGES.VALIDATION_CORRECT_FIELDS)
+    if (formValues.endDate < formValues.startDate) {
+      setPromoFieldErrors({ endDate: "La date de fin doit être postérieure ou égale à la date de début." })
+      toast.error("La date de fin doit être postérieure ou égale à la date de début.")
       return
     }
+    const result = promoCodeSchema.safeParse(formValues)
+    if (!result.success) {
+      const errors: Record<string, string> = {}
+      result.error.issues.forEach((err) => {
+        const path = (err.path[0] as string) ?? "form"
+        if (!errors[path]) errors[path] = err.message ?? "Erreur"
+      })
+      setPromoFieldErrors(errors)
+      toast.error(getZodErrorMessage(result.error, TOAST_MESSAGES.VALIDATION_CORRECT_FIELDS))
+      return
+    }
+    setPromoFieldErrors({})
     submit(async () => {
       toast.success("Code promo créé avec succès")
       setShowAdd(false)
@@ -84,12 +99,11 @@ export function AdminPromos() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold">Codes promo</h2>
-          <p className="text-sm text-muted-foreground">{filtered.length} codes | {activeCount} actifs</p>
-        </div>
-        <Dialog open={showAdd} onOpenChange={setShowAdd}>
+      <AdminSectionHeader
+        title="Codes promo"
+        description={`${filtered.length} codes | ${activeCount} actifs`}
+      >
+        <Dialog open={showAdd} onOpenChange={(open) => { setShowAdd(open); if (!open) setPromoFieldErrors({}) }}>
           <DialogTrigger asChild>
             <Button size="sm" className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Nouveau code</Button>
           </DialogTrigger>
@@ -104,10 +118,11 @@ export function AdminPromos() {
               onSubmit={handleCreatePromo}
               onCancel={() => setShowAdd(false)}
               isSubmitting={isSubmitting}
+              fieldErrors={promoFieldErrors}
             />
           </DialogContent>
         </Dialog>
-      </div>
+      </AdminSectionHeader>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {paginatedData.map(promo => {
@@ -127,11 +142,11 @@ export function AdminPromos() {
                       ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
                       : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
                     }>
-                      {isExpired ? "Expire" : isActive ? "Actif" : "Inactif"}
+                      {isExpired ? "Expiré" : isActive ? "Actif" : "Inactif"}
                     </Badge>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-8 sm:w-8">
+                        <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-8 sm:w-8" aria-label={`Actions pour le code ${promo.code}`}>
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -205,10 +220,12 @@ function PromoForm({
   onSubmit,
   onCancel,
   isSubmitting,
+  fieldErrors = {},
 }: {
   onSubmit: (values: { code: string; type: "percentage" | "fixed"; value: number; minAmount?: number; maxUses: number; startDate: string; endDate: string }) => void
   onCancel: () => void
   isSubmitting: boolean
+  fieldErrors?: Record<string, string>
 }) {
   const today = new Date().toISOString().split("T")[0]
   const [code, setCode] = useState("")
@@ -273,7 +290,14 @@ function PromoForm({
               className="mt-1.5 font-mono uppercase font-bold"
               placeholder="SUMMER2026"
               maxLength={20}
+              aria-invalid={!!fieldErrors.code}
+              aria-describedby={fieldErrors.code ? "promo-code-error" : undefined}
             />
+            {fieldErrors.code && (
+              <p id="promo-code-error" className="text-xs text-destructive mt-0.5" role="alert">
+                {fieldErrors.code}
+              </p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -294,17 +318,24 @@ function PromoForm({
               </Select>
             </div>
             <div>
-              <Label htmlFor="promo-value" className="text-sm font-medium">Valeur</Label>
+              <Label htmlFor="promo-value" className="text-sm font-medium">{type === "fixed" ? "Valeur (€)" : "Valeur"}</Label>
               <Input
                 id="promo-value"
                 type="number"
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 className="mt-1.5"
-                placeholder="10"
+                placeholder={type === "fixed" ? "5.00" : "10"}
                 min="0"
                 step="0.01"
+                aria-invalid={!!fieldErrors.value}
+                aria-describedby={fieldErrors.value ? "promo-value-error" : undefined}
               />
+              {fieldErrors.value && (
+                <p id="promo-value-error" className="text-xs text-destructive mt-0.5" role="alert">
+                  {fieldErrors.value}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
@@ -327,10 +358,17 @@ function PromoForm({
               placeholder="0"
               min="0"
               step="0.01"
+              aria-invalid={!!fieldErrors.minAmount}
+              aria-describedby={fieldErrors.minAmount ? "promo-min-amount-error" : undefined}
             />
+            {fieldErrors.minAmount && (
+              <p id="promo-min-amount-error" className="text-xs text-destructive mt-0.5" role="alert">
+                {fieldErrors.minAmount}
+              </p>
+            )}
           </div>
           <div>
-            <Label htmlFor="promo-max-uses" className="text-sm font-medium">Limite d'utilisations</Label>
+            <Label htmlFor="promo-max-uses" className="text-sm font-medium">Limite d&apos;utilisations</Label>
             <Input
               id="promo-max-uses"
               type="number"
@@ -339,7 +377,14 @@ function PromoForm({
               className="mt-1.5"
               placeholder="100"
               min="1"
+              aria-invalid={!!fieldErrors.maxUses}
+              aria-describedby={fieldErrors.maxUses ? "promo-max-uses-error" : undefined}
             />
+            {fieldErrors.maxUses && (
+              <p id="promo-max-uses-error" className="text-xs text-destructive mt-0.5" role="alert">
+                {fieldErrors.maxUses}
+              </p>
+            )}
           </div>
         </TabsContent>
 
@@ -353,7 +398,14 @@ function PromoForm({
               onChange={(e) => setStartDate(e.target.value)}
               className="mt-1.5"
               min={today}
+              aria-invalid={!!fieldErrors.startDate}
+              aria-describedby={fieldErrors.startDate ? "promo-start-date-error" : undefined}
             />
+            {fieldErrors.startDate && (
+              <p id="promo-start-date-error" className="text-xs text-destructive mt-0.5" role="alert">
+                {fieldErrors.startDate}
+              </p>
+            )}
           </div>
           <div>
             <Label htmlFor="promo-end-date" className="text-sm font-medium">Date de fin</Label>
@@ -364,7 +416,14 @@ function PromoForm({
               onChange={(e) => setEndDate(e.target.value)}
               className="mt-1.5"
               min={today}
+              aria-invalid={!!fieldErrors.endDate}
+              aria-describedby={fieldErrors.endDate ? "promo-end-date-error" : undefined}
             />
+            {fieldErrors.endDate && (
+              <p id="promo-end-date-error" className="text-xs text-destructive mt-0.5" role="alert">
+                {fieldErrors.endDate}
+              </p>
+            )}
           </div>
         </TabsContent>
 
@@ -389,7 +448,7 @@ function PromoForm({
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-3 text-center">
-            Aperçu du code promo tel qu'il apparaîtra dans la liste
+            Aperçu du code promo tel qu&apos;il apparaîtra dans la liste
           </p>
         </TabsContent>
       </Tabs>

@@ -1,7 +1,9 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
-import { products, categories, formatPrice, getStatusColor, getStatusLabel } from "@/lib/data"
+import { useState, useMemo } from "react"
+import Image from "next/image"
+import { getProducts, getCategories } from "@/lib/services"
+import { formatPrice, getStatusColor, getStatusLabel } from "@/lib/formatters"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -12,22 +14,27 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { PaginationSimple as Pagination } from "@/components/ui/pagination"
-import {
-  Search, Plus, Edit, Trash2, Eye, Copy, Download, Upload,
-  MoreHorizontal, Package,
-} from "lucide-react"
+import { Plus, Edit, Trash2, Eye, Copy, Download, Upload, MoreHorizontal, Package } from "lucide-react"
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { toast } from "sonner"
 import { usePagination } from "@/hooks/use-pagination"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
+import { AdminSectionHeader } from "@/components/admin/admin-section-header"
+import { AdminTableToolbar } from "@/components/admin/admin-table-toolbar"
+import { AdminEmptyState } from "@/components/admin/admin-empty-state"
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog"
-import { productSchema } from "@/src/lib/utils/validation"
-import { TOAST_MESSAGES } from "@/lib/constants"
+import { productSchema, getZodErrorMessage } from "@/lib/utils/validation"
+import { TOAST_MESSAGES, AUTH_DELAYS_MS } from "@/lib/constants"
+import { useSimulatedLoading } from "@/hooks/use-simulated-loading"
+import { useNavigationStore } from "@/lib/store-context"
+import { PAGES } from "@/lib/routes"
 
 export function AdminProducts() {
+  const products = getProducts()
+  const categories = getCategories()
+  const { navigate, selectProduct, setCurrentView } = useNavigationStore()
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -36,11 +43,7 @@ export function AdminProducts() {
   const [productToDelete, setProductToDelete] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [loading, setLoading] = useState(true)
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 200)
-    return () => clearTimeout(t)
-  }, [])
+  const [loading] = useSimulatedLoading(AUTH_DELAYS_MS.ADMIN_LOADING)
 
   const filtered = useMemo(() => {
     let result = [...products]
@@ -51,7 +54,7 @@ export function AdminProducts() {
     if (categoryFilter !== "all") result = result.filter(p => p.category === categoryFilter)
     if (statusFilter !== "all") result = result.filter(p => p.status === statusFilter)
     return result
-  }, [search, categoryFilter, statusFilter])
+  }, [search, categoryFilter, statusFilter, products])
 
   const {
     paginatedData,
@@ -63,11 +66,9 @@ export function AdminProducts() {
   } = usePagination(filtered, { itemsPerPage: 10 })
 
   const handleViewProduct = (productId: string) => {
-    const product = products.find(p => p.id === productId)
-    if (product) {
-      toast.info(`Affichage du produit: ${product.name}`)
-      // Ici vous pouvez naviguer vers la page produit ou ouvrir un modal
-    }
+    selectProduct(productId)
+    setCurrentView("store")
+    navigate(PAGES.store.product)
   }
 
   const handleEditProduct = (productId: string) => {
@@ -92,7 +93,7 @@ export function AdminProducts() {
     setIsDeleting(true)
     const product = products.find(p => p.id === productToDelete)
     if (product) {
-      toast.success(`Produit "${product.name}" supprimé avec succès`)
+      toast.info(TOAST_MESSAGES.DEMO_DELETE_PRODUCT)
     }
     setProductToDelete(null)
     setIsDeleting(false)
@@ -110,52 +111,43 @@ export function AdminProducts() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold">Gestion des produits</h2>
-          <p className="text-sm text-muted-foreground">{products.length} produits au total</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5">
-            <Upload className="h-3.5 w-3.5" /> Importer CSV
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5">
-            <Download className="h-3.5 w-3.5" /> Exporter
-          </Button>
-          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="gap-1.5">
-                <Plus className="h-3.5 w-3.5" /> Ajouter
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Nouveau produit</DialogTitle>
-              </DialogHeader>
-              <ProductForm onClose={() => setShowAddDialog(false)} />
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
+      <AdminSectionHeader
+        title="Gestion des produits"
+        description={`${products.length} produits au total`}
+      >
+        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => toast.info("Fonctionnalité à venir")}>
+          <Upload className="h-3.5 w-3.5" /> Importer CSV
+        </Button>
+        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => toast.info("Fonctionnalité à venir")}>
+          <Download className="h-3.5 w-3.5" /> Exporter
+        </Button>
+        <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+          <DialogTrigger asChild>
+            <Button size="sm" className="gap-1.5">
+              <Plus className="h-3.5 w-3.5" /> Ajouter
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Nouveau produit</DialogTitle>
+            </DialogHeader>
+            <ProductForm onClose={() => setShowAddDialog(false)} onSave={handleProductSaved} />
+          </DialogContent>
+        </Dialog>
+      </AdminSectionHeader>
 
       {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher un produit ou SKU..."
-            className="pl-10"
-          />
-        </div>
+      <AdminTableToolbar
+        searchPlaceholder="Rechercher un produit ou SKU..."
+        searchValue={search}
+        onSearchChange={setSearch}
+      >
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
           <SelectTrigger className="w-48">
-            <SelectValue placeholder="Categorie" />
+            <SelectValue placeholder="Catégorie" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Toutes les categories</SelectItem>
+            <SelectItem value="all">Toutes les catégories</SelectItem>
             {categories.map(c => (
               <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
             ))}
@@ -167,13 +159,13 @@ export function AdminProducts() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tous les statuts</SelectItem>
-            <SelectItem value="published">Publie</SelectItem>
+            <SelectItem value="published">Publié</SelectItem>
             <SelectItem value="draft">Brouillon</SelectItem>
-            <SelectItem value="archived">Archive</SelectItem>
+            <SelectItem value="archived">Archivé</SelectItem>
             <SelectItem value="out-of-stock">Rupture</SelectItem>
           </SelectContent>
         </Select>
-      </div>
+      </AdminTableToolbar>
 
       {/* Table */}
       <div className="bg-card border border-border rounded-lg overflow-hidden">
@@ -202,7 +194,7 @@ export function AdminProducts() {
                   <tr key={product.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
-                        <img src={product.images[0]} alt={product.name} className="h-10 w-10 rounded object-cover shrink-0" crossOrigin="anonymous" />
+                        <Image src={product.images[0] ?? "/placeholder.svg"} alt={product.name} width={40} height={40} className="h-10 w-10 rounded object-cover shrink-0" />
                         <div className="min-w-0">
                           <p className="font-medium truncate max-w-[200px]">{product.name}</p>
                           <p className="text-xs text-muted-foreground">{category?.name} | {product.brand}</p>
@@ -231,8 +223,8 @@ export function AdminProducts() {
                     <td className="py-3 px-4 text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-8 sm:w-8">
-                            <MoreHorizontal className="h-4 w-4" />
+                          <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-8 sm:w-8" aria-label={`Actions pour ${product.name}`}>
+                            <MoreHorizontal className="h-4 w-4" aria-hidden />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -258,15 +250,11 @@ export function AdminProducts() {
           </table>
         </div>
         {!loading && filtered.length === 0 && (
-          <Empty className="py-12 border-0">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <Package className="size-6" />
-              </EmptyMedia>
-              <EmptyTitle>Aucun produit trouvé</EmptyTitle>
-              <EmptyDescription>Ajoutez des produits pour les afficher ici.</EmptyDescription>
-            </EmptyHeader>
-          </Empty>
+          <AdminEmptyState
+            title="Aucun produit trouvé"
+            description="Ajoutez des produits pour les afficher ici."
+            icon={Package}
+          />
         )}
         </>
         )}
@@ -291,7 +279,7 @@ export function AdminProducts() {
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         title="Supprimer le produit"
-        description="Êtes-vous sûr de vouloir supprimer ce produit ? Cette action est irréversible."
+        description="En mode démo, les données sont statiques : le produit restera affiché. Avec un backend, il serait supprimé définitivement."
         onConfirm={confirmDeleteProduct}
         loading={isDeleting}
       />
@@ -305,12 +293,7 @@ export function AdminProducts() {
             </DialogHeader>
             <ProductForm 
               productId={editingProduct} 
-              onClose={() => {
-                setEditingProduct(null)
-                if (editingProduct) {
-                  toast.success("Produit modifié avec succès")
-                }
-              }}
+              onClose={() => setEditingProduct(null)}
               onSave={handleProductSaved}
             />
           </DialogContent>
@@ -329,6 +312,7 @@ function ProductForm({
   onClose: () => void
   onSave?: (isNew: boolean) => void
 }) {
+  const products = getProducts()
   const product = productId ? products.find(p => p.id === productId) : null
   const isNew = !productId
 
@@ -360,12 +344,12 @@ function ProductForm({
     const result = productSchema.safeParse(payload)
     if (!result.success) {
       const errors: Record<string, string> = {}
-      result.error.errors.forEach((err) => {
+      result.error.issues.forEach((err) => {
         const path = err.path[0] as string
         if (!errors[path]) errors[path] = err.message
       })
       setFieldErrors(errors)
-      toast.error(result.error.errors[0]?.message ?? TOAST_MESSAGES.VALIDATION_CORRECT_FIELDS)
+      toast.error(getZodErrorMessage(result.error, TOAST_MESSAGES.VALIDATION_CORRECT_FIELDS))
       return
     }
     if (onSave) onSave(isNew)
@@ -392,8 +376,8 @@ function ProductForm({
       </div>
 
       <div>
-        <Label className="text-sm">Description complete</Label>
-        <Textarea value={description} onChange={(e) => setDescription(e.target.value)} className="mt-1 min-h-[100px]" placeholder="Description detaillee" />
+        <Label className="text-sm">Description complète</Label>
+        <Textarea value={description} onChange={(e) => setDescription(e.target.value)} className="mt-1 min-h-[100px]" placeholder="Description détaillée" />
         {fieldErrors.description && <p className="text-xs text-destructive mt-0.5">{fieldErrors.description}</p>}
       </div>
 
@@ -404,7 +388,7 @@ function ProductForm({
           {fieldErrors.price && <p className="text-xs text-destructive mt-0.5">{fieldErrors.price}</p>}
         </div>
         <div>
-          <Label className="text-sm">Prix barre</Label>
+          <Label className="text-sm">Prix barré</Label>
           <Input type="number" value={originalPrice} onChange={(e) => setOriginalPrice(e.target.value)} className="mt-1" placeholder="0.00" min="0" step="0.01" />
         </div>
         <div>
@@ -416,7 +400,7 @@ function ProductForm({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <Label className="text-sm">Categorie</Label>
+          <Label className="text-sm">Catégorie</Label>
           <Select value={category || undefined} onValueChange={setCategory}>
             <SelectTrigger className="mt-1"><SelectValue placeholder="Choisir" /></SelectTrigger>
             <SelectContent>
@@ -432,9 +416,9 @@ function ProductForm({
           <Select value={status} onValueChange={setStatus}>
             <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="published">Publie</SelectItem>
+              <SelectItem value="published">Publié</SelectItem>
               <SelectItem value="draft">Brouillon</SelectItem>
-              <SelectItem value="archived">Archive</SelectItem>
+              <SelectItem value="archived">Archivé</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -462,7 +446,7 @@ function ProductForm({
         {product && product.images.length > 0 && (
           <div className="flex gap-2 mt-3">
             {product.images.map((img, i) => (
-              <img key={i} src={img} alt={`Image ${i + 1}`} className="h-16 w-16 rounded object-cover border border-border" crossOrigin="anonymous" />
+              <Image key={i} src={img} alt={`Image ${i + 1}`} width={64} height={64} className="h-16 w-16 rounded object-cover border border-border" />
             ))}
           </div>
         )}
@@ -471,7 +455,7 @@ function ProductForm({
       <div className="flex justify-end gap-3 pt-4 border-t border-border">
         <Button variant="outline" onClick={onClose}>Annuler</Button>
         <Button onClick={handleSubmit}>
-          {product ? "Enregistrer" : "Creer le produit"}
+          {product ? "Enregistrer" : "Créer le produit"}
         </Button>
       </div>
     </div>
