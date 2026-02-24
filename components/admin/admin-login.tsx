@@ -8,6 +8,7 @@ import { useAuthStore } from "@/lib/stores/auth-store"
 import { useLogsStore } from "@/lib/stores/logs-store"
 import { useNavigationStore } from "@/lib/store-context"
 import { ROUTES, PAGES, REDIRECT_QUERY, SESSION_EXPIRED_QUERY, ADMIN_SLUG_TO_PAGE } from "@/lib/routes"
+import type { AdminPageKey } from "@/lib/routes"
 import { getAdminHomeUrl } from "@/lib/auth/routes"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -59,9 +60,17 @@ export function AdminLogin() {
         }
         setCurrentView("admin")
         let targetUrl = redirectTo
-        // Préserver l’URL SPA admin si le redirect l’a déjà (/?view=admin&page=...)
+        // Anciens liens ?view=admin&page=... → rediriger vers le path (/dashboard, /admin/xxx)
         if (redirectTo.startsWith("/?") && redirectTo.includes("view=admin")) {
-          targetUrl = redirectTo
+          try {
+            const u = new URL(redirectTo, "http://x")
+            const pageParam = u.searchParams.get("page")
+            const validKeys = Object.values(PAGES.admin) as string[]
+            const adminPage: AdminPageKey = pageParam && validKeys.includes(pageParam) ? (pageParam as AdminPageKey) : PAGES.admin.dashboard
+            targetUrl = getAdminHomeUrl(adminPage)
+          } catch {
+            targetUrl = getAdminHomeUrl(PAGES.admin.dashboard)
+          }
         } else if (redirectTo.startsWith("/admin")) {
           const segment = redirectTo.replace(/^\/admin\/?/, "").split("/")[0] || "dashboard"
           const page = ADMIN_SLUG_TO_PAGE[segment] ?? PAGES.admin.dashboard

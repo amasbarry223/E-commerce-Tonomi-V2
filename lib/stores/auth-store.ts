@@ -62,29 +62,29 @@ export const useAuthStore = create<AuthStore>()(
       login: async (email: string, password: string) => {
         const normalizedEmail = email.trim().toLowerCase()
         const normalizedPassword = password.trim()
-        
+
         // Essayer d'utiliser le store des utilisateurs
         try {
           // Import dynamique pour éviter les imports circulaires
           const usersModule = await import('./users-store')
           const usersStore = usersModule.useUsersStore.getState()
-          
+
           const user = usersStore.getUserByEmail(normalizedEmail)
-          
+
           if (user && user.password === normalizedPassword && user.active) {
             set({
               isAuthenticated: true,
-              user: { 
-                email: user.email, 
+              user: {
+                email: user.email,
                 role: user.role,
                 id: user.id,
               },
             })
             setAuthCookie()
-            
+
             // Mettre à jour la dernière connexion
             usersStore.updateUser(user.id, { lastLogin: new Date().toISOString() })
-            
+
             if (typeof window !== 'undefined') {
               addLog({
                 action: 'login',
@@ -93,18 +93,18 @@ export const useAuthStore = create<AuthStore>()(
                 description: `Connexion de ${user.name} (${user.email})`,
               })
             }
-            
+
             return true
           }
         } catch {
           // Fallback vers l'authentification par défaut
         }
-        
+
         // Authentification par défaut (pour compatibilité)
         const { email: defaultEmail, password: defaultPassword } = getDefaultAdminCredentials()
         const emailMatch = normalizedEmail === defaultEmail.toLowerCase()
         const passwordMatch = normalizedPassword === defaultPassword
-        
+
         if (emailMatch && passwordMatch) {
           set({
             isAuthenticated: true,
@@ -143,10 +143,20 @@ export const useAuthStore = create<AuthStore>()(
         user: state.user,
       }),
       onRehydrateStorage: () => (persistedState, _err) => {
+        const setHasHydrated = () => {
+          try {
+            useAuthStore.setState({ _hasHydrated: true })
+          } catch (e) {
+            // En cas d'erreur fatale lors de l'init
+            console.error("[AuthStore] Hydration error:", e)
+          }
+        }
+
         if (typeof document === 'undefined') {
-          useAuthStore.setState({ _hasHydrated: true })
+          setHasHydrated()
           return
         }
+
         if (persistedState?.user && !isValidRehydratedUser(persistedState.user)) {
           useAuthStore.setState({ isAuthenticated: false, user: null })
           clearAuthCookie()
@@ -158,7 +168,9 @@ export const useAuthStore = create<AuthStore>()(
             setAuthCookie()
           }
         }
-        useAuthStore.setState({ _hasHydrated: true })
+
+        // Timeout pour éviter ReferenceError: Cannot access 'useAuthStore' before initialization
+        setTimeout(setHasHydrated, 0)
       },
     }
   )

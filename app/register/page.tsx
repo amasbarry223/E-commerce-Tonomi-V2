@@ -8,9 +8,21 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card"
 import { registerSchema, getZodErrorMessage } from "@/lib/utils/validation"
+import { StoreProvider } from "@/lib/store-context"
+import { GuestOnlyRoute } from "@/lib/guards"
 import { toast } from "sonner"
 
 export default function RegisterPage() {
+  return (
+    <StoreProvider>
+      <GuestOnlyRoute>
+        <RegisterForm />
+      </GuestOnlyRoute>
+    </StoreProvider>
+  )
+}
+
+function RegisterForm() {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")

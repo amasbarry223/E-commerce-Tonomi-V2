@@ -1,29 +1,36 @@
 /**
  * Source unique de vérité pour toutes les routes et clés de page.
- * Déclaration des routes SPA : app/page.tsx (switch currentPage / currentView).
+ *
+ * Routes publiques  : /, /login, /register, /forgot-password, /reset-password, /products, /categories
+ * Routes protégées  : /dashboard, /admin/*, /account, /account/orders, /account/profile
+ * NOTE : /?view=admin est un pattern obsolète — le middleware le redirige vers /dashboard ou /admin/<slug>.
  */
 
 // ——— Chemins URL (Next.js) ———
 export const ROUTES = {
+  // Boutique publique
   home: "/",
-  homeAdmin: "/?view=admin",
+  products: "/products",
+  // Auth (publiques, GuestOnly pour les connectés)
   login: "/login",
   register: "/register",
   forgotPassword: "/forgot-password",
   resetPassword: "/reset-password",
+  // Protégées — authentification requise
   dashboard: "/dashboard",
   account: "/account",
   accountOrders: "/account/orders",
   accountProfile: "/account/profile",
-  checkout: "/checkout",
-  cart: "/cart",
-  products: "/products",
-  forbidden: "/403",
+  // Admin — authentification + rôle admin requis
   admin: "/admin",
   adminProducts: "/admin/products",
   adminOrders: "/admin/orders",
   adminUsers: "/admin/users",
   adminAnalytics: "/admin/analytics",
+  // Autres
+  cart: "/cart",
+  checkout: "/checkout",
+  forbidden: "/403",
 } as const
 
 export const AUTH_COOKIE_NAME = "tonomi-auth"
@@ -75,6 +82,20 @@ export const ADMIN_SLUG_TO_PAGE: Record<string, AdminPageKey> = {
   promos: PAGES_ADMIN.promos,
   reviews: PAGES_ADMIN.reviews,
   settings: PAGES_ADMIN.settings,
+}
+
+/** Mapping clé de page admin → segment path pour /admin/<segment> (dashboard reste /dashboard). */
+export const ADMIN_PAGE_TO_SLUG: Record<AdminPageKey, string> = {
+  [PAGES_ADMIN.dashboard]: "",
+  [PAGES_ADMIN.products]: "products",
+  [PAGES_ADMIN.categories]: "categories",
+  [PAGES_ADMIN.heroSlides]: "hero-slides",
+  [PAGES_ADMIN.orders]: "orders",
+  [PAGES_ADMIN.customers]: "customers",
+  [PAGES_ADMIN.analytics]: "analytics",
+  [PAGES_ADMIN.promos]: "promos",
+  [PAGES_ADMIN.reviews]: "reviews",
+  [PAGES_ADMIN.settings]: "settings",
 }
 
 /** Toutes les clés de page (store + admin) pour typage strict du router */

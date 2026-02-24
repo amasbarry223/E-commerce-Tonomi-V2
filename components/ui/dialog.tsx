@@ -39,9 +39,6 @@ function DialogOverlay({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
-  // Exclure les props HTML qui entrent en conflit avec Framer Motion
-  const { onDrag: _onDrag, onDragStart: _onDragStart, onDragEnd: _onDragEnd, ...motionProps } = props as Omit<React.ComponentProps<typeof DialogPrimitive.Overlay>, 'onDrag' | 'onDragStart' | 'onDragEnd'>
-  
   return (
     <DialogPrimitive.Overlay asChild>
       <motion.div
@@ -54,7 +51,7 @@ function DialogOverlay({
         initial="hidden"
         animate="visible"
         exit="exit"
-        {...motionProps}
+        transition={defaultTransition}
       />
     </DialogPrimitive.Overlay>
   )

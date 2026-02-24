@@ -16,7 +16,9 @@ interface RoleGuardProps {
  */
 export function RoleGuard({ children, role, fallback = null }: RoleGuardProps) {
   const user = useAuthStore((state) => state.user)
-  const hasRole = user?.role === role
+  const hasRole =
+    user?.role === role ||
+    (role === "admin" && user?.role === "super-admin")
 
   if (!hasRole) {
     return <>{fallback}</>

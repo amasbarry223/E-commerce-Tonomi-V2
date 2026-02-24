@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import Image from "next/image"
 import { useNavigationStore, useUIStore } from "@/lib/store-context"
 import { useAuthStore } from "@/lib/stores/auth-store"
@@ -18,7 +18,19 @@ import {
   LayoutDashboard, Package, FolderKanban, LayoutPanelTop, ShoppingCart, Users,
   BarChart3, Tag, Star, Settings, Store, Sun, Moon, Menu, X, ChevronRight, LogOut,
 } from "lucide-react"
-import { PAGES, ROUTES } from "@/lib/routes"
+import { PAGES, ROUTES, ADMIN_SLUG_TO_PAGE } from "@/lib/routes"
+import { getAdminPath } from "@/lib/auth/routes"
+import type { AdminPageKey } from "@/lib/routes"
+
+/** Dérive la clé de page admin depuis le pathname (/dashboard ou /admin/xxx). */
+function getAdminPageKeyFromPathname(pathname: string): AdminPageKey {
+  if (pathname === ROUTES.dashboard) return PAGES.admin.dashboard
+  if (pathname.startsWith(ROUTES.admin + "/")) {
+    const segment = pathname.slice((ROUTES.admin + "/").length).split("/")[0]
+    return ADMIN_SLUG_TO_PAGE[segment] ?? PAGES.admin.dashboard
+  }
+  return PAGES.admin.dashboard
+}
 
 const navItems = [
   { id: PAGES.admin.dashboard, label: "Tableau de bord", icon: LayoutDashboard },
@@ -40,7 +52,9 @@ function getNavItemsForRole(role: "admin" | "super-admin" | undefined) {
 }
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { currentPage, navigate, setCurrentView } = useNavigationStore()
+  const pathname = usePathname()
+  const activePage = getAdminPageKeyFromPathname(pathname ?? "")
+  useNavigationStore()
   const { darkMode, toggleDarkMode } = useUIStore()
   const { user, logout } = useAuthStore()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -61,7 +75,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       {/* Sidebar */}
       <aside className={`fixed z-50 lg:static inset-y-0 left-0 w-64 bg-card border-r border-border flex flex-col transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
         <div className="relative flex items-center justify-center h-20 px-4 border-b border-border">
-          <button onClick={() => setCurrentView("store")} className="flex items-center justify-center text-foreground hover:text-accent transition-colors w-full">
+          <a href={ROUTES.home} className="flex items-center justify-center text-foreground hover:text-accent transition-colors w-full">
             <Image 
               src="/images/logo.png" 
               alt="TONOMI ACCESSOIRES" 
@@ -70,7 +84,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               className="h-16 w-auto object-contain"
               priority
             />
-          </button>
+          </a>
           <Button variant="ghost" size="icon" className="absolute right-4 lg:hidden h-11 w-11" onClick={() => setSidebarOpen(false)} aria-label="Fermer le menu">
             <X className="h-4 w-4" aria-hidden />
           </Button>
@@ -79,11 +93,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 overflow-y-auto py-4 px-3">
           {getNavItemsForRole(user?.role).map(item => {
             const Icon = item.icon
-            const isActive = currentPage === item.id
+            const isActive = activePage === item.id
             return (
               <button
                 key={item.id}
-                onClick={() => { navigate(item.id); setSidebarOpen(false) }}
+                onClick={() => { router.push(getAdminPath(item.id)); setSidebarOpen(false) }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm mb-0.5 transition-colors ${
                   isActive
                     ? "bg-accent/15 text-foreground font-medium"
@@ -102,7 +116,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             variant="ghost"
             size="sm"
             className="w-full justify-start gap-2 text-muted-foreground"
-            onClick={() => setCurrentView("store")}
+            onClick={() => router.push(ROUTES.home)}
           >
             <Store className="h-4 w-4" />
             Voir la boutique
@@ -134,22 +148,20 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               <Breadcrumb>
               <BreadcrumbList>
                 <BreadcrumbItem>
-                  {currentPage === PAGES.admin.dashboard ? (
+                  {activePage === PAGES.admin.dashboard ? (
                     <BreadcrumbPage>Tableau de bord</BreadcrumbPage>
                   ) : (
-                    <BreadcrumbLink asChild>
-                      <button type="button" onClick={() => navigate(PAGES.admin.dashboard)} className="hover:text-foreground transition-colors">
-                        Tableau de bord
-                      </button>
+                    <BreadcrumbLink href={ROUTES.dashboard}>
+                      Tableau de bord
                     </BreadcrumbLink>
                   )}
                 </BreadcrumbItem>
-                {currentPage !== PAGES.admin.dashboard && (
+                {activePage !== PAGES.admin.dashboard && (
                   <>
                     <BreadcrumbSeparator />
                     <BreadcrumbItem>
                       <BreadcrumbPage>
-                        {navItems.find(n => n.id === currentPage)?.label || "Back-Office"}
+                        {navItems.find(n => n.id === activePage)?.label || "Back-Office"}
                       </BreadcrumbPage>
                     </BreadcrumbItem>
                   </>

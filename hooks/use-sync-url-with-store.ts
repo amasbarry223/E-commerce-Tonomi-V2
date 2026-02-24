@@ -3,27 +3,11 @@
 import { useEffect, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useNavigationStore } from "@/lib/store-context"
-import { useAuthStore } from "@/lib/stores/auth-store"
 import { PAGES } from "@/lib/routes"
 
 const STORE_PAGE_PARAM = "page"
-const VIEW_PARAM = "view"
 const PRODUCT_ID_PARAM = "id"
 const CATEGORY_PARAM = "category"
-
-/** Clés de page admin valides pour la sync URL (page=admin-xxx ou dashboard). */
-const ADMIN_PAGE_KEYS = new Set<string>([
-  PAGES.admin.dashboard,
-  PAGES.admin.products,
-  PAGES.admin.categories,
-  PAGES.admin.heroSlides,
-  PAGES.admin.orders,
-  PAGES.admin.customers,
-  PAGES.admin.analytics,
-  PAGES.admin.promos,
-  PAGES.admin.reviews,
-  PAGES.admin.settings,
-])
 
 /** Normalise la chaîne de query pour éviter des replace en boucle (ordre des params, etc.). */
 function normalizeSearchString(s: string): string {
@@ -52,7 +36,6 @@ export function useSyncUrlWithStore() {
   } = useNavigationStore()
   const searchParams = useSearchParams()
   const router = useRouter()
-  const isAuthenticated = useAuthStore(s => s.isAuthenticated)
   const isReplacingRef = useRef(false)
 
   // Sync URL → état SPA (lien direct, retour arrière)
@@ -140,71 +123,4 @@ export function useSyncUrlWithStore() {
       selectCategory("cat-6")
     }
   }, [currentView, currentPage, selectCategory])
-
-  // ?view=admin : restaurer vue admin depuis l’URL (lien direct, refresh) et persister view+page
-  useEffect(() => {
-    if (searchParams.get(VIEW_PARAM) !== "admin" || !isAuthenticated) return
-    setCurrentView("admin")
-    const pageParam = searchParams.get(STORE_PAGE_PARAM)
-    const adminPage = pageParam && ADMIN_PAGE_KEYS.has(pageParam) ? pageParam : PAGES.admin.dashboard
-    navigate(adminPage)
-    isReplacingRef.current = true
-    let timeoutId: ReturnType<typeof setTimeout> | null = null
-    try {
-      const params = new URLSearchParams()
-      params.set(VIEW_PARAM, "admin")
-      params.set(STORE_PAGE_PARAM, adminPage)
-      router.replace(`/?${params.toString()}`, { scroll: false })
-    } catch (err: unknown) {
-      if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
-        console.warn("[useSyncUrlWithStore] router.replace (admin) failed:", err)
-      }
-    } finally {
-      timeoutId = setTimeout(() => {
-        isReplacingRef.current = false
-      }, 0)
-    }
-    return () => {
-      if (timeoutId !== null) clearTimeout(timeoutId)
-      isReplacingRef.current = false
-    }
-  }, [searchParams, isAuthenticated, setCurrentView, navigate, router])
-
-  // Sync état admin → URL (navigation dans le back-office : garder ?view=admin&page=...)
-  useEffect(() => {
-    if (currentView !== "admin" || isReplacingRef.current) return
-    const pageParam = searchParams.get(STORE_PAGE_PARAM)
-    const urlAlreadyValid = searchParams.get(VIEW_PARAM) === "admin" && pageParam && ADMIN_PAGE_KEYS.has(pageParam)
-    if (!ADMIN_PAGE_KEYS.has(currentPage) && urlAlreadyValid) return
-    const params = new URLSearchParams(searchParams.toString())
-    const currentViewParam = params.get(VIEW_PARAM)
-    const currentPageParam = params.get(STORE_PAGE_PARAM)
-    // Ne jamais écrire une clé store (ex. "home") dans l’URL admin : utiliser la page courante seulement si c’est une clé admin, sinon l’URL ou dashboard
-    const desiredPage = ADMIN_PAGE_KEYS.has(currentPage)
-      ? currentPage
-      : (currentPageParam && ADMIN_PAGE_KEYS.has(currentPageParam) ? currentPageParam : PAGES.admin.dashboard)
-    if (currentViewParam === "admin" && currentPageParam === desiredPage) return
-    params.set(VIEW_PARAM, "admin")
-    params.set(STORE_PAGE_PARAM, desiredPage)
-    const next = normalizeSearchString(params.toString())
-    const current = normalizeSearchString(searchParams.toString())
-    if (next === current) return
-    isReplacingRef.current = true
-    let timeoutId: ReturnType<typeof setTimeout> | null = null
-    try {
-      router.replace(`/?${next}`, { scroll: false })
-    } catch (err: unknown) {
-      if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
-        console.warn("[useSyncUrlWithStore] router.replace (admin sync) failed:", err)
-      }
-    } finally {
-      timeoutId = setTimeout(() => {
-        isReplacingRef.current = false
-      }, 0)
-    }
-    return () => {
-      if (timeoutId !== null) clearTimeout(timeoutId)
-      isReplacingRef.current = false
-    }
-  }, [currentView, currentPage, router, searchParams])
 }

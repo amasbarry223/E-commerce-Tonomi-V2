@@ -313,6 +313,7 @@ function ProductForm({
   onSave?: (isNew: boolean) => void
 }) {
   const products = getProducts()
+  const categories = getCategories()
   const product = productId ? products.find(p => p.id === productId) : null
   const isNew = !productId
 

@@ -1,8 +1,14 @@
 /**
- * Middleware d'authentification :
- * - Accès au dashboard (et routes protégées) uniquement avec cookie auth → sinon redirect /login?redirect=...
- * - Sur /login avec cookie → redirect vers dashboard (ou query redirect)
- * - /?view=admin sans cookie → redirect /login
+ * Middleware d'authentification — couche 1 (Edge) :
+ *
+ * GuestOnly  : /login, /register, /forgot-password, /reset-password
+ *   → Si cookie auth présent → redirect /dashboard
+ *
+ * ProtectedAuth : /dashboard, /dashboard/*, /admin, /admin/*, /account, /account/*
+ *   → Si cookie absent → redirect /login?redirect=<path>
+ *
+ * NOTE : /?view=admin est un pattern obsolète géré par un redirect dans app/page.tsx.
+ *        Le middleware n'intervient plus sur ce pattern.
  */
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
@@ -19,30 +25,42 @@ function hasAuthCookie(request: NextRequest): boolean {
   return !!request.cookies.get(AUTH_COOKIE_NAME)?.value
 }
 
+/** Paths accessibles uniquement aux invités (non connectés). */
+const GUEST_ONLY_PATHS = new Set([
+  ROUTES.login,
+  ROUTES.register,
+  ROUTES.forgotPassword,
+  ROUTES.resetPassword,
+])
+
 export function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl
   const hasAuth = hasAuthCookie(request)
 
-  if (pathname === ROUTES.login && hasAuth) {
-    const redirect = searchParams.get(REDIRECT_QUERY) || ROUTES.dashboard
-    const target = isAllowedRedirectUrl(redirect) ? redirect : ROUTES.dashboard
-    return NextResponse.redirect(new URL(target, request.url))
+  // ——— GuestOnly : connecté → redirect vers dashboard (ou ?redirect=) ———
+  if (GUEST_ONLY_PATHS.has(pathname as typeof ROUTES.login)) {
+    if (hasAuth) {
+      const rawRedirect = searchParams.get(REDIRECT_QUERY)
+      const target =
+        rawRedirect && isAllowedRedirectUrl(rawRedirect)
+          ? rawRedirect
+          : ROUTES.dashboard
+      return NextResponse.redirect(new URL(target, request.url))
+    }
+    // Non connecté → laisse passer
+    return addSecurityHeaders(NextResponse.next())
   }
 
+  // ——— ProtectedAuth : non connecté → redirect login ———
   if (isProtectedPath(pathname) && !hasAuth) {
     const loginUrl = getLoginUrl(pathname, false)
     return NextResponse.redirect(new URL(loginUrl, request.url))
   }
 
-  // Accès à /?view=admin (avec ou sans page=...) sans cookie → redirect login en gardant l’URL complète
-  if (pathname === "/" && searchParams.get("view") === "admin" && !hasAuth) {
-    const queryString = searchParams.toString()
-    const redirectPath = queryString ? `/?${queryString}` : "/?view=admin"
-    const loginUrl = getLoginUrl(redirectPath, false)
-    return NextResponse.redirect(new URL(loginUrl, request.url))
-  }
+  return addSecurityHeaders(NextResponse.next())
+}
 
-  const response = NextResponse.next()
+function addSecurityHeaders(response: ReturnType<typeof NextResponse.next>) {
   response.headers.set("X-Content-Type-Options", "nosniff")
   response.headers.set("X-Frame-Options", "DENY")
   response.headers.set("X-XSS-Protection", "1; mode=block")
@@ -51,22 +69,19 @@ export function middleware(request: NextRequest) {
   return response
 }
 
-// Pas de routes API pour l'instant ; réajouter "/api/:path*" et la logique auth si besoin.
 export const config = {
   matcher: [
-    "/",
+    // Routes GuestOnly
     "/login",
     "/register",
     "/forgot-password",
     "/reset-password",
+    // Routes protégées
     "/dashboard",
     "/dashboard/:path*",
     "/account",
     "/account/:path*",
-    "/checkout",
-    "/cart",
     "/admin",
     "/admin/:path*",
   ],
 }
-
