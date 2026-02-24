@@ -60,6 +60,7 @@ export function ProductPage() {
   const [reviewRating, setReviewRating] = useState(5)
   const [reviewTitle, setReviewTitle] = useState("")
   const [reviewComment, setReviewComment] = useState("")
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [isSubmittingReview, setIsSubmittingReview] = useState(false)
 
   const reviews = useReviewsStore((s) => s.reviews)
@@ -97,9 +98,16 @@ export function ProductPage() {
       comment: reviewComment.trim(),
     })
     if (!result.success) {
-      toast.error(getZodErrorMessage(result.error))
+      const errs: Record<string, string> = {}
+      result.error.issues.forEach((e) => {
+        const p = e.path[0] as string
+        if (!errs[p]) errs[p] = e.message
+      })
+      setFieldErrors(errs)
+      toast.error("Veuillez corriger les erreurs du formulaire.")
       return
     }
+    setFieldErrors({})
     setIsSubmittingReview(true)
     addReview({
       productId: product.id,
@@ -372,7 +380,7 @@ export function ProductPage() {
               <h3 id="review-form-title" className="font-semibold text-lg mb-4">Laisser un avis</h3>
               <form onSubmit={handleSubmitReview} className="flex flex-col gap-4">
                 <div>
-                  <Label htmlFor="review-name">Votre nom *</Label>
+                  <Label htmlFor="review-name">Votre nom <span className="text-destructive" aria-hidden="true">*</span></Label>
                   <Input
                     id="review-name"
                     value={reviewName}
@@ -380,10 +388,15 @@ export function ProductPage() {
                     placeholder="Ex. Marie D."
                     className="mt-1"
                     maxLength={80}
+                    aria-invalid={!!fieldErrors.customerName}
+                    aria-describedby={fieldErrors.customerName ? "review-name-error" : undefined}
                   />
+                  {fieldErrors.customerName && (
+                    <p id="review-name-error" className="text-xs text-destructive mt-1">{fieldErrors.customerName}</p>
+                  )}
                 </div>
                 <div>
-                  <Label>Note *</Label>
+                  <Label>Note <span className="text-destructive" aria-hidden="true">*</span></Label>
                   <div className="flex items-center gap-1 mt-1" role="group" aria-label="Note de 1 à 5 étoiles">
                     {[1, 2, 3, 4, 5].map((n) => (
                       <button
@@ -400,7 +413,7 @@ export function ProductPage() {
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="review-title">Titre de l&apos;avis *</Label>
+                  <Label htmlFor="review-title">Titre de l&apos;avis <span className="text-destructive" aria-hidden="true">*</span></Label>
                   <Input
                     id="review-title"
                     value={reviewTitle}
@@ -408,10 +421,15 @@ export function ProductPage() {
                     placeholder="Ex. Magnifique !"
                     className="mt-1"
                     maxLength={120}
+                    aria-invalid={!!fieldErrors.title}
+                    aria-describedby={fieldErrors.title ? "review-title-error" : undefined}
                   />
+                  {fieldErrors.title && (
+                    <p id="review-title-error" className="text-xs text-destructive mt-1">{fieldErrors.title}</p>
+                  )}
                 </div>
                 <div>
-                  <Label htmlFor="review-comment">Commentaire *</Label>
+                  <Label htmlFor="review-comment">Commentaire <span className="text-destructive" aria-hidden="true">*</span></Label>
                   <Textarea
                     id="review-comment"
                     value={reviewComment}
@@ -420,7 +438,12 @@ export function ProductPage() {
                     className="mt-1 min-h-[120px]"
                     maxLength={2000}
                     rows={4}
+                    aria-invalid={!!fieldErrors.comment}
+                    aria-describedby={fieldErrors.comment ? "review-comment-error" : undefined}
                   />
+                  {fieldErrors.comment && (
+                    <p id="review-comment-error" className="text-xs text-destructive mt-1">{fieldErrors.comment}</p>
+                  )}
                 </div>
                 <Button type="submit" disabled={isSubmittingReview}>
                   {isSubmittingReview ? "Envoi..." : "Publier mon avis"}

@@ -37,7 +37,7 @@ export function AdminAnalytics() {
       const orderDate = new Date(o.createdAt)
       return orderDate >= dateRange && o.status !== "cancelled"
     })
-  }, [dateRange])
+  }, [dateRange, orders])
 
   // Performance KPIs (for the cards above charts)
   const totalRevenue = useMemo(() => {

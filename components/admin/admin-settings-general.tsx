@@ -8,42 +8,120 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 
+import { useSettingsStore } from "@/lib/stores/settings-store"
+import { useState, useCallback } from "react"
+
 export function AdminSettingsGeneral() {
+  const updateSettings = useSettingsStore((s) => s.updateSettings)
+  const shopName = useSettingsStore((s) => s.shopName)
+  const shopDescription = useSettingsStore((s) => s.shopDescription)
+  const contactEmail = useSettingsStore((s) => s.contactEmail)
+  const contactPhone = useSettingsStore((s) => s.contactPhone)
+  const address = useSettingsStore((s) => s.address)
+  const currency = useSettingsStore((s) => s.currency)
+  const language = useSettingsStore((s) => s.language)
+  const promoBannerText = useSettingsStore((s) => s.promoBannerText)
+
+  const [formData, setFormData] = useState({
+    shopName,
+    shopDescription,
+    contactEmail,
+    contactPhone,
+    address,
+    currency,
+    language,
+    promoBannerText,
+  })
+
+  // On n'utilise plus useEffect pour synchroniser le formData avec le store
+  // car cela provoque des rendus en cascade à chaque petite modification.
+  // Le formData est initialisé une fois avec les valeurs du store.
+
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const handleSave = useCallback(async () => {
+    setIsSubmitting(true)
+    await new Promise(r => setTimeout(r, 400))
+    updateSettings(formData)
+    toast.success("Paramètres enregistrés avec succès")
+    setIsSubmitting(false)
+  }, [updateSettings, formData])
+
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8">
         <Card className="h-fit">
           <CardHeader>
             <CardTitle className="text-lg">Informations de la boutique</CardTitle>
-            <CardDescription>Détails généraux de votre boutique. Configuration démo – non persistée.</CardDescription>
+            <CardDescription>Détails généraux de votre boutique.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
             <div>
-              <Label className="text-base font-medium">Nom de la boutique</Label>
-              <Input defaultValue="TONOMI ACCESSOIRES" className="mt-2 h-11 text-base" />
+              <Label className="text-base font-medium" htmlFor="promoBannerText">Bandeau promotionnel (Header)</Label>
+              <Input
+                id="promoBannerText"
+                value={formData.promoBannerText}
+                onChange={(e) => setFormData({ ...formData, promoBannerText: e.target.value })}
+                className="mt-2 h-11 text-base border-accent ring-accent"
+                placeholder="Ex: Livraison gratuite dès 100€ | Code BIENVENUE10 = -10%"
+              />
+              <p className="text-xs text-muted-foreground mt-1.5">S&apos;affiche tout en haut de chaque page du magasin.</p>
+            </div>
+            <hr className="border-border" />
+            <div>
+              <Label className="text-base font-medium" htmlFor="shopName">Nom de la boutique</Label>
+              <Input
+                id="shopName"
+                value={formData.shopName}
+                onChange={(e) => setFormData({ ...formData, shopName: e.target.value })}
+                className="mt-2 h-11 text-base"
+              />
             </div>
             <div>
-              <Label className="text-base font-medium">Description</Label>
-              <Textarea defaultValue="Boutique en ligne de maroquinerie de luxe. Découvrez nos collections de sacs, portefeuilles et accessoires en cuir véritable." className="mt-2 min-h-[120px] text-base" />
+              <Label className="text-base font-medium" htmlFor="shopDescription">Description</Label>
+              <Textarea
+                id="shopDescription"
+                value={formData.shopDescription}
+                onChange={(e) => setFormData({ ...formData, shopDescription: e.target.value })}
+                className="mt-2 min-h-[120px] text-base"
+              />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div>
-                <Label className="text-base font-medium">Email de contact</Label>
-                <Input defaultValue="contact@tonomi.com" className="mt-2 h-11 text-base" />
+                <Label className="text-base font-medium" htmlFor="contactEmail">Email de contact</Label>
+                <Input
+                  id="contactEmail"
+                  value={formData.contactEmail}
+                  onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+                  className="mt-2 h-11 text-base"
+                />
               </div>
               <div>
-                <Label className="text-base font-medium">Téléphone</Label>
-                <Input defaultValue="+33 1 23 45 67 89" className="mt-2 h-11 text-base" />
+                <Label className="text-base font-medium" htmlFor="contactPhone">Téléphone</Label>
+                <Input
+                  id="contactPhone"
+                  value={formData.contactPhone}
+                  onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
+                  className="mt-2 h-11 text-base"
+                />
               </div>
             </div>
             <div>
-              <Label className="text-base font-medium">Adresse</Label>
-              <Input defaultValue="12 Rue du Faubourg Saint-Honoré, 75008 Paris" className="mt-2 h-11 text-base" />
+              <Label className="text-base font-medium" htmlFor="address">Adresse</Label>
+              <Input
+                id="address"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                className="mt-2 h-11 text-base"
+              />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div>
                 <Label className="text-base font-medium">Devise</Label>
-                <Select defaultValue="EUR">
+                <Select
+                  value={formData.currency}
+                  onValueChange={(val) => setFormData({ ...formData, currency: val })}
+                >
                   <SelectTrigger className="mt-2 h-11 text-base"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="EUR">EUR - Euro</SelectItem>
@@ -54,7 +132,10 @@ export function AdminSettingsGeneral() {
               </div>
               <div>
                 <Label className="text-base font-medium">Langue</Label>
-                <Select defaultValue="fr">
+                <Select
+                  value={formData.language}
+                  onValueChange={(val) => setFormData({ ...formData, language: val })}
+                >
                   <SelectTrigger className="mt-2 h-11 text-base"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="fr">Français</SelectItem>
@@ -93,7 +174,9 @@ export function AdminSettingsGeneral() {
       </div>
 
       <div className="flex justify-end">
-        <Button onClick={() => toast.info("Configuration démo – les modifications ne sont pas enregistrées.")}>Sauvegarder</Button>
+        <Button onClick={handleSave} disabled={isSubmitting}>
+          {isSubmitting ? "Sauvegarde..." : "Sauvegarder"}
+        </Button>
       </div>
     </div>
   )

@@ -27,7 +27,6 @@ export function useSyncUrlWithStore() {
   const {
     currentView,
     currentPage,
-    setCurrentView,
     navigate,
     selectCategory,
     selectProduct,

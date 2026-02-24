@@ -22,9 +22,9 @@ function DialogTrigger({
 }
 
 function DialogPortal({
-  ...props
+  ..._props
 }: React.ComponentProps<typeof DialogPrimitive.Portal>) {
-  return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />
+  return <DialogPrimitive.Portal data-slot="dialog-portal" {..._props} />
 }
 
 function DialogClose({
@@ -37,7 +37,7 @@ const dialogOverlayVariants = getReducedMotionConfig(overlayVariants)
 
 function DialogOverlay({
   className,
-  ...props
+  ..._props
 }: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
   return (
     <DialogPrimitive.Overlay asChild>
@@ -86,25 +86,15 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
 } & VariantProps<typeof dialogSizeVariants>) {
-  // Extraire les props spécifiques à Radix UI Dialog qui ne doivent pas être passées à motion.div
-  const { 
-    onDrag: _onDrag, 
-    onDragStart: _onDragStart, 
-    onDragEnd: _onDragEnd,
-    onInteractOutside,
-    onEscapeKeyDown,
-    onPointerDownOutside,
-    ...motionProps 
-  } = props as Omit<React.ComponentProps<typeof DialogPrimitive.Content>, 'onDrag' | 'onDragStart' | 'onDragEnd'>
-  
+  // Omit standard animation props that conflict with framer-motion
+  const { onAnimationStart: _onAnimationStart, ...sanitizedProps } = props as DialogPrimitive.DialogContentProps
+
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
-      <DialogPrimitive.Content 
+      <DialogPrimitive.Content
         asChild
-        onInteractOutside={onInteractOutside}
-        onEscapeKeyDown={onEscapeKeyDown}
-        onPointerDownOutside={onPointerDownOutside}
+        {...sanitizedProps}
       >
         <motion.div
           data-slot="dialog-content"
@@ -118,7 +108,6 @@ function DialogContent({
           animate="visible"
           exit="exit"
           transition={defaultTransition}
-          {...motionProps}
         >
           {children}
           {showCloseButton && (

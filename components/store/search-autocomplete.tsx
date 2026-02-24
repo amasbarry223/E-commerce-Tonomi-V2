@@ -82,7 +82,7 @@ function SearchAutocompleteInner({ onAfterNavigate }: SearchAutocompleteProps = 
 
     // Limiter à 8 résultats pour la performance
     return results.slice(0, 8)
-  }, [debouncedQuery])
+  }, [debouncedQuery, products])
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
@@ -126,7 +126,7 @@ function SearchAutocompleteInner({ onAfterNavigate }: SearchAutocompleteProps = 
     switch (e.key) {
       case "ArrowDown":
         e.preventDefault()
-        setHighlightedIndex(prev => 
+        setHighlightedIndex(prev =>
           prev < suggestions.length - 1 ? prev + 1 : prev
         )
         break
@@ -167,10 +167,10 @@ function SearchAutocompleteInner({ onAfterNavigate }: SearchAutocompleteProps = 
 
   return (
     <div ref={containerRef} className="relative w-full max-w-md">
-      <form 
-        onSubmit={handleSubmit} 
-        className="flex items-center gap-2" 
-        role="search" 
+      <form
+        onSubmit={handleSubmit}
+        className="flex items-center gap-2"
+        role="search"
         aria-label="Recherche de produits"
       >
         <div className="relative flex-1">
@@ -207,8 +207,8 @@ function SearchAutocompleteInner({ onAfterNavigate }: SearchAutocompleteProps = 
             Rechercher un produit par nom, marque ou mot-clé. Utilisez les flèches pour naviguer, Entrée pour sélectionner.
           </span>
         </div>
-        <Button 
-          type="submit" 
+        <Button
+          type="submit"
           size="sm"
           disabled={!searchQuery.trim()}
           aria-label={searchQuery.trim() ? "Lancer la recherche" : "Saisir au moins un caractère pour rechercher"}
@@ -236,7 +236,7 @@ function SearchAutocompleteInner({ onAfterNavigate }: SearchAutocompleteProps = 
                 {suggestions.map((suggestion, index) => {
                   const { product } = suggestion
                   const isHighlighted = index === highlightedIndex
-                  
+
                   return (
                     <motion.button
                       key={product.id}

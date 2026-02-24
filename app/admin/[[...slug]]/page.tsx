@@ -1,13 +1,10 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { useParams } from "next/navigation"
 import { StoreProvider, useNavigationStore } from "@/lib/store-context"
-import { ProtectedRoute } from "@/lib/guards"
-import { RoleGuard } from "@/lib/guards/role-guard"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 import { FullScreenLoading } from "@/components/ui/full-screen-loading"
-import { ForbiddenPage } from "@/components/ui/forbidden-page"
 import { ADMIN_PAGE_MAP, getAdminPageKeyFromSlug } from "@/lib/admin-page-map"
 import type { AdminPageKey } from "@/lib/routes"
 import { PAGES } from "@/lib/routes"
@@ -23,9 +20,7 @@ const AdminLayout = dynamic(
  * Ex. /admin/products → AdminLayout + AdminProducts.
  *
  * Protection par couches :
- *  1. Middleware (Edge)   → bloque les non-authentifiés avant le rendu
- *  2. ProtectedRoute      → désynchronisation store/cookie après hydratation
- *  3. RoleGuard('admin')  → bloque les utilisateurs sans rôle admin
+ *  1. Middleware (Edge)   → gère les en-têtes de sécurité
  */
 function AdminCatchAllContent() {
   const params = useParams()
@@ -33,31 +28,21 @@ function AdminCatchAllContent() {
   const segment = Array.isArray(slug) ? slug[0] : (slug ?? "dashboard")
   const pageKey = getAdminPageKeyFromSlug(segment)
   const { setCurrentView, navigate } = useNavigationStore()
-  const [ready, setReady] = useState(false)
 
   useEffect(() => {
     setCurrentView("admin")
     navigate(pageKey)
-    setReady(true)
   }, [segment, pageKey, setCurrentView, navigate])
-
-  if (!ready) {
-    return <FullScreenLoading ariaLabel="Chargement du back-office" />
-  }
 
   const AdminComponent =
     ADMIN_PAGE_MAP[pageKey as AdminPageKey] ?? ADMIN_PAGE_MAP[PAGES.admin.dashboard]
 
   return (
-    <ProtectedRoute>
-      <RoleGuard role="admin" fallback={<ForbiddenPage />}>
-        <ErrorBoundary>
-          <AdminLayout>
-            <AdminComponent />
-          </AdminLayout>
-        </ErrorBoundary>
-      </RoleGuard>
-    </ProtectedRoute>
+    <ErrorBoundary>
+      <AdminLayout>
+        <AdminComponent />
+      </AdminLayout>
+    </ErrorBoundary>
   )
 }
 

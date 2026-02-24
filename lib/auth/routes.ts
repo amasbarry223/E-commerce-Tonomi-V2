@@ -19,48 +19,18 @@ export { ROUTES, AUTH_COOKIE_NAME, REDIRECT_QUERY, SESSION_EXPIRED_QUERY }
 const ADMIN_PREFIX = "/admin"
 
 /** Chemins accessibles sans authentification */
-const PUBLIC_PATH_LIST: string[] = [
-  ROUTES.home,
-  ROUTES.login,
-  ROUTES.register,
-  ROUTES.forgotPassword,
-  ROUTES.resetPassword,
-  "/products",
-  "/categories",
-]
 
-/** Chemins protégés (auth requise) — dashboard, admin et compte utilisateur. */
-const PROTECTED_PATH_LIST: string[] = [
-  ROUTES.dashboard,
-  ROUTES.account,
-]
 
-function pathMatches(pathname: string, pattern: string): boolean {
-  if (pathname === pattern) return true
-  if (pathname.startsWith(pattern + "/")) return true
-  return false
+export function isPublicPath(_pathname: string): boolean {
+  return true // Tout est public
 }
 
-export function isPublicPath(pathname: string): boolean {
-  if (PUBLIC_PATH_LIST.some((p) => pathMatches(pathname, p))) return true
-  if (pathname.startsWith("/products/") || pathname.startsWith("/categories/")) return true
-  return false
-}
-
-export function isProtectedPath(pathname: string): boolean {
-  if (pathname === ADMIN_PREFIX || pathname.startsWith(ADMIN_PREFIX + "/")) return true
-  return PROTECTED_PATH_LIST.some((p) => pathMatches(pathname, p))
+export function isProtectedPath(_pathname: string): boolean {
+  return false // Plus rien n'est protégé par login
 }
 
 export function isAdminPath(pathname: string): boolean {
   return pathname === ADMIN_PREFIX || pathname.startsWith(ADMIN_PREFIX + "/")
-}
-
-export function getLoginUrl(redirectPath?: string, sessionExpired?: boolean): string {
-  const path = redirectPath || ROUTES.dashboard
-  let url = `${ROUTES.login}?${REDIRECT_QUERY}=${encodeURIComponent(path)}`
-  if (sessionExpired) url += `&${SESSION_EXPIRED_QUERY}=1`
-  return url
 }
 
 /** Retourne le path pour une page admin : /dashboard ou /admin/<segment>. */
@@ -77,15 +47,9 @@ export function getAdminHomeUrl(adminPage?: string): string {
 }
 
 /**
- * Vérifie si une URL de redirect (path) est autorisée après login.
- * Seuls les paths protégés réels sont acceptés : /dashboard, /admin/*, /account/*
+ * Vérifie si une URL de redirect (path) est autorisée.
  */
 export function isAllowedRedirectUrl(redirect: string | null | undefined): boolean {
   if (redirect == null || typeof redirect !== "string" || !redirect.startsWith("/")) return false
-  const trimmed = redirect.trim()
-  if (!trimmed) return false
-  if (trimmed === ROUTES.dashboard || trimmed.startsWith(ROUTES.dashboard + "/")) return true
-  if (trimmed === ROUTES.account || trimmed.startsWith(ROUTES.account + "/")) return true
-  if (trimmed === ROUTES.admin || trimmed.startsWith(ROUTES.admin + "/")) return true
-  return false
+  return true
 }

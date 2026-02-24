@@ -142,7 +142,7 @@ export function AdminCategories() {
     setShowAddEditDialog(true)
   }
 
-  const handleSaveCategory = () => {
+  const handleSaveCategory = async () => {
     const validationResult = categorySchema.safeParse({
       name: categoryName,
       slug: categorySlug,
@@ -165,21 +165,22 @@ export function AdminCategories() {
     }
     setCategoryFieldErrors({})
     setIsSubmitting(true)
+    await new Promise(r => setTimeout(r, 500))
     if (editingCategory) {
       // Edit existing category
       setAllCategories(prev =>
         prev.map(cat =>
           cat.id === editingCategory.id
             ? {
-                ...cat,
-                name: categoryName,
-                slug: categorySlug,
-                description: categoryDescription,
-                image: categoryImage,
-                metaTitle: categoryMetaTitle || undefined,
-                metaDescription: categoryMetaDescription || undefined,
-                parentId: categoryParentId || undefined,
-              }
+              ...cat,
+              name: categoryName,
+              slug: categorySlug,
+              description: categoryDescription,
+              image: categoryImage,
+              metaTitle: categoryMetaTitle || undefined,
+              metaDescription: categoryMetaDescription || undefined,
+              parentId: categoryParentId || undefined,
+            }
             : cat
         )
       )
@@ -231,9 +232,10 @@ export function AdminCategories() {
     setDeleteDialogOpen(true)
   }
 
-  const confirmDeleteCategory = () => {
+  const confirmDeleteCategory = async () => {
     if (!categoryToDelete) return
     setIsDeleting(true)
+    await new Promise(r => setTimeout(r, 500))
     setAllCategories(prev => prev.filter(cat => cat.id !== categoryToDelete))
     toast.success("Catégorie supprimée avec succès.")
     setCategoryToDelete(null)
@@ -557,63 +559,63 @@ export function AdminCategories() {
             <TableSkeleton rowCount={10} columnCount={5} />
           </div>
         ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Image</TableHead>
-              <TableHead>Nom</TableHead>
-              <TableHead>Slug</TableHead>
-              <TableHead className="text-right">Produits</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredCategories.length === 0 ? (
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={5} className="py-0 border-0">
-                  <AdminEmptyState
-                    title="Aucune catégorie trouvée"
-                    description="Ajoutez une catégorie pour commencer."
-                    icon={FolderOpen}
-                  />
-                </TableCell>
+                <TableHead>Image</TableHead>
+                <TableHead>Nom</TableHead>
+                <TableHead>Slug</TableHead>
+                <TableHead className="text-right">Produits</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
-            ) : (
-              paginatedData.map((category, index) => (
-                <TableRow key={category.id} index={index}>
-                  <TableCell>
-                    <Image src={category.image} alt={category.name} width={40} height={40} className="h-10 w-10 rounded object-cover" />
-                  </TableCell>
-                  <TableCell className="font-medium">{category.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{category.slug}</TableCell>
-                  <TableCell className="text-right">{category.productCount}</TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-8 sm:w-8" aria-label={`Actions pour ${category.name}`}>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem className="gap-2" onClick={() => handleAddEditClick(category)}>
-                          <Edit className="h-3.5 w-3.5" />
-                          Modifier
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="gap-2 text-destructive"
-                          onClick={() => handleDeleteCategory(category.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Supprimer
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+            </TableHeader>
+            <TableBody>
+              {filteredCategories.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-0 border-0">
+                    <AdminEmptyState
+                      title="Aucune catégorie trouvée"
+                      description="Ajoutez une catégorie pour commencer."
+                      icon={FolderOpen}
+                    />
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                paginatedData.map((category, index) => (
+                  <TableRow key={category.id} index={index}>
+                    <TableCell>
+                      <Image src={category.image} alt={category.name} width={40} height={40} className="h-10 w-10 rounded object-cover" />
+                    </TableCell>
+                    <TableCell className="font-medium">{category.name}</TableCell>
+                    <TableCell className="text-muted-foreground">{category.slug}</TableCell>
+                    <TableCell className="text-right">{category.productCount}</TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-8 sm:w-8" aria-label={`Actions pour ${category.name}`}>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem className="gap-2" onClick={() => handleAddEditClick(category)}>
+                            <Edit className="h-3.5 w-3.5" />
+                            Modifier
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="gap-2 text-destructive"
+                            onClick={() => handleDeleteCategory(category.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Supprimer
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         )}
         {/* Pagination dans la carte : toujours visible sous le tableau */}
         {!loading && filteredCategories.length > 0 && (

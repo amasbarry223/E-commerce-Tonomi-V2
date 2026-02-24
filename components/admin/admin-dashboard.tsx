@@ -11,11 +11,10 @@ import {
   DollarSign, ShoppingCart, Users, TrendingUp,
   Package, AlertTriangle, Star, Clock,
 } from "lucide-react"
-import { AdminChartsSkeleton } from "./admin-charts-skeleton"
 
-const LazyDashboardCharts = dynamic(
+const AdminDashboardCharts = dynamic(
   () => import("./admin-dashboard-charts").then((m) => ({ default: m.AdminDashboardCharts })),
-  { loading: () => <AdminChartsSkeleton /> }
+  { loading: () => <div className="h-[400px] w-full animate-pulse bg-muted rounded-lg" /> }
 )
 
 export function AdminDashboard() {
@@ -104,7 +103,7 @@ export function AdminDashboard() {
       </div>
 
       {/* Charts - lazy loaded (Recharts) */}
-      <LazyDashboardCharts />
+      <AdminDashboardCharts />
 
       {/* Alerts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

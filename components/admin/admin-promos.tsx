@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Plus, Tag, Copy, Trash2, MoreHorizontal, Percent, Calendar, Settings, Eye } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useState, useMemo } from "react"
@@ -54,9 +55,10 @@ export function AdminPromos() {
     setDeleteDialogOpen(true)
   }
 
-  const confirmDeletePromo = () => {
+  const confirmDeletePromo = async () => {
     if (!promoToDelete) return
     setIsDeleting(true)
+    await new Promise(r => setTimeout(r, 400))
     const promo = promoCodes.find(p => p.id === promoToDelete)
     if (promo) {
       toast.success(`Code promo "${promo.code}" supprimé avec succès`)
@@ -202,11 +204,11 @@ export function AdminPromos() {
         description={
           promoToDelete
             ? (() => {
-                const promo = promoCodes.find((p) => p.id === promoToDelete)
-                return promo
-                  ? `Êtes-vous sûr de vouloir supprimer le code promo "${promo.code}" ? Cette action est irréversible.`
-                  : "Êtes-vous sûr de vouloir supprimer ce code promo ? Cette action est irréversible."
-              })()
+              const promo = promoCodes.find((p) => p.id === promoToDelete)
+              return promo
+                ? `Êtes-vous sûr de vouloir supprimer le code promo "${promo.code}" ? Cette action est irréversible.`
+                : "Êtes-vous sûr de vouloir supprimer ce code promo ? Cette action est irréversible."
+            })()
             : "Êtes-vous sûr de vouloir supprimer ce code promo ? Cette action est irréversible."
         }
         onConfirm={confirmDeletePromo}
@@ -339,7 +341,7 @@ function PromoForm({
             </div>
           </div>
           <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
-            <input type="checkbox" id="promo-active" defaultChecked className="h-4 w-4 rounded border-border" />
+            <Checkbox id="promo-active" defaultChecked />
             <Label htmlFor="promo-active" className="text-sm cursor-pointer">
               Actif immédiatement
             </Label>

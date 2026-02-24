@@ -69,11 +69,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const cart = loadPersistedCart()
     const wishlist = loadPersistedWishlist()
 
-    if (cart.length > 0) {
-      setCartState(prev => ({ ...prev, cart }))
-    }
-    if (wishlist.length > 0) {
-      setUIState(prev => ({ ...prev, wishlist }))
+    // Hydratation asynchrone pour éviter le cascading render synchrone (lint error)
+    if (cart.length > 0 || wishlist.length > 0) {
+      setTimeout(() => {
+        if (cart.length > 0) setCartState(prev => ({ ...prev, cart }))
+        if (wishlist.length > 0) setUIState(prev => ({ ...prev, wishlist }))
+      }, 0)
     }
 
     // On marque la restauration comme terminée à la fin du cycle actuel

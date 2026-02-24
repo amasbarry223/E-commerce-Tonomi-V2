@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Slot } from '@radix-ui/react-slot'
+import { Slot, Slottable } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { motion } from 'framer-motion'
 import { Loader2 } from 'lucide-react'
@@ -77,7 +77,7 @@ function Button({
       const x = e.clientX - rect.left
       const y = e.clientY - rect.top
       const id = Date.now()
-      
+
       setRipples((prev) => [...prev, { id, x, y }])
       const timeoutId = setTimeout(() => {
         rippleTimeoutsRef.current.delete(id)
@@ -85,14 +85,24 @@ function Button({
       }, 600)
       rippleTimeoutsRef.current.set(id, timeoutId)
     }
-    
+
     if (!loading && !disabled && onClick) {
       onClick(e)
     }
   }
 
-  const buttonContent = (
-    <>
+  const Comp = asChild ? Slot : "button"
+
+  return (
+    <Comp
+      ref={buttonRef}
+      type={asChild ? undefined : "button"}
+      data-slot="button"
+      className={cn(buttonVariants({ variant, size, className }))}
+      onClick={handleClick}
+      disabled={disabled || loading}
+      {...props}
+    >
       {ripples.map((ripple) => (
         <motion.span
           key={ripple.id}
@@ -114,44 +124,25 @@ function Button({
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0 }}
           transition={fastTransition}
-          className="absolute inset-0 flex items-center justify-center"
+          className="absolute inset-0 flex items-center justify-center bg-inherit rounded-inherit"
         >
           <Loader2 className="h-4 w-4 animate-spin" />
         </motion.div>
       )}
-      <motion.span
-        animate={loading ? { opacity: 0 } : { opacity: 1 }}
-        transition={fastTransition}
-        className="flex items-center gap-2"
-      >
-        {children}
-      </motion.span>
-    </>
-  )
-
-  if (asChild) {
-    const slotProps = {
-      'data-slot': 'button',
-      className: cn(buttonVariants({ variant, size, className })),
-      onClick: handleClick,
-      ...props,
-      disabled: disabled || loading,
-    } as React.ComponentProps<typeof Slot>
-    return <Slot {...slotProps}>{buttonContent}</Slot>
-  }
-
-  return (
-    <button
-      ref={buttonRef}
-      type="button"
-      data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
-      onClick={handleClick}
-      disabled={disabled || loading}
-      {...props}
-    >
-      {buttonContent}
-    </button>
+      <Slottable>
+        {asChild ? (
+          children
+        ) : (
+          <motion.span
+            animate={loading ? { opacity: 0 } : { opacity: 1 }}
+            transition={fastTransition}
+            className="flex items-center gap-2"
+          >
+            {children}
+          </motion.span>
+        )}
+      </Slottable>
+    </Comp>
   )
 }
 

@@ -1,123 +1,117 @@
 /**
  * Store Zustand pour l'authentification client (boutique).
- * Indépendant de l'auth admin (auth-store). Session et comptes inscrits persistés pour la démo.
+ * Inscription et connexion optionnelles pour les acheteurs.
+ * Séparé du store auth admin (lib/stores/auth-store).
  */
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
+import { customers as staticCustomers } from "@/lib/data"
 import type { Customer } from "@/lib/types"
-import { getCustomerById as getStaticCustomerById } from "@/lib/services/customers"
 
-const CUSTOMER_SESSION_STORAGE_KEY = "tonomi-customer-session"
-
-export interface RegisteredClientCredentials {
-  customerId: string
-  email: string
-  password: string
-}
-
-function createCustomerId(): string {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return `cust-reg-${crypto.randomUUID()}`
-  }
-  return `cust-reg-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
-}
-
-const DEFAULT_AVATAR = "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop"
-
-function createCustomerProfile(payload: {
-  firstName: string
-  lastName: string
-  email: string
-}): Customer {
-  const id = createCustomerId()
-  const now = new Date().toISOString().slice(0, 10)
-  return {
-    id,
-    firstName: payload.firstName.trim(),
-    lastName: payload.lastName.trim(),
-    email: payload.email.trim().toLowerCase(),
-    phone: "",
-    avatar: DEFAULT_AVATAR,
-    segment: "new",
-    totalSpent: 0,
-    orderCount: 0,
-    createdAt: now,
-    addresses: [],
-  }
+interface RegisteredCustomer extends Customer {
+    passwordHash: string
 }
 
 interface CustomerAuthState {
-  currentCustomerId: string | null
-  registeredClients: RegisteredClientCredentials[]
-  registeredCustomerProfiles: Customer[]
-  register: (firstName: string, lastName: string, email: string, password: string) => Customer
-  login: (email: string, password: string) => boolean
-  logout: () => void
-  getCustomerById: (id: string) => Customer | undefined
+    currentCustomerId: string | null
+    registeredCustomers: RegisteredCustomer[]
+    /**
+     * Connexion d'un client existant (statique ou inscrit).
+     * @returns true si les identifiants sont valides, false sinon.
+     */
+    login: (email: string, password: string) => boolean
+    /**
+     * Inscription d'un nouveau client boutique.
+     * Crée un compte local persisté dans le store.
+     */
+    register: (firstName: string, lastName: string, email: string, password: string) => void
+    /** Déconnexion du client courant. */
+    logout: () => void
+    /** Récupère un client par son id (statique ou inscrit). */
+    getCustomerById: (id: string) => Customer | undefined
 }
 
+const STORAGE_KEY = "tonomi_customer_auth"
+
 export const useCustomerAuthStore = create<CustomerAuthState>()(
-  persist(
-    (set, get) => ({
-      currentCustomerId: null,
-      registeredClients: [],
-      registeredCustomerProfiles: [],
+    persist(
+        (set, get) => ({
+            currentCustomerId: null,
+            registeredCustomers: [],
 
-      register: (firstName, lastName, email, password) => {
-        const normalizedEmail = email.trim().toLowerCase()
-        const normalizedPassword = password.trim()
-        const existing = get().registeredClients.find((c) => c.email === normalizedEmail)
-        if (existing) {
-          throw new Error("Un compte existe déjà avec cette adresse email.")
-        }
-        const customer = createCustomerProfile({
-          firstName,
-          lastName,
-          email: normalizedEmail,
-        })
-        set((state) => ({
-          registeredCustomerProfiles: [...state.registeredCustomerProfiles, customer],
-          registeredClients: [
-            ...state.registeredClients,
-            {
-              customerId: customer.id,
-              email: normalizedEmail,
-              password: normalizedPassword,
+            login: (email, password) => {
+                const { registeredCustomers } = get()
+                // Chercher parmi les clients inscrits en boutique
+                const registered = registeredCustomers.find(
+                    (c) => c.email.toLowerCase() === email.toLowerCase() && c.passwordHash === password
+                )
+                if (registered) {
+                    set({ currentCustomerId: registered.id })
+                    return true
+                }
+                // Chercher dans les données statiques (démo : tout mot de passe accepté)
+                const staticCustomer = staticCustomers.find(
+                    (c) => c.email.toLowerCase() === email.toLowerCase()
+                )
+                if (staticCustomer) {
+                    set({ currentCustomerId: staticCustomer.id })
+                    return true
+                }
+                return false
             },
-          ],
-          currentCustomerId: customer.id,
-        }))
-        return customer
-      },
 
-      login: (email, password) => {
-        const normalizedEmail = email.trim().toLowerCase()
-        const normalizedPassword = password.trim()
-        const client = get().registeredClients.find((c) => c.email === normalizedEmail)
-        if (!client || client.password !== normalizedPassword) {
-          return false
+            register: (firstName, lastName, email, password) => {
+                const { registeredCustomers } = get()
+                const alreadyExists =
+                    registeredCustomers.some((c) => c.email.toLowerCase() === email.toLowerCase()) ||
+                    staticCustomers.some((c) => c.email.toLowerCase() === email.toLowerCase())
+
+                if (alreadyExists) {
+                    throw new Error("Un compte existe déjà avec cet email.")
+                }
+
+                const newCustomer: RegisteredCustomer = {
+                    id: `cust-reg-${Date.now()}`,
+                    firstName,
+                    lastName,
+                    email,
+                    phone: "",
+                    avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(firstName + "+" + lastName)}&background=random`,
+                    segment: "new",
+                    totalSpent: 0,
+                    orderCount: 0,
+                    createdAt: new Date().toISOString().split("T")[0],
+                    addresses: [],
+                    passwordHash: password,
+                }
+
+                set((state) => ({
+                    registeredCustomers: [...state.registeredCustomers, newCustomer],
+                    currentCustomerId: newCustomer.id,
+                }))
+            },
+
+            logout: () => {
+                set({ currentCustomerId: null })
+            },
+
+            getCustomerById: (id) => {
+                const { registeredCustomers } = get()
+                const registered = registeredCustomers.find((c) => c.id === id)
+                if (registered) {
+                    // Retourner sans le passwordHash
+                    const { passwordHash: _, ...customer } = registered
+                    return customer
+                }
+                return staticCustomers.find((c) => c.id === id)
+            },
+        }),
+        {
+            name: STORAGE_KEY,
+            partialize: (state) => ({
+                currentCustomerId: state.currentCustomerId,
+                registeredCustomers: state.registeredCustomers,
+            }),
         }
-        set({ currentCustomerId: client.customerId })
-        return true
-      },
-
-      logout: () => {
-        set({ currentCustomerId: null })
-      },
-
-      getCustomerById: (id) => {
-        const registered = get().registeredCustomerProfiles.find((c) => c.id === id)
-        if (registered) return registered
-        return getStaticCustomerById(id)
-      },
-    }),
-    {
-      name: CUSTOMER_SESSION_STORAGE_KEY,
-      partialize: (state) => ({
-        currentCustomerId: state.currentCustomerId,
-        registeredClients: state.registeredClients,
-        registeredCustomerProfiles: state.registeredCustomerProfiles,
-      }),
-    }
-  )
+    )
 )

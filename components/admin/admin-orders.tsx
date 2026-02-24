@@ -31,6 +31,7 @@ export function AdminOrders() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null)
   const [orderUpdates, setOrderUpdates] = useState<Record<string, { status?: Order["status"]; trackingNumber?: string }>>({})
+  const [isUpdating, setIsUpdating] = useState(false)
   const filtered = useMemo(() => {
     let result = [...orders]
     if (search) {
@@ -69,20 +70,26 @@ export function AdminOrders() {
   const currentStatus = orderUpdate?.status || viewOrder?.status
   const currentTracking = orderUpdate?.trackingNumber !== undefined ? orderUpdate.trackingNumber : viewOrder?.trackingNumber
 
-  const handleStatusUpdate = (orderId: string, newStatus: Order["status"]) => {
+  const handleStatusUpdate = async (orderId: string, newStatus: Order["status"]) => {
+    setIsUpdating(true)
+    await new Promise(r => setTimeout(r, 600))
     setOrderUpdates(prev => ({
       ...prev,
       [orderId]: { ...prev[orderId], status: newStatus }
     }))
     toast.success("Statut de la commande mis à jour")
+    setIsUpdating(false)
   }
 
-  const handleTrackingUpdate = (orderId: string, trackingNumber: string) => {
+  const handleTrackingUpdate = async (orderId: string, trackingNumber: string) => {
+    setIsUpdating(true)
+    await new Promise(r => setTimeout(r, 600))
     setOrderUpdates(prev => ({
       ...prev,
       [orderId]: { ...prev[orderId], trackingNumber: trackingNumber || undefined }
     }))
     toast.success(trackingNumber ? "Numéro de suivi ajouté" : "Numéro de suivi supprimé")
+    setIsUpdating(false)
   }
 
   const handleExport = () => {
@@ -274,6 +281,7 @@ export function AdminOrders() {
                       initialTracking={currentTracking ?? ""}
                       currentTracking={currentTracking}
                       onSave={handleTrackingUpdate}
+                      disabled={isUpdating}
                     />
                   )}
                 </div>
@@ -293,6 +301,7 @@ export function AdminOrders() {
                 <Select
                   value={currentStatus ?? ""}
                   onValueChange={(value) => handleStatusUpdate(viewOrder.id, value as Order["status"])}
+                  disabled={isUpdating}
                 >
                   <SelectTrigger className="w-48"><SelectValue placeholder="Statut" /></SelectTrigger>
                   <SelectContent>
@@ -316,29 +325,33 @@ function OrderTrackingInput({
   initialTracking,
   currentTracking,
   onSave,
+  disabled
 }: {
   orderId: string
   initialTracking: string
   currentTracking: string | undefined
   onSave: (id: string, value: string) => void
+  disabled?: boolean
 }) {
   const [trackingInput, setTrackingInput] = useState(initialTracking)
   return (
     <div className="flex gap-2">
       <Input
+        id="tracking-number"
         value={trackingInput}
         onChange={(e) => setTrackingInput(e.target.value)}
         placeholder="Numéro de suivi"
         className="text-sm font-mono"
-        aria-label="Numéro de suivi"
+        disabled={disabled}
       />
-      <Button variant="outline" size="sm" onClick={() => onSave(orderId, trackingInput)}>
+      <Button variant="outline" size="sm" onClick={() => onSave(orderId, trackingInput)} loading={disabled}>
         Enregistrer
       </Button>
       {currentTracking && (
         <Button
           variant="ghost"
           size="sm"
+          disabled={disabled}
           onClick={() => {
             onSave(orderId, "")
             setTrackingInput("")

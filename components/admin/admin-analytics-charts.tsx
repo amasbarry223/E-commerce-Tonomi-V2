@@ -68,7 +68,7 @@ export function AdminAnalyticsCharts({ period }: { period: PeriodKey }) {
       const orderDate = new Date(o.createdAt)
       return orderDate >= dateRange && o.status !== "cancelled"
     })
-  }, [dateRange])
+  }, [dateRange, orders])
 
   const monthlySales = useMemo(() => {
     const months = ["Sep", "Oct", "Nov", "Dec", "Jan", "Fev"]
@@ -87,7 +87,7 @@ export function AdminAnalyticsCharts({ period }: { period: PeriodKey }) {
       const visitors = Math.round(orderCount * 33.33)
       return { month, revenue, orders: orderCount, visitors }
     })
-  }, [])
+  }, [orders])
 
   const conversionData = useMemo(() => {
     const months = ["Sep", "Oct", "Nov", "Dec", "Jan", "Fev"]
@@ -105,7 +105,7 @@ export function AdminAnalyticsCharts({ period }: { period: PeriodKey }) {
       const rate = estimatedVisitors > 0 ? (monthOrders.length / estimatedVisitors) * 100 : 0
       return { month, rate: Math.round(rate * 10) / 10 }
     })
-  }, [])
+  }, [orders])
 
   const revenueByProduct = useMemo(() => {
     const productRevenue: Record<string, number> = {}
@@ -130,7 +130,7 @@ export function AdminAnalyticsCharts({ period }: { period: PeriodKey }) {
         return diff !== 0 ? diff : a.name.localeCompare(b.name)
       })
       .slice(0, 10)
-  }, [filteredOrders])
+  }, [filteredOrders, products])
 
   const revenueBySegment = useMemo(() => {
     const segmentRevenue: Record<string, number> = {}
@@ -152,7 +152,7 @@ export function AdminAnalyticsCharts({ period }: { period: PeriodKey }) {
         const diff = b.revenue - a.revenue
         return diff !== 0 ? diff : a.segment.localeCompare(b.segment)
       })
-  }, [filteredOrders])
+  }, [filteredOrders, customers])
 
   return (
     <div className="flex flex-col gap-6">

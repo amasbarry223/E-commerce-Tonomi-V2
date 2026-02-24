@@ -34,6 +34,7 @@ export function AdminCustomers() {
   const [search, setSearch] = useState("")
   const [segmentFilter, setSegmentFilter] = useState("all")
   const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null)
+  const [isViewing, setIsViewing] = useState(false)
   const [loading] = useSimulatedLoading(400)
 
   const filtered = useMemo(() => {
@@ -44,7 +45,7 @@ export function AdminCustomers() {
     }
     if (segmentFilter !== "all") result = result.filter(c => c.segment === segmentFilter)
     return result
-  }, [search, segmentFilter])
+  }, [search, segmentFilter, customers])
 
   const {
     paginatedData,
@@ -72,7 +73,7 @@ export function AdminCustomers() {
         .filter(c => c.segment === segment)
         .reduce((sum, c) => sum + c.totalSpent, 0)
     }))
-  }, [])
+  }, [customers])
 
   // Customer growth over time
   const customerGrowth = useMemo(() => {
@@ -86,7 +87,7 @@ export function AdminCustomers() {
       }).length
       return { month, count }
     })
-  }, [])
+  }, [customers])
 
   const handleExport = () => {
     const headers = ["Nom", "Email", "Téléphone", "Segment", "Commandes", "Total dépensé", "Inscrit le"]
@@ -167,55 +168,67 @@ export function AdminCustomers() {
           {loading ? (
             <TableSkeleton rowCount={10} columnCount={6} />
           ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/50">
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Client</th>
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground hidden md:table-cell">Segment</th>
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground hidden lg:table-cell">Commandes</th>
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Total dépensé</th>
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground hidden lg:table-cell">Inscrit le</th>
-                <th className="text-right py-3 px-4 font-medium text-muted-foreground">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedData.map(customer => (
-                <tr key={customer.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-3">
-                      <Image
-                        src={customer.avatar}
-                        alt={`Photo de profil de ${customer.firstName} ${customer.lastName}`}
-                        width={36}
-                        height={36}
-                        className="h-9 w-9 rounded-full object-cover"
-                      />
-                      <div>
-                        <p className="font-medium">{customer.firstName} {customer.lastName}</p>
-                        <p className="text-xs text-muted-foreground">{customer.email}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 hidden md:table-cell">
-                    <Badge className={`${getSegmentColor(customer.segment)} text-xs`}>{getSegmentLabel(customer.segment)}</Badge>
-                  </td>
-                  <td className="py-3 px-4 hidden lg:table-cell">{customer.orderCount}</td>
-                  <td className="py-3 px-4 font-medium">{formatPrice(customer.totalSpent)}</td>
-                  <td className="py-3 px-4 text-xs text-muted-foreground hidden lg:table-cell">{formatDate(customer.createdAt)}</td>
-                  <td className="py-3 px-4 text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-8 sm:w-8" onClick={() => setSelectedCustomer(customer.id)} aria-label={`Voir le détail de ${customer.firstName} ${customer.lastName}`}>
-                        <Eye className="h-4 w-4" aria-hidden />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-8 sm:w-8" aria-label={`Envoyer un email à ${customer.firstName} ${customer.lastName}`} onClick={() => window.open(`mailto:${customer.email}`)}>
-                        <Mail className="h-4 w-4" aria-hidden />
-                      </Button>
-                    </div>
-                  </td>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/50">
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Client</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground hidden md:table-cell">Segment</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground hidden lg:table-cell">Commandes</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Total dépensé</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground hidden lg:table-cell">Inscrit le</th>
+                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {paginatedData.map(customer => (
+                  <tr key={customer.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-3">
+                        <Image
+                          src={customer.avatar}
+                          alt={`Photo de profil de ${customer.firstName} ${customer.lastName}`}
+                          width={36}
+                          height={36}
+                          className="h-9 w-9 rounded-full object-cover"
+                        />
+                        <div>
+                          <p className="font-medium">{customer.firstName} {customer.lastName}</p>
+                          <p className="text-xs text-muted-foreground">{customer.email}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 hidden md:table-cell">
+                      <Badge className={`${getSegmentColor(customer.segment)} text-xs`}>{getSegmentLabel(customer.segment)}</Badge>
+                    </td>
+                    <td className="py-3 px-4 hidden lg:table-cell">{customer.orderCount}</td>
+                    <td className="py-3 px-4 font-medium">{formatPrice(customer.totalSpent)}</td>
+                    <td className="py-3 px-4 text-xs text-muted-foreground hidden lg:table-cell">{formatDate(customer.createdAt)}</td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-11 w-11 sm:h-8 sm:w-8"
+                          onClick={async () => {
+                            setIsViewing(true)
+                            setSelectedCustomer(customer.id)
+                            await new Promise(r => setTimeout(r, 300))
+                            setIsViewing(false)
+                          }}
+                          aria-label={`Voir le détail de ${customer.firstName} ${customer.lastName}`}
+                          loading={isViewing && selectedCustomer === customer.id}
+                        >
+                          <Eye className="h-4 w-4" aria-hidden />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-8 sm:w-8" aria-label={`Envoyer un email à ${customer.firstName} ${customer.lastName}`} onClick={() => window.open(`mailto:${customer.email}`)}>
+                          <Mail className="h-4 w-4" aria-hidden />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
         {!loading && filtered.length === 0 && (
@@ -251,12 +264,12 @@ export function AdminCustomers() {
             <div className="flex flex-col gap-6">
               <div className="flex items-center gap-4">
                 <Image
-                src={viewCustomer.avatar}
-                alt={`Photo de profil de ${viewCustomer.firstName} ${viewCustomer.lastName}`}
-                width={64}
-                height={64}
-                className="h-16 w-16 rounded-full object-cover"
-              />
+                  src={viewCustomer.avatar}
+                  alt={`Photo de profil de ${viewCustomer.firstName} ${viewCustomer.lastName}`}
+                  width={64}
+                  height={64}
+                  className="h-16 w-16 rounded-full object-cover"
+                />
                 <div>
                   <h3 className="font-bold text-lg">{viewCustomer.firstName} {viewCustomer.lastName}</h3>
                   <p className="text-sm text-muted-foreground">{viewCustomer.email}</p>

@@ -11,17 +11,12 @@ export const ROUTES = {
   // Boutique publique
   home: "/",
   products: "/products",
-  // Auth (publiques, GuestOnly pour les connectés)
-  login: "/login",
-  register: "/register",
-  forgotPassword: "/forgot-password",
-  resetPassword: "/reset-password",
-  // Protégées — authentification requise
+  // Protégées — authentification requise (désormais publiques)
   dashboard: "/dashboard",
   account: "/account",
   accountOrders: "/account/orders",
   accountProfile: "/account/profile",
-  // Admin — authentification + rôle admin requis
+  // Admin — authentification + rôle admin requis (désormais publiques)
   admin: "/admin",
   adminProducts: "/admin/products",
   adminOrders: "/admin/orders",

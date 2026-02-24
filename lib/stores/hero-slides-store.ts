@@ -67,7 +67,7 @@ export const useHeroSlidesStore = create<HeroSlidesState>()(
       onRehydrateStorage: () => (persistedState) => {
         const state = persistedState as { slides?: HeroSlide[] } | undefined
         if (!state?.slides?.length) {
-          useHeroSlidesStore.setState({ slides: defaultHeroSlides })
+          useHeroSlidesStore.setState({ slides: getDefaultHeroSlides() })
         }
       },
     }

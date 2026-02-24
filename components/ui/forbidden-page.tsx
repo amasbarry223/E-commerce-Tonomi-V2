@@ -26,9 +26,6 @@ export function ForbiddenPage() {
                         <Button asChild variant="outline">
                             <Link href={ROUTES.home}>Retour à l&apos;accueil</Link>
                         </Button>
-                        <Button asChild>
-                            <Link href={ROUTES.login}>Se connecter</Link>
-                        </Button>
                     </div>
                 </CardContent>
             </Card>

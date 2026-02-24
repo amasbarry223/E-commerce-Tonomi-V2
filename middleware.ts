@@ -1,66 +1,29 @@
-/**
- * Middleware d'authentification — couche 1 (Edge) :
- *
- * GuestOnly  : /login, /register, /forgot-password, /reset-password
- *   → Si cookie auth présent → redirect /dashboard
- *
- * ProtectedAuth : /dashboard, /dashboard/*, /admin, /admin/*, /account, /account/*
- *   → Si cookie absent → redirect /login?redirect=<path>
- *
- * NOTE : /?view=admin est un pattern obsolète géré par un redirect dans app/page.tsx.
- *        Le middleware n'intervient plus sur ce pattern.
- */
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import {
-  ROUTES,
-  AUTH_COOKIE_NAME,
-  REDIRECT_QUERY,
-  getLoginUrl,
-  isProtectedPath,
-  isAllowedRedirectUrl,
-} from "@/lib/auth/routes"
 
-function hasAuthCookie(request: NextRequest): boolean {
-  return !!request.cookies.get(AUTH_COOKIE_NAME)?.value
-}
-
-/** Paths accessibles uniquement aux invités (non connectés). */
-const GUEST_ONLY_PATHS = new Set([
-  ROUTES.login,
-  ROUTES.register,
-  ROUTES.forgotPassword,
-  ROUTES.resetPassword,
-])
-
-export function middleware(request: NextRequest) {
-  const { pathname, searchParams } = request.nextUrl
-  const hasAuth = hasAuthCookie(request)
-
-  // ——— GuestOnly : connecté → redirect vers dashboard (ou ?redirect=) ———
-  if (GUEST_ONLY_PATHS.has(pathname as typeof ROUTES.login)) {
-    if (hasAuth) {
-      const rawRedirect = searchParams.get(REDIRECT_QUERY)
-      const target =
-        rawRedirect && isAllowedRedirectUrl(rawRedirect)
-          ? rawRedirect
-          : ROUTES.dashboard
-      return NextResponse.redirect(new URL(target, request.url))
-    }
-    // Non connecté → laisse passer
-    return addSecurityHeaders(NextResponse.next())
-  }
-
-  // ——— ProtectedAuth : non connecté → redirect login ———
-  if (isProtectedPath(pathname) && !hasAuth) {
-    const loginUrl = getLoginUrl(pathname, false)
-    return NextResponse.redirect(new URL(loginUrl, request.url))
-  }
-
+/**
+ * Middleware — Couche de sécurité globale (Edge).
+ * L'authentification a été supprimée.
+ */
+export function middleware(_request: NextRequest) {
   return addSecurityHeaders(NextResponse.next())
 }
 
 function addSecurityHeaders(response: ReturnType<typeof NextResponse.next>) {
+  const cspHeader = `
+    default-src 'self';
+    script-src 'self' 'unsafe-eval' 'unsafe-inline' vercel.live;
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' blob: data: images.unsplash.com https://images.unsplash.com;
+    font-src 'self';
+    object-src 'none';
+    base-uri 'self';
+    form-action 'self';
+    frame-ancestors 'none';
+    upgrade-insecure-requests;
+  `.replace(/\s{2,}/g, " ").trim()
+
+  response.headers.set("Content-Security-Policy", cspHeader)
   response.headers.set("X-Content-Type-Options", "nosniff")
   response.headers.set("X-Frame-Options", "DENY")
   response.headers.set("X-XSS-Protection", "1; mode=block")
@@ -71,12 +34,6 @@ function addSecurityHeaders(response: ReturnType<typeof NextResponse.next>) {
 
 export const config = {
   matcher: [
-    // Routes GuestOnly
-    "/login",
-    "/register",
-    "/forgot-password",
-    "/reset-password",
-    // Routes protégées
     "/dashboard",
     "/dashboard/:path*",
     "/account",

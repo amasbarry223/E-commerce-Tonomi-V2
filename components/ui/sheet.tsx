@@ -37,8 +37,8 @@ function SheetOverlay({
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Overlay>) {
   // Exclure les props HTML qui entrent en conflit avec Framer Motion
-  const { onDrag: _onDrag, onDragStart: _onDragStart, onDragEnd: _onDragEnd, ...motionProps } = props as Omit<React.ComponentProps<typeof SheetPrimitive.Overlay>, 'onDrag' | 'onDragStart' | 'onDragEnd'>
-  
+  const { onAnimationStart: _onAnimationStart, onDrag: _onDrag, onDragStart: _onDragStart, onDragEnd: _onDragEnd, ...motionProps } = props;
+
   return (
     <SheetPrimitive.Overlay asChild>
       <motion.div
@@ -69,8 +69,8 @@ function SheetContent({
 
   const handleDragEnd = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const threshold = 100
-    const velocity = Math.abs(info.velocity.x) > Math.abs(info.velocity.y) 
-      ? info.velocity.x 
+    const velocity = Math.abs(info.velocity.x) > Math.abs(info.velocity.y)
+      ? info.velocity.x
       : info.velocity.y
 
     if (Math.abs(info.offset.x) > threshold || Math.abs(info.offset.y) > threshold || Math.abs(velocity) > 500) {
@@ -90,7 +90,7 @@ function SheetContent({
   const dragDirection = side === 'right' || side === 'left' ? 'x' : 'y'
 
   // Exclure les props HTML qui entrent en conflit avec Framer Motion
-  const { onDrag: _onDrag, onDragStart: _onDragStart, ...motionProps } = props as Omit<React.ComponentProps<typeof SheetPrimitive.Content>, 'onDrag' | 'onDragStart'>
+  const { onAnimationStart: _onAnimationStart, onDrag: _onDrag, onDragStart: _onDragStart, onDragEnd: _onDragEnd, ...motionProps } = props;
 
   return (
     <SheetPortal>
@@ -101,13 +101,13 @@ function SheetContent({
           className={cn(
             'bg-background fixed z-50 flex flex-col gap-4 shadow-lg',
             side === 'right' &&
-              'inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm',
+            'inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm',
             side === 'left' &&
-              'inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm',
+            'inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm',
             side === 'top' &&
-              'inset-x-0 top-0 h-auto border-b',
+            'inset-x-0 top-0 h-auto border-b',
             side === 'bottom' &&
-              'inset-x-0 bottom-0 h-auto border-t',
+            'inset-x-0 bottom-0 h-auto border-t',
             className,
           )}
           variants={sheetContentVariants}

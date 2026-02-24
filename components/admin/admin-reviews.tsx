@@ -36,6 +36,7 @@ export function AdminReviews() {
 
   const [statusFilter, setStatusFilter] = useState("all")
   const [ratingFilter, setRatingFilter] = useState("all")
+  const [isProcessing, setIsProcessing] = useState<string | null>(null)
   const [loading] = useSimulatedLoading(400)
 
   const filtered = useMemo(() => {
@@ -59,16 +60,22 @@ export function AdminReviews() {
     ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
     : "0"
 
-  const handleApproveReview = (reviewId: string) => {
+  const handleApproveReview = async (reviewId: string) => {
+    setIsProcessing(reviewId)
+    await new Promise(r => setTimeout(r, 500))
     const review = reviews.find(r => r.id === reviewId)
     approveReview(reviewId)
     toast.success(review ? `Avis de "${review.customerName}" approuvé` : "Avis approuvé")
+    setIsProcessing(null)
   }
 
-  const handleRejectReview = (reviewId: string) => {
+  const handleRejectReview = async (reviewId: string) => {
+    setIsProcessing(reviewId)
+    await new Promise(r => setTimeout(r, 500))
     const review = reviews.find(r => r.id === reviewId)
     rejectReview(reviewId)
     toast.success(review ? `Avis de "${review.customerName}" rejeté` : "Avis rejeté")
+    setIsProcessing(null)
   }
 
   return (
@@ -121,57 +128,60 @@ export function AdminReviews() {
         {loading ? (
           <TableSkeleton rowCount={5} columnCount={3} />
         ) : (
-        <>
-        {paginatedData.map(review => {
-          const product = products.find(p => p.id === review.productId)
-          return (
-            <div key={review.id} className="bg-card border border-border rounded-lg p-4 md:p-6">
-              <div className="flex flex-col md:flex-row md:items-start justify-between gap-3 mb-3">
-                <div className="flex items-start gap-4">
-                  {product && (
-                    <Image src={product.images[0] ?? "/placeholder.svg"} alt={product.name} width={48} height={48} className="h-12 w-12 rounded object-cover shrink-0 hidden md:block" />
-                  )}
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="font-medium text-sm">{review.customerName}</p>
-                      <Badge className={`${statusColors[review.status]} text-xs`}>{statusLabels[review.status]}</Badge>
+          <>
+            {paginatedData.map(review => {
+              const product = products.find(p => p.id === review.productId)
+              return (
+                <div key={review.id} className="bg-card border border-border rounded-lg p-4 md:p-6">
+                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-3 mb-3">
+                    <div className="flex items-start gap-4">
+                      {product && (
+                        <Image src={product.images[0] ?? "/placeholder.svg"} alt={product.name} width={48} height={48} className="h-12 w-12 rounded object-cover shrink-0 hidden md:block" />
+                      )}
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium text-sm">{review.customerName}</p>
+                          <Badge className={`${statusColors[review.status]} text-xs`}>{statusLabels[review.status]}</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{product?.name} | {formatDate(review.createdAt)}</p>
+                      </div>
                     </div>
-                    <p className="text-xs text-muted-foreground">{product?.name} | {formatDate(review.createdAt)}</p>
+                    <div className="flex items-center gap-0.5">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star key={i} className={`h-4 w-4 ${i < review.rating ? "fill-amber-400 text-amber-400" : "text-muted"}`} />
+                      ))}
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-0.5">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} className={`h-4 w-4 ${i < review.rating ? "fill-amber-400 text-amber-400" : "text-muted"}`} />
-                  ))}
-                </div>
-              </div>
 
-              <h4 className="font-semibold text-sm mb-1">{review.title}</h4>
-              <p className="text-sm text-muted-foreground leading-relaxed">{review.comment}</p>
+                  <h4 className="font-semibold text-sm mb-1">{review.title}</h4>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{review.comment}</p>
 
-              {review.status === "pending" && (
-                <div className="flex gap-2 mt-4 pt-3 border-t border-border">
-                  <Button 
-                    size="sm" 
-                    className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
-                    onClick={() => handleApproveReview(review.id)}
-                  >
-                    <Check className="h-3.5 w-3.5" /> Approuver
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="gap-1.5 text-destructive"
-                    onClick={() => handleRejectReview(review.id)}
-                  >
-                    <X className="h-3.5 w-3.5" /> Rejeter
-                  </Button>
+                  {review.status === "pending" && (
+                    <div className="flex gap-2 mt-4 pt-3 border-t border-border">
+                      <Button
+                        size="sm"
+                        className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                        onClick={() => handleApproveReview(review.id)}
+                        loading={isProcessing === review.id}
+                        disabled={!!isProcessing}
+                      >
+                        <Check className="h-3.5 w-3.5" /> Approuver
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5 text-destructive"
+                        onClick={() => handleRejectReview(review.id)}
+                        disabled={!!isProcessing}
+                      >
+                        <X className="h-3.5 w-3.5" /> Rejeter
+                      </Button>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          )
-        })}
-        </>
+              )
+            })}
+          </>
         )}
       </div>
 

@@ -28,6 +28,7 @@ function AccountSignupForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => vo
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const register = useCustomerAuthStore((s) => s.register)
 
@@ -36,9 +37,16 @@ function AccountSignupForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => vo
     setError("")
     const result = clientRegisterSchema.safeParse({ firstName, lastName, email, password })
     if (!result.success) {
+      const errs: Record<string, string> = {}
+      result.error.issues.forEach((e) => {
+        const p = e.path[0] as string
+        if (!errs[p]) errs[p] = e.message
+      })
+      setFieldErrors(errs)
       setError(getZodErrorMessage(result.error))
       return
     }
+    setFieldErrors({})
     setLoading(true)
     try {
       register(result.data.firstName, result.data.lastName, result.data.email, result.data.password)
@@ -68,7 +76,7 @@ function AccountSignupForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => vo
           )}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="signup-firstName">Prénom</Label>
+              <Label htmlFor="signup-firstName">Prénom <span className="text-destructive" aria-hidden="true">*</span></Label>
               <Input
                 id="signup-firstName"
                 type="text"
@@ -76,10 +84,15 @@ function AccountSignupForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => vo
                 onChange={(e) => setFirstName(e.target.value)}
                 placeholder="Prénom"
                 autoComplete="given-name"
+                aria-invalid={!!fieldErrors.firstName}
+                aria-describedby={fieldErrors.firstName ? "signup-firstName-error" : undefined}
               />
+              {fieldErrors.firstName && (
+                <p id="signup-firstName-error" className="text-xs text-destructive">{fieldErrors.firstName}</p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="signup-lastName">Nom</Label>
+              <Label htmlFor="signup-lastName">Nom <span className="text-destructive" aria-hidden="true">*</span></Label>
               <Input
                 id="signup-lastName"
                 type="text"
@@ -87,11 +100,16 @@ function AccountSignupForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => vo
                 onChange={(e) => setLastName(e.target.value)}
                 placeholder="Nom"
                 autoComplete="family-name"
+                aria-invalid={!!fieldErrors.lastName}
+                aria-describedby={fieldErrors.lastName ? "signup-lastName-error" : undefined}
               />
+              {fieldErrors.lastName && (
+                <p id="signup-lastName-error" className="text-xs text-destructive">{fieldErrors.lastName}</p>
+              )}
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="signup-email">Email</Label>
+            <Label htmlFor="signup-email">Email <span className="text-destructive" aria-hidden="true">*</span></Label>
             <Input
               id="signup-email"
               type="email"
@@ -99,10 +117,15 @@ function AccountSignupForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => vo
               onChange={(e) => setEmail(e.target.value)}
               placeholder="vous@exemple.com"
               autoComplete="email"
+              aria-invalid={!!fieldErrors.email}
+              aria-describedby={fieldErrors.email ? "signup-email-error" : undefined}
             />
+            {fieldErrors.email && (
+              <p id="signup-email-error" className="text-xs text-destructive">{fieldErrors.email}</p>
+            )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="signup-password">Mot de passe</Label>
+            <Label htmlFor="signup-password">Mot de passe <span className="text-destructive" aria-hidden="true">*</span></Label>
             <Input
               id="signup-password"
               type="password"
@@ -110,7 +133,12 @@ function AccountSignupForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => vo
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               autoComplete="new-password"
+              aria-invalid={!!fieldErrors.password}
+              aria-describedby={fieldErrors.password ? "signup-password-error" : undefined}
             />
+            {fieldErrors.password && (
+              <p id="signup-password-error" className="text-xs text-destructive">{fieldErrors.password}</p>
+            )}
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Création..." : "S&apos;inscrire"}
@@ -131,6 +159,7 @@ function AccountLoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => vo
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const login = useCustomerAuthStore((s) => s.login)
 
@@ -139,9 +168,16 @@ function AccountLoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => vo
     setError("")
     const result = clientLoginSchema.safeParse({ email, password })
     if (!result.success) {
+      const errs: Record<string, string> = {}
+      result.error.issues.forEach((e) => {
+        const p = e.path[0] as string
+        if (!errs[p]) errs[p] = e.message
+      })
+      setFieldErrors(errs)
       setError(getZodErrorMessage(result.error))
       return
     }
+    setFieldErrors({})
     setLoading(true)
     const ok = login(result.data.email, result.data.password)
     setLoading(false)
@@ -166,7 +202,7 @@ function AccountLoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => vo
             </p>
           )}
           <div className="space-y-2">
-            <Label htmlFor="login-email">Email</Label>
+            <Label htmlFor="login-email">Email <span className="text-destructive" aria-hidden="true">*</span></Label>
             <Input
               id="login-email"
               type="email"
@@ -174,10 +210,15 @@ function AccountLoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => vo
               onChange={(e) => setEmail(e.target.value)}
               placeholder="vous@exemple.com"
               autoComplete="email"
+              aria-invalid={!!fieldErrors.email}
+              aria-describedby={fieldErrors.email ? "login-email-error" : undefined}
             />
+            {fieldErrors.email && (
+              <p id="login-email-error" className="text-xs text-destructive">{fieldErrors.email}</p>
+            )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="login-password">Mot de passe</Label>
+            <Label htmlFor="login-password">Mot de passe <span className="text-destructive" aria-hidden="true">*</span></Label>
             <Input
               id="login-password"
               type="password"
@@ -185,7 +226,12 @@ function AccountLoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => vo
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               autoComplete="current-password"
+              aria-invalid={!!fieldErrors.password}
+              aria-describedby={fieldErrors.password ? "login-password-error" : undefined}
             />
+            {fieldErrors.password && (
+              <p id="login-password-error" className="text-xs text-destructive">{fieldErrors.password}</p>
+            )}
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Connexion..." : "Se connecter"}

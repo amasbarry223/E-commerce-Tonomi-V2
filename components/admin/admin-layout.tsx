@@ -1,10 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
+import Link from "next/link"
 import Image from "next/image"
-import { useNavigationStore, useUIStore } from "@/lib/store-context"
-import { useAuthStore } from "@/lib/stores/auth-store"
 import { Button } from "@/components/ui/button"
 import {
   Breadcrumb,
@@ -16,11 +15,13 @@ import {
 } from "@/components/ui/breadcrumb"
 import {
   LayoutDashboard, Package, FolderKanban, LayoutPanelTop, ShoppingCart, Users,
-  BarChart3, Tag, Star, Settings, Store, Sun, Moon, Menu, X, ChevronRight, LogOut,
+  BarChart3, Tag, Star, Settings, Store, Menu, X, ChevronRight, LogOut,
 } from "lucide-react"
 import { PAGES, ROUTES, ADMIN_SLUG_TO_PAGE } from "@/lib/routes"
 import { getAdminPath } from "@/lib/auth/routes"
 import type { AdminPageKey } from "@/lib/routes"
+import { useAdminAuthStore } from "@/lib/stores/admin-auth-store"
+import { FullScreenLoading } from "@/components/ui/full-screen-loading"
 
 /** Dérive la clé de page admin depuis le pathname (/dashboard ou /admin/xxx). */
 function getAdminPageKeyFromPathname(pathname: string): AdminPageKey {
@@ -45,24 +46,34 @@ const navItems = [
   { id: PAGES.admin.settings, label: "Paramètres", icon: Settings },
 ]
 
-/** Entrées du menu admin visibles selon le rôle (Paramètres = super-admin uniquement). */
-function getNavItemsForRole(role: "admin" | "super-admin" | undefined) {
-  if (role === "super-admin") return navItems
-  return navItems.filter((item) => item.id !== PAGES.admin.settings)
+/** Entrées du menu admin (Tout le monde est super-admin par défaut maintenant). */
+function getNavItems() {
+  return navItems
 }
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const activePage = getAdminPageKeyFromPathname(pathname ?? "")
-  useNavigationStore()
-  const { darkMode, toggleDarkMode } = useUIStore()
-  const { user, logout } = useAuthStore()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const router = useRouter()
+  const { isAuthenticated, logout } = useAdminAuthStore()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true)
+    if (!isAuthenticated) {
+      router.push(ROUTES.admin + "/login")
+    }
+  }, [isAuthenticated, router])
 
   const handleLogout = () => {
     logout()
-    router.push(ROUTES.login)
+    router.push(ROUTES.admin + "/login")
+  }
+
+  if (!mounted || !isAuthenticated) {
+    return <FullScreenLoading ariaLabel="Vérification de l'authentification" />
   }
 
   return (
@@ -76,9 +87,9 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       <aside className={`fixed z-50 lg:static inset-y-0 left-0 w-64 bg-card border-r border-border flex flex-col transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
         <div className="relative flex items-center justify-center h-20 px-4 border-b border-border">
           <a href={ROUTES.home} className="flex items-center justify-center text-foreground hover:text-accent transition-colors w-full">
-            <Image 
-              src="/images/logo.png" 
-              alt="TONOMI ACCESSOIRES" 
+            <Image
+              src="/images/logo.png"
+              alt="TONOMI ACCESSOIRES"
               width={120}
               height={64}
               className="h-16 w-auto object-contain"
@@ -91,22 +102,23 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 overflow-y-auto py-4 px-3">
-          {getNavItemsForRole(user?.role).map(item => {
+          {getNavItems().map(item => {
             const Icon = item.icon
             const isActive = activePage === item.id
+            const href = getAdminPath(item.id)
             return (
-              <button
+              <Link
                 key={item.id}
-                onClick={() => { router.push(getAdminPath(item.id)); setSidebarOpen(false) }}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm mb-0.5 transition-colors ${
-                  isActive
-                    ? "bg-accent/15 text-foreground font-medium"
-                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                }`}
+                href={href}
+                onClick={() => setSidebarOpen(false)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm mb-0.5 transition-colors ${isActive
+                  ? "bg-accent/15 text-foreground font-medium"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  }`}
               >
                 <Icon className="h-4 w-4 shrink-0" />
                 {item.label}
-              </button>
+              </Link>
             )
           })}
         </nav>
@@ -116,22 +128,13 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             variant="ghost"
             size="sm"
             className="w-full justify-start gap-2 text-muted-foreground"
-            onClick={() => router.push(ROUTES.home)}
+            asChild
           >
-            <Store className="h-4 w-4" />
-            Voir la boutique
-            <ChevronRight className="h-3 w-3 ml-auto" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start gap-2 text-muted-foreground hover:text-destructive"
-            onClick={handleLogout}
-            aria-label="Se déconnecter et aller à la page de connexion admin"
-          >
-            <LogOut className="h-4 w-4" aria-hidden />
-            Déconnexion
+            <Link href={ROUTES.home}>
+              <Store className="h-4 w-4" />
+              Voir la boutique
+              <ChevronRight className="h-3 w-3 ml-auto" />
+            </Link>
           </Button>
         </div>
       </aside>
@@ -146,41 +149,37 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             </Button>
             <nav aria-label="Fil d'Ariane">
               <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  {activePage === PAGES.admin.dashboard ? (
-                    <BreadcrumbPage>Tableau de bord</BreadcrumbPage>
-                  ) : (
-                    <BreadcrumbLink href={ROUTES.dashboard}>
-                      Tableau de bord
-                    </BreadcrumbLink>
+                <BreadcrumbList>
+                  <BreadcrumbItem>
+                    {activePage === PAGES.admin.dashboard ? (
+                      <BreadcrumbPage>Tableau de bord</BreadcrumbPage>
+                    ) : (
+                      <BreadcrumbLink href={ROUTES.dashboard}>
+                        Tableau de bord
+                      </BreadcrumbLink>
+                    )}
+                  </BreadcrumbItem>
+                  {activePage !== PAGES.admin.dashboard && (
+                    <>
+                      <BreadcrumbSeparator />
+                      <BreadcrumbItem>
+                        <BreadcrumbPage>
+                          {navItems.find(n => n.id === activePage)?.label || "Back-Office"}
+                        </BreadcrumbPage>
+                      </BreadcrumbItem>
+                    </>
                   )}
-                </BreadcrumbItem>
-                {activePage !== PAGES.admin.dashboard && (
-                  <>
-                    <BreadcrumbSeparator />
-                    <BreadcrumbItem>
-                      <BreadcrumbPage>
-                        {navItems.find(n => n.id === activePage)?.label || "Back-Office"}
-                      </BreadcrumbPage>
-                    </BreadcrumbItem>
-                  </>
-                )}
-              </BreadcrumbList>
-            </Breadcrumb>
+                </BreadcrumbList>
+              </Breadcrumb>
             </nav>
           </div>
           <div className="flex items-center gap-3">
-            <div className="hidden md:flex flex-col items-end">
-              <span className="text-xs text-muted-foreground">Connecté en tant que</span>
-              <span className="text-sm font-medium">{user?.email || "Admin"}</span>
+            <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center text-xs font-bold text-foreground" title="Admin">
+              AD
             </div>
-            <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-9 sm:w-9" onClick={toggleDarkMode} aria-label={darkMode ? "Désactiver le mode sombre" : "Activer le mode sombre"}>
-              {darkMode ? <Sun className="h-4 w-4" aria-hidden /> : <Moon className="h-4 w-4" aria-hidden />}
+            <Button variant="ghost" size="icon" onClick={handleLogout} title="Se déconnecter">
+              <LogOut className="h-4 w-4" />
             </Button>
-            <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center text-xs font-bold text-foreground" title={user?.email ?? "Admin"}>
-              {user?.email ? (user.email.slice(0, 2).toUpperCase()) : "AD"}
-            </div>
           </div>
         </header>
 
