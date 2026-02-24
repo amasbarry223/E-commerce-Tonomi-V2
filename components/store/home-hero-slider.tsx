@@ -130,6 +130,10 @@ export const HeroSlider = React.memo(function HeroSlider({ onNavigateToCatalog }
                 className="object-cover w-full h-full"
                 unoptimized
                 sizes="100vw"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement
+                  target.src = "/placeholder.svg"
+                }}
               />
             ) : (
               <Image
@@ -139,6 +143,10 @@ export const HeroSlider = React.memo(function HeroSlider({ onNavigateToCatalog }
                 className="object-cover"
                 sizes="100vw"
                 priority={currentSlide === 0}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement
+                  target.src = "/placeholder.svg"
+                }}
               />
             )}
           </motion.div>
@@ -214,9 +222,8 @@ export const HeroSlider = React.memo(function HeroSlider({ onNavigateToCatalog }
           <motion.button
             key={`hero-dot-${s.id}`}
             onClick={() => handleSlideClick(i)}
-            className={`h-2 rounded-full transition-colors ${
-              i === currentSlide ? "bg-white" : "bg-white/50 hover:bg-white/70"
-            }`}
+            className={`h-2 rounded-full transition-colors ${i === currentSlide ? "bg-white" : "bg-white/50 hover:bg-white/70"
+              }`}
             animate={{
               width: i === currentSlide ? 32 : 8,
             }}

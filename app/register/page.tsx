@@ -50,7 +50,7 @@ function RegisterForm() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Votre demande d&apos;inscription a bien été enregistrée. Un administrateur vous contactera à l&apos;adresse indiquée pour activer votre compte.
+              Votre demande de compte a bien été enregistrée. Pour les clients, l&apos;accès sera bientôt automatisé. Pour les administrateurs, un responsable vous contactera pour activer vos accès.
             </p>
             <Button asChild variant="default" className="w-full">
               <Link href={ROUTES.login}>Retour à la connexion</Link>
@@ -65,11 +65,14 @@ function RegisterForm() {
     <div className="min-h-screen flex items-center justify-center p-4 bg-muted/30">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardDescription>Demande de compte administrateur</CardDescription>
+          <CardDescription>Créer un compte</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground italic">
+            Note : La création d&apos;un compte est facultative pour passer commande.
+          </p>
           <p className="text-sm text-muted-foreground">
-            Renseignez le formulaire ci-dessous. Un administrateur validera votre compte et vous contactera.
+            Renseignez le formulaire ci-dessous pour rejoindre la communauté Tonomi.
           </p>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (

@@ -121,20 +121,7 @@ export function ProductPage() {
   const category = categories.find(c => c.id === product.category)
 
   const handleAddToCart = () => {
-    // Use cached cart button ref and find image element with null checks
-    const cartButton = cartButtonRef.current
-    const imageElement = document.querySelector(`[data-product-image="${product.id}"]`) as HTMLElement | null
-    
-    // Déclencher l'animation only if both elements exist
-    if (imageElement && cartButton) {
-      triggerAnimation(
-        product.images[selectedImage],
-        product.name,
-        imageElement,
-        cartButton
-      )
-    }
-    
+    // Add to cart immediately for better responsiveness
     addToCart({
       productId: product.id,
       name: product.name,
@@ -144,8 +131,22 @@ export function ProductPage() {
       size: product.sizes[selectedSize],
       quantity,
     })
-    
+
     showAddToCartToast(product.name)
+
+    // Use cached cart button ref and find image element with null checks
+    const cartButton = cartButtonRef.current
+    const imageElement = document.querySelector(`[data-product-image="${product.id}"]`) as HTMLElement | null
+
+    // Déclencher l'animation only if both elements exist
+    if (imageElement && cartButton) {
+      triggerAnimation(
+        product.images[selectedImage],
+        product.name,
+        imageElement,
+        cartButton
+      )
+    }
   }
 
   return (
@@ -222,13 +223,17 @@ export function ProductPage() {
                 className={`relative h-20 w-20 rounded-lg overflow-hidden border-2 transition-colors ${i === selectedImage ? "border-accent" : "border-transparent"}`}
                 aria-label={`Voir l'image ${i + 1} de ${product.name}`}
               >
-                <Image 
-                  src={img} 
-                  alt={`${product.name} ${i + 1}`} 
+                <Image
+                  src={img}
+                  alt={`${product.name} ${i + 1}`}
                   fill
                   className="object-cover"
                   sizes="80px"
                   loading="lazy"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement
+                    target.src = "/placeholder.svg"
+                  }}
                 />
               </button>
             ))}

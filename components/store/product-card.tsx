@@ -43,13 +43,24 @@ export const ProductCard = React.memo(function ProductCard({ product, index = 0 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.stopPropagation()
     setIsAddingToCart(true)
-    
+
+    // Add to cart immediately for better responsiveness
+    addToCart({
+      productId: product.id,
+      name: product.name,
+      price: product.price,
+      image: product.images[0] ?? "",
+      color: product.colors[0]?.name,
+      size: product.sizes[0] ?? undefined,
+      quantity: 1,
+    })
+
+    showAddToCartToast(product.name)
+
     try {
-      // Use cached cart button ref
       const cartButton = cartButtonRef.current
-      
-      // Déclencher l'animation uniquement si une image existe
       const firstImage = product.images[0]
+
       if (imageRef.current && cartButton && firstImage) {
         triggerAnimation(
           firstImage,
@@ -58,21 +69,9 @@ export const ProductCard = React.memo(function ProductCard({ product, index = 0 
           cartButton
         )
       }
-      
-      // Simuler un délai pour montrer le loading state
-      await new Promise((resolve) => setTimeout(resolve, ANIMATION_DELAYS.CART_ANIMATION_DELAY))
-      
-      addToCart({
-        productId: product.id,
-        name: product.name,
-        price: product.price,
-        image: firstImage ?? "",
-        color: product.colors[0]?.name,
-        size: product.sizes[0] ?? undefined,
-        quantity: 1,
-      })
-      
-      showAddToCartToast(product.name)
+
+      // Delay only the "loading" visual state if needed, but not the actual operation
+      await new Promise((resolve) => setTimeout(resolve, 500))
     } finally {
       setIsAddingToCart(false)
     }
@@ -92,9 +91,9 @@ export const ProductCard = React.memo(function ProductCard({ product, index = 0 
       style={{ willChange: 'transform' }}
     >
       {/* Image */}
-      <div 
+      <div
         ref={imageRef}
-        className="relative aspect-square overflow-hidden cursor-pointer" 
+        className="relative aspect-square overflow-hidden cursor-pointer"
         onClick={handleView}
       >
         <motion.div
@@ -103,12 +102,16 @@ export const ProductCard = React.memo(function ProductCard({ product, index = 0 
           className="h-full w-full"
         >
           <Image
-            src={product.images[0] ?? "/placeholder.svg"}
+            src={product.images[0] || "/placeholder.svg"}
             alt={product.name}
             fill
             className="object-cover"
             sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
             loading="lazy"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement
+              target.src = "/placeholder.svg"
+            }}
           />
         </motion.div>
 
@@ -122,9 +125,8 @@ export const ProductCard = React.memo(function ProductCard({ product, index = 0 
         {/* Wishlist */}
         <button
           onClick={(e) => { e.stopPropagation(); toggleWishlist(product.id) }}
-          className={`absolute top-3 right-3 h-9 w-9 rounded-full flex items-center justify-center transition-all ${
-            wishlisted ? "bg-red-500 text-white" : "bg-card/80 backdrop-blur-sm text-foreground hover:bg-card"
-          }`}
+          className={`absolute top-3 right-3 h-9 w-9 rounded-full flex items-center justify-center transition-all ${wishlisted ? "bg-red-500 text-white" : "bg-card/80 backdrop-blur-sm text-foreground hover:bg-card"
+            }`}
           aria-label={wishlisted ? `Retirer ${product.name} des favoris` : `Ajouter ${product.name} aux favoris`}
         >
           <Heart className={`h-4 w-4 ${wishlisted ? "fill-current" : ""}`} />
@@ -137,9 +139,9 @@ export const ProductCard = React.memo(function ProductCard({ product, index = 0 
           whileHover={{ y: 0 }}
           transition={fastTransition}
         >
-          <Button 
-            onClick={handleAddToCart} 
-            size="sm" 
+          <Button
+            onClick={handleAddToCart}
+            size="sm"
             className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 text-xs gap-1.5"
             loading={isAddingToCart}
             disabled={isAddingToCart}
@@ -148,10 +150,10 @@ export const ProductCard = React.memo(function ProductCard({ product, index = 0 
             <ShoppingBag className="h-3.5 w-3.5" />
             Ajouter
           </Button>
-          <Button 
-            onClick={handleQuickView} 
-            size="sm" 
-            variant="secondary" 
+          <Button
+            onClick={handleQuickView}
+            size="sm"
+            variant="secondary"
             className="gap-1.5 text-xs"
             aria-label={`Voir rapidement ${product.name}`}
           >
@@ -163,8 +165,8 @@ export const ProductCard = React.memo(function ProductCard({ product, index = 0 
       {/* Info */}
       <div className="p-4">
         <p className="text-xs text-muted-foreground mb-1">{product.brand}</p>
-        <h3 
-          className="font-medium text-sm leading-tight mb-2 cursor-pointer hover:text-accent transition-colors line-clamp-2" 
+        <h3
+          className="font-medium text-sm leading-tight mb-2 cursor-pointer hover:text-accent transition-colors line-clamp-2"
           onClick={handleView}
           role="button"
           tabIndex={0}

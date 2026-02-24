@@ -68,11 +68,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const cart = loadPersistedCart()
     const wishlist = loadPersistedWishlist()
-    queueMicrotask(() => {
-      if (cart.length > 0) setCartState(prev => ({ ...prev, cart }))
-      if (wishlist.length > 0) setUIState(prev => ({ ...prev, wishlist }))
-    })
-    hasRestoredRef.current = true
+
+    if (cart.length > 0) {
+      setCartState(prev => ({ ...prev, cart }))
+    }
+    if (wishlist.length > 0) {
+      setUIState(prev => ({ ...prev, wishlist }))
+    }
+
+    // On marque la restauration comme terminée à la fin du cycle actuel
+    // pour que les effets de sauvegarde ne vident pas le storage au premier render
+    const t = setTimeout(() => {
+      hasRestoredRef.current = true
+    }, 0)
+
+    return () => clearTimeout(t)
   }, [])
 
   useEffect(() => {
