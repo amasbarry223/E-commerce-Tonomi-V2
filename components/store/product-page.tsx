@@ -27,14 +27,7 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  Breadcrumb,
-  BreadcrumbList,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
+import { ProductBreadcrumb } from "@/components/ui/breadcrumb-nav"
 import { ImageZoom } from "./image-zoom"
 import { CartAnimation, useCartAnimation } from "./cart-animation"
 import { useCartToast } from "@/hooks/use-cart-toast"
@@ -105,6 +98,9 @@ export function ProductPage() {
       })
       setFieldErrors(errs)
       toast.error("Veuillez corriger les erreurs du formulaire.")
+      const firstKey = Object.keys(errs)[0]
+      const focusId = firstKey === "customerName" ? "review-name" : firstKey === "rating" ? "review-rating" : firstKey === "title" ? "review-title" : "review-comment"
+      requestAnimationFrame(() => document.getElementById(focusId)?.focus())
       return
     }
     setFieldErrors({})
@@ -160,49 +156,21 @@ export function ProductPage() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       {/* Breadcrumb */}
-      <Breadcrumb className="mb-6">
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink asChild>
-              <button type="button" onClick={() => navigate(PAGES.store.home)}>
-                Accueil
-              </button>
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbLink asChild>
-              <button type="button" onClick={() => navigate(PAGES.store.catalog)}>
-                Catalogue
-              </button>
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          {category && (
-            <>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      selectCategory(category.id)
-                      navigate(PAGES.store.catalog)
-                    }}
-                  >
-                    {category.name}
-                  </button>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-            </>
-          )}
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage className="truncate max-w-[200px] inline-block">
-              {product.name}
-            </BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
+      <ProductBreadcrumb
+        onHomeClick={() => navigate(PAGES.store.home)}
+        onCatalogClick={() => navigate(PAGES.store.catalog)}
+        onCategoryClick={
+          category
+            ? () => {
+                selectCategory(category.id)
+                navigate(PAGES.store.catalog)
+              }
+            : undefined
+        }
+        categoryLabel={category?.name}
+        productName={product.name}
+        className="mb-6"
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
         {/* Image Gallery */}
@@ -397,7 +365,7 @@ export function ProductPage() {
                 </div>
                 <div>
                   <Label>Note <span className="text-destructive" aria-hidden="true">*</span></Label>
-                  <div className="flex items-center gap-1 mt-1" role="group" aria-label="Note de 1 à 5 étoiles">
+                  <div id="review-rating" tabIndex={-1} className="flex items-center gap-1 mt-1" role="group" aria-label="Note de 1 à 5 étoiles" aria-invalid={!!fieldErrors.rating} aria-describedby={fieldErrors.rating ? "review-rating-error" : undefined}>
                     {[1, 2, 3, 4, 5].map((n) => (
                       <button
                         key={n}
@@ -411,6 +379,9 @@ export function ProductPage() {
                       </button>
                     ))}
                   </div>
+                  {fieldErrors.rating && (
+                    <p id="review-rating-error" className="text-xs text-destructive mt-1">{fieldErrors.rating}</p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="review-title">Titre de l&apos;avis <span className="text-destructive" aria-hidden="true">*</span></Label>

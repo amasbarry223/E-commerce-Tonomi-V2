@@ -26,6 +26,8 @@ export interface CartStateContextType {
   cartCount: number
   promoDiscount: number
   appliedPromo: string | null
+  /** True tant que le panier n'a pas été restauré depuis le localStorage (évite le flash "panier vide"). */
+  isRestoringCart: boolean
 }
 
 /** Actions seules du panier (références stables, ne provoquent pas de re-render quand le panier change). */

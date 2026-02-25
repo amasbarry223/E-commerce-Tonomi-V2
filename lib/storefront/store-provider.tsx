@@ -59,6 +59,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }))
 
   const hasRestoredRef = useRef(false)
+  const [isRestoringCart, setIsRestoringCart] = useState(true)
   const productsRef = useRef(getProducts())
   const promoCodesRef = useRef(getPromoCodes())
   const cartRef = useRef(cartState.cart)
@@ -74,16 +75,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setTimeout(() => {
         if (cart.length > 0) setCartState(prev => ({ ...prev, cart }))
         if (wishlist.length > 0) setUIState(prev => ({ ...prev, wishlist }))
+        hasRestoredRef.current = true
+        setIsRestoringCart(false)
       }, 0)
+    } else {
+      const t = setTimeout(() => {
+        hasRestoredRef.current = true
+        setIsRestoringCart(false)
+      }, 0)
+      return () => clearTimeout(t)
     }
-
-    // On marque la restauration comme terminée à la fin du cycle actuel
-    // pour que les effets de sauvegarde ne vident pas le storage au premier render
-    const t = setTimeout(() => {
-      hasRestoredRef.current = true
-    }, 0)
-
-    return () => clearTimeout(t)
   }, [])
 
   useEffect(() => {
@@ -259,8 +260,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       cartCount,
       promoDiscount: cartState.promoDiscount,
       appliedPromo: cartState.appliedPromo,
+      isRestoringCart,
     }),
-    [cartState.cart, cartState.promoDiscount, cartState.appliedPromo, cartTotal, cartCount]
+    [cartState.cart, cartState.promoDiscount, cartState.appliedPromo, cartTotal, cartCount, isRestoringCart]
   )
 
   const cartActionsValue = useMemo(

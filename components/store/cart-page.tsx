@@ -15,7 +15,7 @@ import { useErrorHandler } from "@/hooks/use-error-handler"
 import { LAYOUT_CONSTANTS, ANIMATION_DELAYS } from "@/lib/constants"
 
 export function CartPage() {
-  const { cart, removeFromCart, updateCartQuantity, cartTotal, applyPromoCode, promoDiscount, appliedPromo } = useCartStore()
+  const { cart, removeFromCart, updateCartQuantity, cartTotal, applyPromoCode, promoDiscount, appliedPromo, isRestoringCart } = useCartStore()
   const { navigate } = useNavigationStore()
   const { showRemoveFromCartToast, showUpdateCartToast, showPromoAppliedToast, showPromoErrorToast } = useCartToast()
   const { safeAsync } = useErrorHandler({ context: "CartPage" })
@@ -71,6 +71,15 @@ export function CartPage() {
         return next
       })
     }
+  }
+
+  if (isRestoringCart) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-20 text-center">
+        <ShoppingBag className="h-16 w-16 text-muted-foreground mx-auto mb-4 animate-pulse" aria-hidden />
+        <p className="text-muted-foreground">Chargement du panier...</p>
+      </div>
+    )
   }
 
   if (cart.length === 0) {

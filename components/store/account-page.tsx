@@ -7,7 +7,7 @@ import { PAGES } from "@/lib/routes"
 import { getOrders, getProducts } from "@/lib/services"
 import { formatPrice, formatDate, getStatusColor, getStatusLabel } from "@/lib/formatters"
 import { useCustomerAuthStore } from "@/lib/stores/customer-auth-store"
-import { clientRegisterSchema, clientLoginSchema, getZodErrorMessage } from "@/lib/utils/validation"
+import { clientRegisterSchema, clientLoginSchema, emailFieldSchema, getZodErrorMessage } from "@/lib/utils/validation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -161,6 +161,10 @@ function AccountLoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => vo
   const [error, setError] = useState("")
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState("")
+  const [forgotEmailError, setForgotEmailError] = useState("")
+  const [forgotLoading, setForgotLoading] = useState(false)
   const login = useCustomerAuthStore((s) => s.login)
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -187,6 +191,68 @@ function AccountLoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => vo
     } else {
       setError("Email ou mot de passe incorrect.")
     }
+  }
+
+  const handleForgotSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setForgotEmailError("")
+    const result = emailFieldSchema.safeParse(forgotEmail.trim())
+    if (!result.success) {
+      setForgotEmailError(result.error.issues[0]?.message ?? "Email invalide")
+      return
+    }
+    setForgotLoading(true)
+    setTimeout(() => {
+      setForgotLoading(false)
+      toast.info("En production, un email de réinitialisation vous serait envoyé. Mode démo : réinitialisation non envoyée.")
+      setShowForgotPassword(false)
+      setForgotEmail("")
+    }, 500)
+  }
+
+  if (showForgotPassword) {
+    return (
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardDescription>Mot de passe oublié</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Saisissez votre adresse email pour recevoir un lien de réinitialisation.
+          </p>
+          <form onSubmit={handleForgotSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="forgot-email">Email</Label>
+              <Input
+                id="forgot-email"
+                type="email"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                placeholder="vous@exemple.com"
+                autoComplete="email"
+                aria-invalid={!!forgotEmailError}
+                aria-describedby={forgotEmailError ? "forgot-email-error" : undefined}
+              />
+              {forgotEmailError && (
+                <p id="forgot-email-error" className="text-xs text-destructive">{forgotEmailError}</p>
+              )}
+            </div>
+            <Button type="submit" className="w-full" disabled={forgotLoading}>
+              {forgotLoading ? "Envoi..." : "Envoyer le lien"}
+            </Button>
+          </form>
+          <p className="text-center text-sm text-muted-foreground">
+            <button
+              type="button"
+              onClick={() => { setShowForgotPassword(false); setForgotEmailError(""); setForgotEmail("") }}
+              className="underline hover:no-underline text-foreground"
+            >
+              Retour à la connexion
+            </button>
+          </p>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
@@ -232,6 +298,15 @@ function AccountLoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => vo
             {fieldErrors.password && (
               <p id="login-password-error" className="text-xs text-destructive">{fieldErrors.password}</p>
             )}
+            <p className="text-right">
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                className="text-xs text-muted-foreground hover:text-foreground underline hover:no-underline"
+              >
+                Mot de passe oublié ?
+              </button>
+            </p>
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Connexion..." : "Se connecter"}
@@ -267,8 +342,7 @@ function AccountGuestView({
         <Info className="h-4 w-4 text-amber-600 dark:text-amber-400" aria-hidden />
         <AlertDescription>
           <strong>Mode démo</strong> — Vous pouvez acheter sans compte. Créer un compte est optionnel pour retrouver
-          vos commandes et favoris. Les pages Connexion et Inscription du back-office concernent uniquement les
-          administrateurs.
+          vos commandes et favoris.
         </AlertDescription>
       </Alert>
 

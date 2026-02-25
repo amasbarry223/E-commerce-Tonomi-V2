@@ -19,6 +19,7 @@ import { toast } from "sonner"
 import { LAYOUT_CONSTANTS, ANIMATION_DELAYS, ORDER_CONSTANTS, SHIPPING_LABELS } from "@/lib/constants"
 import { paymentCardSchema, type CheckoutFormData } from "@/lib/utils/validation"
 import { OrderSummary } from "./order-summary"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export function CheckoutPage() {
   const { cart, cartTotal, promoDiscount, clearCart } = useCartStore()
@@ -31,6 +32,7 @@ export function CheckoutPage() {
   const [exp, setExp] = useState("")
   const [cvc, setCvc] = useState("")
   const [cardErrors, setCardErrors] = useState<Record<string, string>>({})
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const [orderRecap, setOrderRecap] = useState<{
     data: CheckoutFormData
     shipping: string
@@ -58,7 +60,7 @@ export function CheckoutPage() {
       clearCart()
     },
     onError: (error) => {
-      // Log l'erreur de manière centralisée
+      setSubmitError(error?.message ?? "Une erreur s'est produite")
       logger.logError(error, "CheckoutPage", {
         step,
         cartTotal,
@@ -71,6 +73,7 @@ export function CheckoutPage() {
 
   const handlePayClick = async () => {
     if (step !== 3) return
+    setSubmitError(null)
     setCardErrors({})
     const result = paymentCardSchema.safeParse({ card, exp, cvc })
     if (!result.success) {
@@ -90,6 +93,7 @@ export function CheckoutPage() {
   }
 
   const handleNextStep = async () => {
+    setSubmitError(null)
     if (step === 1) {
       // Valider les champs de l'étape 1 avant de continuer
       const isValid = await trigger(["firstName", "lastName", "email", "phone", "address", "city", "zip"])
@@ -386,7 +390,7 @@ export function CheckoutPage() {
                   className="mt-6"
                   aria-label="Continuer vers l'étape de livraison"
                 >
-                  Continuer
+                  Continuer vers la livraison
                 </Button>
               </div>
             )}
@@ -427,7 +431,7 @@ export function CheckoutPage() {
                     onClick={handleNextStep}
                     aria-label="Continuer vers l'étape de paiement"
                   >
-                    Continuer
+                    Continuer vers le paiement
                   </Button>
                 </div>
               </div>
@@ -437,6 +441,11 @@ export function CheckoutPage() {
             {step === 3 && (
               <div className="bg-card border border-border rounded-lg p-6">
                 <h2 className="font-semibold text-lg mb-4">Paiement sécurisé</h2>
+                {submitError && (
+                  <Alert variant="destructive" className="mb-4" role="alert">
+                    <AlertDescription>{submitError}</AlertDescription>
+                  </Alert>
+                )}
                 <div className="flex flex-col gap-3 mb-6">
                   <div className="flex items-center gap-2 p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg text-emerald-700 dark:text-emerald-400 text-sm">
                     <ShieldCheck className="h-4 w-4 shrink-0" />

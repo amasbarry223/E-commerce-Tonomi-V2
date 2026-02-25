@@ -3,9 +3,13 @@
 import { useEffect } from "react"
 import { useNavigationStore } from "@/lib/store-context"
 import { PAGES } from "@/lib/routes"
+import { INFO_PAGES } from "@/lib/content/info-pages"
+import type { InfoPageKey } from "@/lib/content/info-pages"
 
 const SITE_TITLE = "TONOMI ACCESSOIRES"
 const DEFAULT_DESCRIPTION = "Découvrez notre collection de sacs, portefeuilles et accessoires de mode haut de gamme."
+
+const INFO_PAGE_KEYS: InfoPageKey[] = ["about", "delivery", "returns", "terms", "privacy", "faq"]
 
 /**
  * Met à jour document.title et la meta description selon la page store (produit, catalogue, etc.).
@@ -41,6 +45,14 @@ export function StoreDocumentHead() {
     if (currentPage === PAGES.store.checkout) {
       document.title = `Commander | ${SITE_TITLE}`
       updateMetaDescription("Finalisez votre commande.")
+      return
+    }
+
+    const infoKey = INFO_PAGE_KEYS.find((k) => PAGES.store[k] === currentPage)
+    if (infoKey) {
+      const info = INFO_PAGES[infoKey]
+      document.title = `${info.title} | ${SITE_TITLE}`
+      updateMetaDescription(info.metaDescription)
       return
     }
 

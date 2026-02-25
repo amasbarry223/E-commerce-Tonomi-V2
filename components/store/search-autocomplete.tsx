@@ -6,13 +6,14 @@ import { PAGES } from "@/lib/routes"
 import { getProducts } from "@/lib/services"
 import type { Product } from "@/lib/types"
 import { formatPrice } from "@/lib/formatters"
-import { Search, X, ArrowRight } from "lucide-react"
-import { Input } from "@/components/ui/input"
+import { ArrowRight } from "lucide-react"
+import { SearchField } from "@/components/ui/search-field"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
+import { toast } from "sonner"
 
 interface SearchSuggestion {
   product: Product
@@ -84,13 +85,6 @@ function SearchAutocompleteInner({ onAfterNavigate }: SearchAutocompleteProps = 
     return results.slice(0, 8)
   }, [debouncedQuery, products])
 
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setSearchQuery(value)
-    setIsOpen(value.length >= 2)
-    setHighlightedIndex(-1)
-  }, [setSearchQuery])
-
   const handleSelectProduct = useCallback((product: Product) => {
     selectProduct(product.id)
     navigate(PAGES.store.product)
@@ -101,12 +95,15 @@ function SearchAutocompleteInner({ onAfterNavigate }: SearchAutocompleteProps = 
   }, [selectProduct, navigate, setSearchQuery, onAfterNavigate])
 
   const performSearch = useCallback(() => {
-    if (searchQuery.trim()) {
-      navigate(PAGES.store.catalog)
-      setIsOpen(false)
-      inputRef.current?.blur()
-      onAfterNavigate?.()
+    const q = searchQuery.trim()
+    if (q.length < 2) {
+      toast.info("Saisissez au moins 2 caractères pour rechercher.")
+      return
     }
+    navigate(PAGES.store.catalog)
+    setIsOpen(false)
+    inputRef.current?.blur()
+    onAfterNavigate?.()
   }, [searchQuery, navigate, onAfterNavigate])
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
@@ -173,50 +170,47 @@ function SearchAutocompleteInner({ onAfterNavigate }: SearchAutocompleteProps = 
         role="search"
         aria-label="Recherche de produits"
       >
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-          <Input
-            ref={inputRef}
-            value={searchQuery}
-            onChange={handleInputChange}
-            onKeyDown={handleKeyDown}
-            onFocus={() => searchQuery.length >= 2 && setIsOpen(true)}
-            placeholder="Rechercher un produit..."
-            className="pl-10 pr-10 h-9 text-sm"
-            aria-label="Champ de recherche"
-            aria-describedby="search-description"
-            aria-expanded={showSuggestions}
-            aria-controls="search-suggestions"
-            aria-autocomplete="list"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearchQuery("")
-                setIsOpen(false)
-                inputRef.current?.focus()
-              }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Effacer la recherche"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-          <span id="search-description" className="sr-only">
-            Rechercher un produit par nom, marque ou mot-clé. Utilisez les flèches pour naviguer, Entrée pour sélectionner.
-          </span>
-        </div>
+        <SearchField
+          ref={inputRef}
+          value={searchQuery}
+          onChange={(v) => {
+            setSearchQuery(v)
+            setIsOpen(v.length >= 2)
+            setHighlightedIndex(-1)
+          }}
+          onClear={() => {
+            setSearchQuery("")
+            setIsOpen(false)
+            inputRef.current?.focus()
+          }}
+          placeholder="Rechercher un produit..."
+          aria-label="Champ de recherche"
+          aria-describedby="search-description"
+          aria-expanded={showSuggestions}
+          aria-controls="search-suggestions"
+          aria-autocomplete="list"
+          onFocus={() => searchQuery.length >= 2 && setIsOpen(true)}
+          onKeyDown={handleKeyDown}
+          className="h-9 text-sm"
+        />
+        <span id="search-description" className="sr-only">
+          Rechercher un produit par nom, marque ou mot-clé. Utilisez les flèches pour naviguer, Entrée pour sélectionner.
+        </span>
         <Button
           type="submit"
           size="sm"
           disabled={!searchQuery.trim()}
-          aria-label={searchQuery.trim() ? "Lancer la recherche" : "Saisir au moins un caractère pour rechercher"}
-          title={!searchQuery.trim() ? "Saisir au moins un caractère pour rechercher" : undefined}
+          aria-label={searchQuery.trim() ? "Lancer la recherche" : "Saisir au moins 2 caractères pour rechercher"}
+          title={!searchQuery.trim() ? "Saisir au moins 2 caractères pour rechercher" : undefined}
         >
           Rechercher
         </Button>
       </form>
+      {searchQuery.length === 1 && (
+        <p className="text-xs text-muted-foreground mt-1.5" role="status" id="search-hint">
+          Saisissez au moins 2 caractères pour voir les suggestions.
+        </p>
+      )}
 
       {/* Suggestions dropdown */}
       <AnimatePresence>

@@ -18,7 +18,7 @@ import { useCartToast } from "@/hooks/use-cart-toast"
  */
 export const MiniCart = React.memo(function MiniCart() {
   const [open, setOpen] = useState(false)
-  const { cart, cartCount, cartTotal, removeFromCart, promoDiscount, appliedPromo } = useCartStore()
+  const { cart, cartCount, cartTotal, removeFromCart, promoDiscount, appliedPromo, isRestoringCart } = useCartStore()
   const { navigate } = useNavigationStore()
   const { showRemoveFromCartToast } = useCartToast()
 
@@ -74,7 +74,11 @@ export const MiniCart = React.memo(function MiniCart() {
           {/* Cart Items */}
           <div className="flex-1 overflow-y-auto">
             <AnimatePresence mode="popLayout">
-              {cart.length === 0 ? (
+              {isRestoringCart ? (
+                <div className="p-6 text-center space-y-2">
+                  <p className="text-sm text-muted-foreground">Chargement du panier...</p>
+                </div>
+              ) : cart.length === 0 ? (
                 <div className="p-6 text-center space-y-4">
                   <ShoppingBag className="h-12 w-12 text-muted-foreground mx-auto" aria-hidden />
                   <p className="text-muted-foreground text-sm">Votre panier est vide</p>

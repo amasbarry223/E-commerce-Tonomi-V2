@@ -24,15 +24,16 @@ components/
   providers/                # ErrorBoundaryProvider, etc.
 
 lib/
-  storefront/               # Implémentation contexte storefront (cart, navigation, ui)
-  store-context.tsx         # Réexport depuis storefront (compatibilité)
-  stores/                   # Stores Zustand (auth, users, hero-slides, logs-store, reviews-store)
-  guards/                   # protected-route, guest-only-route
+  storefront/               # Implémentation contexte storefront (cart, navigation, ui) — détail d’implémentation
+  store-context.tsx        # Point d’entrée public : réexport StoreProvider, hooks, contextes (importer depuis @/lib/store-context uniquement)
+  stores/                  # Stores Zustand : admin-auth-store, customer-auth-store, hero-slides-store, logs-store, logs-actions, reviews-store, settings-store
   data/                     # Données brutes uniquement (products, orders, …)
+  data.ts                  # Réexport depuis data/index (rétrocompatibilité @/lib/data)
   types/                    # Point d'entrée types métier (@/lib/types)
   formatters.ts             # Formatage — @/lib/formatters
   services/                 # Couche d'accès données (getProducts, …) — à terme API
-  auth/, routes/, utils/, constants.ts, layout.ts, animations.ts, responsive.ts
+  auth/, routes/, utils/    # Auth, constantes de routes, validation, logger, erreurs, etc.
+  constants.ts, layout.ts, animations.ts, responsive.ts, status-types.ts, admin-page-map.tsx
 
 hooks/                      # Point d’entrée : hooks/index.ts (useCheckoutForm, useErrorHandler, useToast, …)
 ```
@@ -40,7 +41,7 @@ hooks/                      # Point d’entrée : hooks/index.ts (useCheckoutFor
 - Pas de dossier `src/` : racine du code sous `app/`, `components/`, `lib/`, `hooks/`.
 - Alias `@/` pointe vers la racine du projet (tsconfig paths `@/*`).
 
-**Responsabilités** : `lib/data` = données brutes uniquement. `lib/formatters` = formatage (prix, dates, statuts). `lib/types` = types métier. `lib/services` = couche d'accès aux données (préparation API).
+**Responsabilités** : `lib/data` = données brutes (via `lib/data/` + réexport `lib/data.ts`). `lib/formatters` = formatage (prix, dates, statuts). `lib/types` = types métier. `lib/services` = couche d'accès aux données (préparation API). Importer le storefront depuis **`@/lib/store-context`** uniquement ; ne pas importer depuis `@/lib/storefront` depuis l’application.
 
 ---
 
@@ -53,7 +54,7 @@ hooks/                      # Point d’entrée : hooks/index.ts (useCheckoutFor
 | Panier, wishlist, promo, recherche, currentPage, currentView, sélection produit/catégorie | React Context (contexte **storefront**) avec sous-contextes mémoïsés | `lib/storefront/` (cart-context, navigation-context, ui-context, store-provider) ; `lib/store-context.tsx` réexporte |
 | Hooks exposés | `useCartStore()`, `useNavigationStore()`, `useUIStore()` | idem |
 
-**Nommage** : « **store** » (store-context / storefront) = boutique / storefront (Context). « **stores** » (lib/stores/) = modules Zustand (auth, users, etc.).
+**Nommage** : « **store** » (store-context / storefront) = boutique / storefront (React Context). « **stores** » (lib/stores/) = modules Zustand (admin-auth-store, customer-auth-store, settings-store, hero-slides-store, reviews-store, logs-store). Ne pas confondre les deux.
 
 | Persistance | localStorage pour le panier (et wishlist si activé) | idem |
 
@@ -63,10 +64,12 @@ Le contexte est découpé en “slices” (cart, navigation, UI) pour limiter le
 
 | Besoin | Solution | Fichier |
 |--------|----------|---------|
-| Authentification admin | Zustand + persist (cookie `tonomi-auth` côté client) | `lib/stores/auth-store.ts` |
-| Liste utilisateurs admin | Zustand | `lib/stores/users-store.ts` |
+| Authentification admin | Zustand + persist (cookie côté client) | `lib/stores/admin-auth-store.ts` |
+| Authentification client (optionnelle) | Zustand + persist | `lib/stores/customer-auth-store.ts` |
+| Paramètres boutique (bannière promo, etc.) | Zustand | `lib/stores/settings-store.ts` |
 | Bannières hero | Zustand | `lib/stores/hero-slides-store.ts` |
-| Logs d’actions | Zustand | `lib/stores/logs-store.ts` |
+| Logs d’actions admin | Zustand | `lib/stores/logs-store.ts`, `lib/stores/logs-actions.ts` |
+| Avis produits + modération | Zustand | `lib/stores/reviews-store.ts` |
 
 Règle : pas de `require()` entre stores (éviter dépendances circulaires). À terme : bus d’événements (ex. `emitAuthEvent`) pour les logs sans importer logs-store depuis auth-store.
 
@@ -102,15 +105,9 @@ Dans `app/page.tsx`, deux maps associent ces clés aux composants : `STORE_PAGE_
 
 ---
 
-## 4. Guards et protection des routes
+## 4. Protection des routes (admin)
 
-| Guard | Rôle | Utilisation |
-|-------|------|-------------|
-| **ProtectedRoute** | Accès réservé aux utilisateurs authentifiés ; sinon redirection vers login (avec redirect). | Enveloppe l’admin dans `app/page.tsx`. |
-| **GuestOnlyRoute** | Affiche le contenu (ex. formulaire login) uniquement pour les invités ; redirige si déjà connecté. | Layout ou page login. |
-| **RoleGuard** | Affiche les enfants seulement si le rôle de l’utilisateur correspond (ex. admin, super-admin). | Optionnel sur certaines pages admin. |
-
-Délais avant vérification auth : `AUTH_DELAYS_MS` dans `lib/constants.ts` (GUEST_ONLY_INITIAL, AUTH_CHECK, ADMIN_LOADING) pour éviter les flashs avant rehydration.
+L’admin est protégé côté client dans `components/admin/admin-layout.tsx` : si l’utilisateur n’est pas authentifié (`useAdminAuthStore`), redirection vers `/admin/login`. Il n’existe pas de dossier `lib/guards/` avec des composants `ProtectedRoute` ou `GuestOnlyRoute` séparés ; la vérification est faite dans le layout admin et sur la page login. Délais éventuels avant vérification auth : documentés dans `lib/constants.ts` si besoin (éviter les flashs avant rehydration).
 
 ---
 

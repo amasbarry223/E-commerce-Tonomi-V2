@@ -2,14 +2,14 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { SearchField } from "@/components/ui/search-field"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Store, Truck, CreditCard, Bell, Shield, FileText, Trash2, Search, Filter } from "lucide-react"
+import { Store, Truck, CreditCard, Bell, Shield, FileText, Trash2, Filter } from "lucide-react"
 import { useLogsStore, type LogAction } from "@/lib/stores/logs-store"
 import { toast } from "sonner"
 import { AdminEmptyState } from "@/components/admin/admin-empty-state"
@@ -181,15 +181,12 @@ function LogsManagement() {
         <CardContent>
           <div className="flex flex-col gap-4">
             <div className="flex gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Rechercher dans les logs..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+              <SearchField
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="Rechercher dans les logs..."
+                aria-label="Recherche dans les logs"
+              />
               <Select value={filterAction} onValueChange={(value) => setFilterAction(value as LogAction | "all")}>
                 <SelectTrigger className="w-48">
                   <Filter className="h-4 w-4 mr-2" />

@@ -9,24 +9,24 @@ import { LAYOUT_CONSTANTS } from "@/lib/constants"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Mail, MapPin, Phone, Truck, ShieldCheck, RotateCcw, CreditCard } from "lucide-react"
-import { LegalInfoDialog } from "@/components/store/legal-info-dialog"
 import { toast } from "sonner"
 import { emailFieldSchema } from "@/lib/utils/validation"
 
 const INFO_LINKS = ["À propos", "Livraison", "Retours & Échanges", "Conditions Générales", "Politique de Confidentialité", "FAQ"] as const
 
+const INFO_LINK_TO_PAGE: Record<(typeof INFO_LINKS)[number], string> = {
+  "À propos": PAGES.store.about,
+  "Livraison": PAGES.store.delivery,
+  "Retours & Échanges": PAGES.store.returns,
+  "Conditions Générales": PAGES.store.terms,
+  "Politique de Confidentialité": PAGES.store.privacy,
+  "FAQ": PAGES.store.faq,
+}
+
 export const StoreFooter = React.memo(function StoreFooter() {
   const { navigate, selectCategory } = useNavigationStore()
   const { subscribeNewsletter, newsletterSubscribed } = useUIStore()
   const [email, setEmail] = useState("")
-  const [infoDialogPage, setInfoDialogPage] = useState<string | null>(null)
-  const [infoDialogOpen, setInfoDialogOpen] = useState(false)
-
-  const openInfoDialog = (page: string) => {
-    setInfoDialogPage(page)
-    setInfoDialogOpen(true)
-  }
-
   const [emailError, setEmailError] = useState("")
 
   const handleSubscribe = (e: React.FormEvent) => {
@@ -122,20 +122,23 @@ export const StoreFooter = React.memo(function StoreFooter() {
             <h4 className="font-semibold mb-4 text-sm tracking-wider uppercase">Informations</h4>
             <nav className="flex flex-col gap-2">
               {INFO_LINKS.map(item => (
-                <button key={item} onClick={() => openInfoDialog(item)} className="text-sm text-primary-foreground/70 hover:text-primary-foreground transition-colors text-left">
+                <button
+                  key={item}
+                  onClick={() => navigate(INFO_LINK_TO_PAGE[item])}
+                  className="text-sm text-primary-foreground/70 hover:text-primary-foreground transition-colors text-left"
+                >
                   {item}
                 </button>
               ))}
             </nav>
           </div>
-          <LegalInfoDialog open={infoDialogOpen} page={infoDialogPage} onOpenChange={setInfoDialogOpen} />
 
           {/* Newsletter */}
           <div>
             <h4 className="font-semibold mb-4 text-sm tracking-wider uppercase">Newsletter</h4>
             <p className="text-sm text-primary-foreground/70 mb-4">Inscrivez-vous pour recevoir nos offres exclusives et nouveautés.</p>
             {newsletterSubscribed ? (
-              <p className="text-sm text-accent font-medium">Merci pour votre inscription !</p>
+              <p className="text-sm text-accent font-medium">Merci, vous êtes inscrit.</p>
             ) : (
               <form onSubmit={handleSubscribe} className="flex flex-col gap-2">
                 <div className="flex gap-2">

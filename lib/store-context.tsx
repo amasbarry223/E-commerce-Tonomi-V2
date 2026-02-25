@@ -11,7 +11,6 @@ export {
   useNavigationStore,
   useUIStore,
   StoreContext,
-  CartStoreContext,
   CartStateContext,
   CartActionsContext,
   NavigationStoreContext,

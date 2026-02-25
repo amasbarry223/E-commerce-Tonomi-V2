@@ -1,7 +1,6 @@
 "use client"
 
-import { Search } from "lucide-react"
-import { Input } from "@/components/ui/input"
+import { SearchField } from "@/components/ui/search-field"
 
 interface AdminTableToolbarProps {
   /** Placeholder pour le champ recherche. Si absent, le champ recherche n'est pas affiché. */
@@ -24,15 +23,12 @@ export function AdminTableToolbar({
   return (
     <div className="flex flex-col md:flex-row gap-3">
       {showSearch && (
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={searchValue}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder={searchPlaceholder}
-            className="pl-10"
-          />
-        </div>
+        <SearchField
+          value={searchValue}
+          onChange={onSearchChange}
+          placeholder={searchPlaceholder}
+          aria-label="Recherche dans le tableau"
+        />
       )}
       {children}
     </div>

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ROUTES } from "@/lib/routes"
 import { useAdminAuthStore } from "@/lib/stores/admin-auth-store"
+import { clientLoginSchema, getZodErrorMessage } from "@/lib/utils/validation"
 import { Store, Lock, KeyRound, Mail } from "lucide-react"
 import Link from "next/link"
 import { motion } from "framer-motion"
@@ -16,6 +17,7 @@ export default function AdminLoginPage() {
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
     const [error, setError] = useState("")
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
     const [isLoading, setIsLoading] = useState(false)
     const router = useRouter()
     const { login } = useAdminAuthStore()
@@ -23,12 +25,24 @@ export default function AdminLoginPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setError("")
-        setIsLoading(true)
+        setFieldErrors({})
 
-        // Simulate network delay for better UX
+        const result = clientLoginSchema.safeParse({ email, password })
+        if (!result.success) {
+            const errs: Record<string, string> = {}
+            result.error.issues.forEach((issue) => {
+                const p = issue.path[0] as string
+                if (!errs[p]) errs[p] = issue.message
+            })
+            setFieldErrors(errs)
+            setError(getZodErrorMessage(result.error))
+            return
+        }
+
+        setIsLoading(true)
         await new Promise((resolve) => setTimeout(resolve, 800))
 
-        if (login(email, password)) {
+        if (login(result.data.email, result.data.password)) {
             router.push(ROUTES.admin + "/dashboard")
         } else {
             setError("Identifiants incorrects. Veuillez réessayer.")
@@ -73,6 +87,10 @@ export default function AdminLoginPage() {
                                     height={110}
                                     className="h-24 w-auto object-contain drop-shadow-lg"
                                     priority
+                                    onError={(e) => {
+                                        const target = e.currentTarget
+                                        if (target.src !== "/placeholder.svg") target.src = "/placeholder.svg"
+                                    }}
                                 />
                             </motion.div>
                         </Link>
@@ -126,11 +144,20 @@ export default function AdminLoginPage() {
                                     autoComplete="email"
                                     required
                                     value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
+                                    onChange={(e) => {
+                                        setEmail(e.target.value)
+                                        setError("")
+                                        setFieldErrors((prev) => ({ ...prev, email: "" }))
+                                    }}
                                     placeholder="admin@tonomi.com"
                                     className="pl-10 bg-background/50 focus:bg-background transition-colors h-12 rounded-xl"
+                                    aria-invalid={!!fieldErrors.email}
+                                    aria-describedby={fieldErrors.email ? "email-error" : undefined}
                                 />
                             </div>
+                            {fieldErrors.email && (
+                                <p id="email-error" className="text-xs text-destructive mt-1">{fieldErrors.email}</p>
+                            )}
                         </motion.div>
 
                         <motion.div
@@ -153,11 +180,20 @@ export default function AdminLoginPage() {
                                     autoComplete="current-password"
                                     required
                                     value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
+                                    onChange={(e) => {
+                                        setPassword(e.target.value)
+                                        setError("")
+                                        setFieldErrors((prev) => ({ ...prev, password: "" }))
+                                    }}
                                     placeholder="••••••••"
                                     className="pl-10 bg-background/50 focus:bg-background transition-colors h-12 rounded-xl"
+                                    aria-invalid={!!fieldErrors.password}
+                                    aria-describedby={fieldErrors.password ? "password-error" : undefined}
                                 />
                             </div>
+                            {fieldErrors.password && (
+                                <p id="password-error" className="text-xs text-destructive mt-1">{fieldErrors.password}</p>
+                            )}
                         </motion.div>
 
                         <motion.div

@@ -5,14 +5,7 @@ import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
+import { AdminBreadcrumb } from "@/components/ui/breadcrumb-nav"
 import {
   LayoutDashboard, Package, FolderKanban, LayoutPanelTop, ShoppingCart, Users,
   BarChart3, Tag, Star, Settings, Store, Menu, X, ChevronRight, LogOut,
@@ -148,29 +141,15 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               <Menu className="h-5 w-5" />
             </Button>
             <nav aria-label="Fil d'Ariane">
-              <Breadcrumb>
-                <BreadcrumbList>
-                  <BreadcrumbItem>
-                    {activePage === PAGES.admin.dashboard ? (
-                      <BreadcrumbPage>Tableau de bord</BreadcrumbPage>
-                    ) : (
-                      <BreadcrumbLink href={ROUTES.dashboard}>
-                        Tableau de bord
-                      </BreadcrumbLink>
-                    )}
-                  </BreadcrumbItem>
-                  {activePage !== PAGES.admin.dashboard && (
-                    <>
-                      <BreadcrumbSeparator />
-                      <BreadcrumbItem>
-                        <BreadcrumbPage>
-                          {navItems.find(n => n.id === activePage)?.label || "Back-Office"}
-                        </BreadcrumbPage>
-                      </BreadcrumbItem>
-                    </>
-                  )}
-                </BreadcrumbList>
-              </Breadcrumb>
+              <AdminBreadcrumb
+                dashboardHref={ROUTES.dashboard}
+                isDashboard={activePage === PAGES.admin.dashboard}
+                currentLabel={
+                  activePage !== PAGES.admin.dashboard
+                    ? navItems.find((n) => n.id === activePage)?.label ?? "Back-Office"
+                    : undefined
+                }
+              />
             </nav>
           </div>
           <div className="flex items-center gap-3">

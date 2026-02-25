@@ -24,6 +24,7 @@ const CartPage = dynamic(() => import("@/components/store/pages/cart-page").then
 const CheckoutPage = dynamic(() => import("@/components/store/pages/checkout-page").then((m) => ({ default: m.CheckoutPage })), { loading: () => <PageSkeleton /> })
 const WishlistPage = dynamic(() => import("@/components/store/pages/wishlist-page").then((m) => ({ default: m.WishlistPage })), { loading: () => <PageSkeleton /> })
 const AccountPage = dynamic(() => import("@/components/store/pages/account-page").then((m) => ({ default: m.AccountPage })), { loading: () => <PageSkeleton /> })
+const InfoPage = dynamic(() => import("@/components/store/pages/info-page").then((m) => ({ default: m.InfoPage })), { loading: () => <PageSkeleton /> })
 
 const pageAnimationVariants = getReducedMotionConfig(pageVariants)
 
@@ -37,6 +38,12 @@ const STORE_PAGE_MAP: Record<StorePageKey, ComponentType> = {
   [PAGES.store.wishlist]: WishlistPage,
   [PAGES.store.category]: CatalogPage,
   [PAGES.store.promotions]: CatalogPage,
+  [PAGES.store.about]: InfoPage,
+  [PAGES.store.delivery]: InfoPage,
+  [PAGES.store.returns]: InfoPage,
+  [PAGES.store.terms]: InfoPage,
+  [PAGES.store.privacy]: InfoPage,
+  [PAGES.store.faq]: InfoPage,
 }
 
 const STORE_PAGES_WITH_ERROR_BOUNDARY = new Set<StorePageKey>([PAGES.store.cart, PAGES.store.checkout])
@@ -47,6 +54,11 @@ function AppContent() {
   const router = useRouter()
 
   useSyncUrlWithStore()
+
+  // Focus sur le contenu principal après un changement de page (accessibilité clavier)
+  useEffect(() => {
+    document.getElementById("main-content")?.focus({ preventScroll: true })
+  }, [currentPage])
 
   // Anciens liens ?view=admin&page=... : redirection vers le path correspondant (/dashboard, /admin/xxx)
   useEffect(() => {

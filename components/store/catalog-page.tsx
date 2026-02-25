@@ -22,14 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider"
 import { Checkbox } from "@/components/ui/checkbox"
 import { SlidersHorizontal, X, Grid3X3, LayoutGrid, Search } from "lucide-react"
-import {
-  Breadcrumb,
-  BreadcrumbList,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
+import { CatalogBreadcrumb } from "@/components/ui/breadcrumb-nav"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from "@/components/ui/empty"
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { PaginationSimple } from "@/components/ui/pagination"
@@ -263,21 +256,7 @@ export function CatalogPage() {
   return (
     <div className={`${SECTION_CONTAINER} py-8`}>
       {/* Breadcrumb */}
-      <Breadcrumb className="mb-6">
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink asChild>
-              <button type="button" onClick={() => navigate(PAGES.store.home)}>
-                Accueil
-              </button>
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>Catalogue</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
+      <CatalogBreadcrumb onHomeClick={() => navigate(PAGES.store.home)} className="mb-6" />
 
       <div className="flex items-center justify-between mb-6">
         <h1 className="font-serif text-2xl md:text-3xl font-bold">

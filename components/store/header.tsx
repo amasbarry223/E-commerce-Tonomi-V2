@@ -7,11 +7,12 @@ import { useSettingsStore } from "@/lib/stores/settings-store"
 import { PAGES } from "@/lib/routes"
 import { getCategories } from "@/lib/services"
 import { SECTION_PADDING, EXCLUDED_CATEGORY_IDS } from "@/lib/layout"
-import { Heart, Sun, Moon, Menu, User } from "lucide-react"
+import { Heart, Sun, Moon, Menu, User, ShoppingBag } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
 import { VisuallyHidden } from "@/components/ui/visually-hidden"
 import { MiniCart } from "./mini-cart"
+import { SearchAutocomplete } from "./search-autocomplete"
 
 export const StoreHeader = React.memo(function StoreHeader() {
   const { navigate, selectCategory } = useNavigationStore()
@@ -46,7 +47,10 @@ export const StoreHeader = React.memo(function StoreHeader() {
               <VisuallyHidden>
                 <SheetTitle>Menu de navigation</SheetTitle>
               </VisuallyHidden>
-              <nav role="navigation" aria-label="Menu mobile" className="flex flex-col gap-4 mt-8">
+              <div className="mb-4">
+                <SearchAutocomplete onAfterNavigate={() => setMobileMenuOpen(false)} />
+              </div>
+              <nav role="navigation" aria-label="Menu mobile" className="flex flex-col gap-4">
                 <button
                   onClick={() => { navigate(PAGES.store.home); setMobileMenuOpen(false) }}
                   className="text-left text-lg font-medium hover:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
@@ -81,6 +85,14 @@ export const StoreHeader = React.memo(function StoreHeader() {
                   aria-label="Voir les promotions"
                 >
                   Promotions
+                </button>
+                <button
+                  onClick={() => { navigate(PAGES.store.cart); setMobileMenuOpen(false) }}
+                  className="text-left text-lg font-medium hover:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded flex items-center gap-2"
+                  aria-label="Voir mon panier"
+                >
+                  <ShoppingBag className="h-5 w-5" />
+                  Panier
                 </button>
                 <button
                   onClick={() => { navigate(PAGES.store.account); setMobileMenuOpen(false) }}
@@ -145,7 +157,19 @@ export const StoreHeader = React.memo(function StoreHeader() {
             >
               Promotions
             </button>
+            <button
+              onClick={() => navigate(PAGES.store.cart)}
+              className="text-sm tracking-wide hover:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded"
+              aria-label="Voir mon panier"
+            >
+              Panier
+            </button>
           </nav>
+
+          {/* Search — desktop only */}
+          <div className="hidden lg:block flex-1 max-w-md mx-4 min-w-0">
+            <SearchAutocomplete />
+          </div>
 
           {/* Actions */}
           <div className="flex items-center gap-1">

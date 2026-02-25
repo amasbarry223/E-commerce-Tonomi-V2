@@ -6,12 +6,12 @@ import Image from "next/image"
 import { getCustomers, getOrders } from "@/lib/services"
 import { formatPrice, formatDate, getSegmentLabel, getSegmentColor } from "@/lib/formatters"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { SearchField } from "@/components/ui/search-field"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Card, CardContent } from "@/components/ui/card"
-import { Search, Users, Eye, Mail, ShoppingBag, MapPin, Download } from "lucide-react"
+import { Users, Eye, Mail, ShoppingBag, MapPin, Download } from "lucide-react"
 import { toast } from "sonner"
 import { TOAST_MESSAGES } from "@/lib/constants"
 import { downloadCsv, csvFilename } from "@/lib/utils/export-csv"
@@ -147,10 +147,12 @@ export function AdminCustomers() {
       <AdminCustomersCharts revenueBySegment={revenueBySegment} customerGrowth={customerGrowth} />
 
       <div className="flex flex-col md:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher par nom ou email..." className="pl-10" />
-        </div>
+        <SearchField
+          value={search}
+          onChange={setSearch}
+          placeholder="Rechercher par nom ou email..."
+          aria-label="Recherche clients"
+        />
         <Select value={segmentFilter} onValueChange={setSegmentFilter}>
           <SelectTrigger className="w-48"><SelectValue placeholder="Segment" /></SelectTrigger>
           <SelectContent>

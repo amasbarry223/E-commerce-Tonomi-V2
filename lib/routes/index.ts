@@ -26,6 +26,13 @@ export const ROUTES = {
   cart: "/cart",
   checkout: "/checkout",
   forbidden: "/403",
+  // Pages informations (footer)
+  about: "/a-propos",
+  delivery: "/livraison",
+  returns: "/retours-echanges",
+  terms: "/conditions-generales",
+  privacy: "/politique-confidentialite",
+  faq: "/faq",
 } as const
 
 export const AUTH_COOKIE_NAME = "tonomi-auth"
@@ -45,6 +52,13 @@ export const PAGES_STORE = {
   wishlist: "wishlist",
   category: "category",
   promotions: "promotions",
+  // Pages informations (footer)
+  about: "about",
+  delivery: "delivery",
+  returns: "returns",
+  terms: "terms",
+  privacy: "privacy",
+  faq: "faq",
 } as const
 
 // ——— Clés de page SPA (admin) ———

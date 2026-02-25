@@ -4,7 +4,7 @@
  */
 
 export { StoreProvider, useCartStore, useCartState, useCartActions, useNavigationStore, useUIStore, StoreContext } from "./store-provider"
-export { CartStoreContext, CartStateContext, CartActionsContext } from "./cart-context"
+export { CartStateContext, CartActionsContext } from "./cart-context"
 export { NavigationStoreContext } from "./navigation-context"
 export { UIStoreContext } from "./ui-context"
 export type {
