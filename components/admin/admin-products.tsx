@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import Image from "next/image"
-import { getProducts, getCategories } from "@/lib/services"
+import { useProducts, useCategories } from "@/hooks"
+import { IMAGE_PATHS } from "@/lib/supabase/storage"
 import { formatPrice, getStatusColor, getStatusLabel } from "@/lib/formatters"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -32,8 +33,8 @@ import { useNavigationStore } from "@/lib/store-context"
 import { PAGES } from "@/lib/routes"
 
 export function AdminProducts() {
-  const products = getProducts()
-  const categories = getCategories()
+  const { products, isLoading: isLoadingProducts } = useProducts()
+  const { categories, isLoading: isLoadingCategories } = useCategories()
   const { navigate, selectProduct, setCurrentView } = useNavigationStore()
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("all")
@@ -44,6 +45,7 @@ export function AdminProducts() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [loading] = useSimulatedLoading(AUTH_DELAYS_MS.ADMIN_LOADING)
+  const isInitialLoading = isLoadingProducts || isLoadingCategories
 
   const filtered = useMemo(() => {
     let result = [...products]
@@ -88,15 +90,26 @@ export function AdminProducts() {
     setDeleteDialogOpen(true)
   }
 
-  const confirmDeleteProduct = () => {
+  const confirmDeleteProduct = async () => {
     if (!productToDelete) return
     setIsDeleting(true)
-    const product = products.find(p => p.id === productToDelete)
-    if (product) {
-      toast.info(TOAST_MESSAGES.DEMO_DELETE_PRODUCT)
+    try {
+      const response = await fetch(`/api/products?id=${productToDelete}`, {
+        method: "DELETE",
+      })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to delete product")
+      }
+      toast.success("Produit supprimé avec succès")
+      setProductToDelete(null)
+      // Recharger les produits en rafraîchissant la page
+      window.location.reload()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Une erreur s'est produite")
+    } finally {
+      setIsDeleting(false)
     }
-    setProductToDelete(null)
-    setIsDeleting(false)
   }
 
   const handleProductSaved = (isNew: boolean) => {
@@ -107,6 +120,10 @@ export function AdminProducts() {
     }
     setShowAddDialog(false)
     setEditingProduct(null)
+  }
+
+  if (isInitialLoading) {
+    return <div>Chargement...</div>
   }
 
   return (
@@ -312,11 +329,10 @@ function ProductForm({
   onClose: () => void
   onSave?: (isNew: boolean) => void
 }) {
-  const products = getProducts()
-  const categories = getCategories()
+  const { products, isLoading: isLoadingProducts } = useProducts()
+  const { categories, isLoading: isLoadingCategories } = useCategories()
   const product = productId ? products.find(p => p.id === productId) : null
   const isNew = !productId
-
   const [name, setName] = useState(product?.name ?? "")
   const [brand, setBrand] = useState(product?.brand ?? "")
   const [shortDescription, setShortDescription] = useState(product?.shortDescription ?? "")
@@ -330,20 +346,103 @@ function ProductForm({
   const [sku, setSku] = useState(product?.sku ?? "")
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [selectedImages, setSelectedImages] = useState<File[]>([])
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>([])
+  const [newImagePreviews, setNewImagePreviews] = useState<string[]>([])
+  const [isUploadingImages, setIsUploadingImages] = useState(false)
+
+  // Charger les images existantes quand le produit change
+  useEffect(() => {
+    if (product?.images) {
+      setExistingImageUrls(product.images)
+    } else {
+      setExistingImageUrls([])
+    }
+    // Réinitialiser les nouvelles images quand on change de produit
+    setSelectedImages([])
+    setNewImagePreviews([])
+  }, [product?.id])
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
+
+    // Vérifier le type et la taille
+    const validFiles = files.filter(file => {
+      if (!file.type.startsWith("image/")) {
+        toast.error(`${file.name} n'est pas une image valide`)
+        return false
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error(`${file.name} est trop volumineux (max 5MB)`)
+        return false
+      }
+      return true
+    })
+
+    if (validFiles.length === 0) return
+
+    setSelectedImages(prev => [...prev, ...validFiles])
+
+    // Créer des aperçus pour les nouvelles images
+    validFiles.forEach(file => {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const result = reader.result as string
+        setNewImagePreviews(prev => [...prev, result])
+      }
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const handleRemoveExistingImage = (index: number) => {
+    setExistingImageUrls(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const handleRemoveNewImage = (index: number) => {
+    setNewImagePreviews(prev => prev.filter((_, i) => i !== index))
+    setSelectedImages(prev => prev.filter((_, i) => i !== index))
+  }
 
   const handleSubmit = async () => {
     setFieldErrors({})
     const numPrice = price.trim() === "" ? NaN : parseFloat(price.replace(",", "."))
+    const numOriginalPrice = originalPrice.trim() === "" ? NaN : parseFloat(originalPrice.replace(",", "."))
     const numStock = stock.trim() === "" ? NaN : parseInt(stock, 10)
+    
+    // Générer le slug à partir du nom
+    const slug = name.trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "")
+    
     const payload = {
       name: name.trim(),
+      slug: product?.slug || slug,
       price: numPrice,
       description: description.trim(),
+      shortDescription: shortDescription.trim() || description.trim().substring(0, 150),
       stock: Number.isNaN(numStock) ? 0 : numStock,
-      category: category.trim(),
+      categoryId: category.trim(),
       sku: sku.trim(),
+      brand: brand.trim() || "Tonomi",
+      material: material.trim() || "Non spécifié",
+      originalPrice: Number.isNaN(numOriginalPrice) ? undefined : numOriginalPrice,
+      status: status,
+      images: product?.images || [],
+      colors: product?.colors || [],
+      sizes: product?.sizes || [],
     }
-    const result = productSchema.safeParse(payload)
+    const result = productSchema.safeParse({
+      name: payload.name,
+      price: payload.price,
+      description: payload.description,
+      stock: payload.stock,
+      category: payload.categoryId,
+      sku: payload.sku,
+    })
     if (!result.success) {
       const errors: Record<string, string> = {}
       result.error.issues.forEach((err) => {
@@ -355,10 +454,77 @@ function ProductForm({
       return
     }
     setIsSubmitting(true)
-    await new Promise(r => setTimeout(r, 500))
-    setIsSubmitting(false)
-    if (onSave) onSave(isNew)
-    else onClose()
+    setIsUploadingImages(true)
+    try {
+      // Upload des images vers Supabase Storage via l'API
+      const uploadedImageUrls: string[] = []
+      for (const file of selectedImages) {
+        try {
+          const formData = new FormData()
+          formData.append("file", file)
+          formData.append("folder", IMAGE_PATHS.products)
+
+          const response = await fetch("/api/upload", {
+            method: "POST",
+            body: formData,
+          })
+
+          if (!response.ok) {
+            const error = await response.json()
+            throw new Error(error.error || "Failed to upload image")
+          }
+
+          const result = await response.json()
+          uploadedImageUrls.push(result.url)
+        } catch (error) {
+          console.error("Error uploading image:", error)
+          toast.error(`Erreur lors de l'upload de ${file.name}: ${error instanceof Error ? error.message : "Erreur inconnue"}`)
+        }
+      }
+
+      // Combiner les images existantes avec les nouvelles
+      const allImages = [...existingImageUrls, ...uploadedImageUrls]
+
+      // Mettre à jour le payload avec les images
+      payload.images = allImages
+
+      if (productId) {
+        // Update existing product
+        const response = await fetch(`/api/products?id=${productId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || "Failed to update product")
+        }
+        toast.success("Produit modifié avec succès")
+      } else {
+        // Create new product
+        const response = await fetch("/api/products", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || "Failed to create product")
+        }
+        toast.success("Produit créé avec succès")
+      }
+      if (onSave) onSave(isNew)
+      else onClose()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Une erreur s'est produite")
+    } finally {
+      setIsSubmitting(false)
+      setIsUploadingImages(false)
+    }
+  }
+
+  if (isLoadingProducts || isLoadingCategories) {
+    return <div>Chargement...</div>
   }
 
   return (
@@ -443,15 +609,64 @@ function ProductForm({
       {/* Image upload area */}
       <div>
         <Label className="text-sm">Images</Label>
-        <div className="mt-1 border-2 border-dashed border-border rounded-lg p-8 text-center">
-          <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">Glissez vos images ici ou cliquez pour parcourir</p>
-          <p className="text-xs text-muted-foreground mt-1">PNG, JPG jusqu{"'"}a 5MB</p>
-        </div>
-        {product && product.images.length > 0 && (
-          <div className="flex gap-2 mt-3">
-            {product.images.map((img, i) => (
-              <Image key={i} src={img} alt={`Image ${i + 1}`} width={64} height={64} className="h-16 w-16 rounded object-cover border border-border" />
+        <label
+          htmlFor="product-images-upload"
+          className="mt-1 flex flex-col items-center justify-center w-full border-2 border-dashed border-border rounded-lg p-8 cursor-pointer hover:bg-muted/50 transition-colors"
+        >
+          <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+          <p className="text-sm text-muted-foreground">Cliquez pour sélectionner des images</p>
+          <p className="text-xs text-muted-foreground mt-1">PNG, JPG jusqu{"'"}à 5MB</p>
+          <input
+            id="product-images-upload"
+            type="file"
+            multiple
+            accept="image/*"
+            className="hidden"
+            onChange={handleImageSelect}
+            disabled={isUploadingImages}
+          />
+        </label>
+        {(existingImageUrls.length > 0 || newImagePreviews.length > 0) && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            {/* Images existantes */}
+            {existingImageUrls.map((img, i) => (
+              <div key={`existing-${i}`} className="relative">
+                <Image
+                  src={img}
+                  alt={`Image existante ${i + 1}`}
+                  width={64}
+                  height={64}
+                  className="h-16 w-16 rounded object-cover border border-border"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveExistingImage(i)}
+                  className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs hover:bg-destructive/90"
+                  aria-label="Supprimer l'image"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            {/* Nouvelles images (aperçus) */}
+            {newImagePreviews.map((img, i) => (
+              <div key={`new-${i}`} className="relative">
+                <Image
+                  src={img}
+                  alt={`Nouvelle image ${i + 1}`}
+                  width={64}
+                  height={64}
+                  className="h-16 w-16 rounded object-cover border border-border"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveNewImage(i)}
+                  className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs hover:bg-destructive/90"
+                  aria-label="Supprimer l'image"
+                >
+                  ×
+                </button>
+              </div>
             ))}
           </div>
         )}

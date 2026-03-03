@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { useNavigationStore } from "@/lib/store-context"
 import { PAGES } from "@/lib/routes"
-import { getProducts } from "@/lib/services"
+import { useProducts } from "@/hooks"
 import type { Product } from "@/lib/types"
 import { formatPrice } from "@/lib/formatters"
 import { ArrowRight } from "lucide-react"
@@ -32,7 +32,7 @@ interface SearchAutocompleteProps {
  */
 function SearchAutocompleteInner({ onAfterNavigate }: SearchAutocompleteProps = {}) {
   const { searchQuery, setSearchQuery, navigate, selectProduct } = useNavigationStore()
-  const products = getProducts()
+  const { products } = useProducts()
   const debouncedQuery = useDebouncedValue(searchQuery, 250)
   const [isOpen, setIsOpen] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)

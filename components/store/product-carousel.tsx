@@ -81,7 +81,13 @@ export const ProductCarousel = React.memo(function ProductCarousel({
   const currentItemsPerView = useResponsiveItems(itemsPerView)
   const reducedMotion = useReducedMotion()
   const [isHovered, setIsHovered] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
   const autoPlayTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Éviter l'hydratation mismatch en attendant le montage côté client
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   // Scroll functions optimisées pour scroller par groupes d'items
   const scrollNext = useCallback(() => {
@@ -181,6 +187,9 @@ export const ProductCarousel = React.memo(function ProductCarousel({
 
   // Early returns APRÈS tous les hooks
   if (isLoading) {
+    // Utiliser une valeur fixe pour éviter l'hydratation mismatch
+    // On utilise desktop par défaut pour le SSR, puis on ajuste côté client
+    const skeletonCount = isMounted ? currentItemsPerView : itemsPerView.desktop
     return (
       <div className={cn("w-full", className)}>
         <div className="flex items-center justify-between mb-10">
@@ -194,8 +203,8 @@ export const ProductCarousel = React.memo(function ProductCarousel({
             </Button>
           )}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          {Array.from({ length: currentItemsPerView }).map((_, i) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6" suppressHydrationWarning>
+          {Array.from({ length: skeletonCount }).map((_, i) => (
             <ProductCardSkeleton key={`skeleton-${i}`} />
           ))}
         </div>

@@ -15,7 +15,7 @@ import Image from "next/image"
 // Internal imports
 import { defaultTransition } from "@/lib/animations"
 import { EXCLUDED_CATEGORY_IDS, SECTION_CONTAINER } from "@/lib/layout"
-import { getCategories } from "@/lib/services"
+import { useCategories } from "@/hooks"
 import type { Category } from "@/lib/types"
 import { useReducedMotion } from "@/hooks/use-reduced-motion"
 
@@ -29,13 +29,17 @@ interface CategoriesGridProps {
  * @param onCategoryClick - Callback appelé lors du clic sur une catégorie
  */
 export const CategoriesGrid = React.memo(function CategoriesGrid({ onCategoryClick }: CategoriesGridProps) {
-  const categories = getCategories()
+  const { categories, isLoading } = useCategories()
   const reducedMotion = useReducedMotion()
 
   const mainCategories = useMemo(
     () => categories.filter(c => !EXCLUDED_CATEGORY_IDS.includes(c.id)),
     [categories]
   )
+  
+  if (isLoading) {
+    return <div className={`py-16 ${SECTION_CONTAINER}`}>Chargement des catégories...</div>
+  }
 
   return (
     <motion.section
@@ -68,14 +72,20 @@ export const CategoriesGrid = React.memo(function CategoriesGrid({ onCategoryCli
             type="button"
           >
             <div className="h-full w-full group-hover:scale-110 transition-transform duration-500">
-              <Image 
-                src={cat.image} 
-                alt={cat.name} 
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 50vw, 25vw"
-                loading="lazy"
-              />
+              {cat.image && cat.image.trim() !== "" ? (
+                <Image 
+                  src={cat.image} 
+                  alt={cat.name} 
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 50vw, 25vw"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full bg-secondary text-muted-foreground text-sm">
+                  {cat.name}
+                </div>
+              )}
             </div>
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
             <div className="absolute bottom-4 left-4 text-white">

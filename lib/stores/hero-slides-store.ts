@@ -5,7 +5,7 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import type { HeroSlide } from "@/lib/types"
-import { getDefaultHeroSlides } from "@/lib/services/hero-slides"
+// getDefaultHeroSlides n'existe plus, utiliser useHeroSlides() hook à la place
 
 const STORAGE_KEY = "tonomi_hero_slides"
 
@@ -22,10 +22,13 @@ function generateId(): string {
   return `hero-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
+// Slides par défaut (vide, sera rempli depuis Supabase)
+const DEFAULT_SLIDES: HeroSlide[] = []
+
 export const useHeroSlidesStore = create<HeroSlidesState>()(
   persist(
     (set, get) => ({
-      slides: getDefaultHeroSlides(),
+      slides: DEFAULT_SLIDES,
 
       setSlides: (slides) => set({ slides }),
 
@@ -67,7 +70,7 @@ export const useHeroSlidesStore = create<HeroSlidesState>()(
       onRehydrateStorage: () => (persistedState) => {
         const state = persistedState as { slides?: HeroSlide[] } | undefined
         if (!state?.slides?.length) {
-          useHeroSlidesStore.setState({ slides: getDefaultHeroSlides() })
+          useHeroSlidesStore.setState({ slides: DEFAULT_SLIDES })
         }
       },
     }

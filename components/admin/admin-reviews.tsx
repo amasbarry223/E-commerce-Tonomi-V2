@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react"
 import Image from "next/image"
-import { getProducts } from "@/lib/services"
+import { useProducts } from "@/hooks"
 import { formatDate } from "@/lib/formatters"
 import { useReviewsStore } from "@/lib/stores/reviews-store"
 import { Button } from "@/components/ui/button"
@@ -29,7 +29,7 @@ const statusLabels: Record<string, string> = {
 }
 
 export function AdminReviews() {
-  const products = getProducts()
+  const { products } = useProducts()
   const reviews = useReviewsStore((s) => s.reviews)
   const approveReview = useReviewsStore((s) => s.approveReview)
   const rejectReview = useReviewsStore((s) => s.rejectReview)

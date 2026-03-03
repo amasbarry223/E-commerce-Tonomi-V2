@@ -17,7 +17,7 @@ import { defaultTransition } from "@/lib/animations"
 import { SECTION_CONTAINER, SECTION_FULL } from "@/lib/layout"
 import { CAROUSEL_ITEMS_PER_VIEW } from "@/lib/responsive"
 import { PRODUCT_BADGE } from "@/lib/status-types"
-import { getProducts } from "@/lib/services"
+import { useProducts } from "@/hooks"
 import { useNavigationStore } from "@/lib/store-context"
 import { PAGES } from "@/lib/routes"
 import { useSimulatedLoading } from "@/hooks/use-simulated-loading"
@@ -38,6 +38,7 @@ const DEFAULT_CAROUSEL_CONFIG = {
 export function HomePage() {
   const { navigate, selectCategory } = useNavigationStore()
   const [isLoading] = useSimulatedLoading(ANIMATION_DELAYS.LOADING_DELAY)
+  const { products, isLoading: isLoadingProducts } = useProducts()
 
   const handleCategoryClick = useCallback((cat: { id: string }) => {
     selectCategory(cat.id)
@@ -47,8 +48,6 @@ export function HomePage() {
   const handleNavigateToCatalog = useCallback(() => {
     navigate(PAGES.store.catalog)
   }, [navigate])
-
-  const products = useMemo(() => getProducts(), [])
 
   const featured = useMemo(() => {
     return [...products]

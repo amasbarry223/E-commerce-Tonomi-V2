@@ -8,13 +8,13 @@
  * @dependencies useStore, lib/data, Empty, Breadcrumb, ImageZoom, Tabs
  */
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import { useCartStore, useNavigationStore, useUIStore } from "@/lib/store-context"
 import { PAGES } from "@/lib/routes"
-import { getProducts, getCategories } from "@/lib/services"
+import { useProducts, useCategories, useReviews } from "@/hooks"
 import { formatPrice, formatDate } from "@/lib/formatters"
-import { useReviewsStore } from "@/lib/stores/reviews-store"
+import { useCustomerAuthStore } from "@/lib/stores/customer-auth-store"
 import { reviewSchema, getZodErrorMessage } from "@/lib/utils/validation"
 import { toast } from "sonner"
 import { LAYOUT_CONSTANTS } from "@/lib/constants"
@@ -36,30 +36,47 @@ import { REVIEW_STATUS, PRODUCT_BADGE } from "@/lib/status-types"
 import { ProductPurchaseBlock } from "./product-purchase-block"
 
 export function ProductPage() {
-  const products = getProducts()
-  const categories = getCategories()
+  // Tous les hooks doivent être appelés AVANT les returns conditionnels
+  const { products, isLoading: isLoadingProducts } = useProducts()
+  const { categories, isLoading: isLoadingCategories } = useCategories()
   const { selectedProductId, navigate, selectCategory } = useNavigationStore()
   const { addToCart } = useCartStore()
   const { toggleWishlist, isInWishlist } = useUIStore()
-  const product = products.find(p => p.id === selectedProductId)
   const { showAddToCartToast } = useCartToast()
   const { animation, triggerAnimation, clearAnimation } = useCartAnimation()
+  const currentCustomer = useCustomerAuthStore((s) => s.currentCustomer)
+  const cartButtonRef = useCartButtonRef()
 
   const [selectedColor, setSelectedColor] = useState(0)
   const [selectedSize, setSelectedSize] = useState(0)
   const [quantity, setQuantity] = useState(1)
   const [selectedImage, setSelectedImage] = useState(0)
   const [reviewName, setReviewName] = useState("")
+  const [reviewEmail, setReviewEmail] = useState("")
   const [reviewRating, setReviewRating] = useState(5)
   const [reviewTitle, setReviewTitle] = useState("")
   const [reviewComment, setReviewComment] = useState("")
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [isSubmittingReview, setIsSubmittingReview] = useState(false)
 
-  const reviews = useReviewsStore((s) => s.reviews)
-  const addReview = useReviewsStore((s) => s.addReview)
+  // Trouver le produit (peut être undefined pendant le chargement)
+  const product = products.find(p => p.id === selectedProductId)
+  
+  // useReviews doit être appelé même si product est undefined (le hook gère cela)
+  const { reviews, isLoading: isLoadingReviews } = useReviews(product?.id)
 
-  const cartButtonRef = useCartButtonRef()
+  // Initialiser l'email si le customer est connecté
+  useEffect(() => {
+    if (currentCustomer && !reviewEmail) {
+      setReviewEmail(currentCustomer.email)
+      setReviewName(`${currentCustomer.firstName} ${currentCustomer.lastName}`)
+    }
+  }, [currentCustomer, reviewEmail])
+
+  // Retours conditionnels APRÈS tous les hooks
+  if (isLoadingProducts || isLoadingCategories) {
+    return <div className="mx-auto max-w-7xl px-4 py-20">Chargement...</div>
+  }
 
   if (!product) {
     return (
@@ -80,10 +97,18 @@ export function ProductPage() {
     )
   }
 
-  const productReviews = reviews.filter((r) => r.productId === product.id && r.status === REVIEW_STATUS.APPROVED)
+  const productReviews = reviews.filter((r) => r.status === "approved")
 
-  const handleSubmitReview = (e: React.FormEvent) => {
+  const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validation
+    if (!reviewEmail.trim()) {
+      setFieldErrors({ email: "L'email est requis" })
+      toast.error("Veuillez saisir votre email")
+      return
+    }
+
     const result = reviewSchema.safeParse({
       customerName: reviewName.trim(),
       rating: reviewRating,
@@ -105,20 +130,43 @@ export function ProductPage() {
     }
     setFieldErrors({})
     setIsSubmittingReview(true)
-    addReview({
-      productId: product.id,
-      customerId: "guest",
-      customerName: result.data.customerName,
-      rating: result.data.rating,
-      title: result.data.title,
-      comment: result.data.comment,
-    })
-    toast.success("Votre avis a bien été envoyé. Il sera visible après modération.")
-    setReviewName("")
-    setReviewRating(5)
-    setReviewTitle("")
-    setReviewComment("")
-    setIsSubmittingReview(false)
+
+    try {
+      const response = await fetch("/api/reviews", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          productId: product.id,
+          email: reviewEmail.trim(),
+          rating: reviewRating,
+          title: reviewTitle.trim(),
+          comment: reviewComment.trim(),
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Erreur inconnue" }))
+        throw new Error(errorData.error || "Erreur lors de l'envoi de l'avis")
+      }
+
+      toast.success("Votre avis a bien été envoyé. Il sera visible après modération.")
+      setReviewName("")
+      setReviewEmail(currentCustomer?.email || "")
+      setReviewRating(5)
+      setReviewTitle("")
+      setReviewComment("")
+      
+      // Recharger les reviews
+      window.location.reload() // Simple reload pour rafraîchir les reviews
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Une erreur s'est produite"
+      toast.error(errorMessage)
+      setFieldErrors({ submit: errorMessage })
+    } finally {
+      setIsSubmittingReview(false)
+    }
   }
   const similar = products.filter(p => p.category === product.category && p.id !== product.id).slice(0, 4)
   const wishlisted = isInWishlist(product.id)
@@ -144,8 +192,9 @@ export function ProductPage() {
 
     // Déclencher l'animation only if both elements exist
     if (imageElement && cartButton) {
+      const imageUrl = product.images[selectedImage] || product.images[0] || "/placeholder.svg"
       triggerAnimation(
-        product.images[selectedImage],
+        imageUrl,
         product.name,
         imageElement,
         cartButton
@@ -177,7 +226,7 @@ export function ProductPage() {
         <div>
           <div className="relative mb-4">
             <ImageZoom
-              src={product.images[selectedImage]}
+              src={product.images[selectedImage] || product.images[0] || "/placeholder.svg"}
               alt={product.name}
               zoomLevel={2.5}
               enableHoverZoom={true}
@@ -192,7 +241,7 @@ export function ProductPage() {
             )}
           </div>
           <div className="flex gap-3">
-            {product.images.map((img, i) => (
+            {product.images.filter(img => img && img.trim() !== "").map((img, i) => (
               <button
                 key={i}
                 onClick={() => setSelectedImage(i)}
@@ -361,6 +410,23 @@ export function ProductPage() {
                   />
                   {fieldErrors.customerName && (
                     <p id="review-name-error" className="text-xs text-destructive mt-1">{fieldErrors.customerName}</p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="review-email">Votre email <span className="text-destructive" aria-hidden="true">*</span></Label>
+                  <Input
+                    id="review-email"
+                    type="email"
+                    value={reviewEmail}
+                    onChange={(e) => setReviewEmail(e.target.value)}
+                    placeholder="vous@exemple.com"
+                    className="mt-1"
+                    autoComplete="email"
+                    aria-invalid={!!fieldErrors.email}
+                    aria-describedby={fieldErrors.email ? "review-email-error" : undefined}
+                  />
+                  {fieldErrors.email && (
+                    <p id="review-email-error" className="text-xs text-destructive mt-1">{fieldErrors.email}</p>
                   )}
                 </div>
                 <div>

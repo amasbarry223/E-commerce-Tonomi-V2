@@ -17,7 +17,7 @@ import { SECTION_FULL, SECTION_PADDING } from "@/lib/layout"
 import { useReducedMotion } from "@/hooks/use-reduced-motion"
 import { Button } from "@/components/ui/button"
 import { useHeroSlidesStore } from "@/lib/stores/hero-slides-store"
-import { getDefaultHeroSlides } from "@/lib/services"
+import { useHeroSlides } from "@/hooks"
 
 const HERO_SLIDE_INTERVAL = ANIMATION_DELAYS.HERO_SLIDE_INTERVAL
 const SLIDE_OFFSET = LAYOUT_CONSTANTS.SLIDE_OFFSET
@@ -51,10 +51,12 @@ interface HeroSliderProps {
 export const HeroSlider = React.memo(function HeroSlider({ onNavigateToCatalog }: HeroSliderProps) {
   const reducedMotion = useReducedMotion()
   const storeSlides = useHeroSlidesStore((s) => s.slides)
+  const { slides: dbSlides } = useHeroSlides()
   const slidesToShow = useMemo(() => {
     const active = storeSlides.filter((s) => s.active).sort((a, b) => a.order - b.order)
-    return active.length > 0 ? active : getDefaultHeroSlides()
-  }, [storeSlides])
+    // Utiliser les slides de la DB si disponibles, sinon ceux du store, sinon tableau vide
+    return active.length > 0 ? active : (dbSlides.length > 0 ? dbSlides : [])
+  }, [storeSlides, dbSlides])
 
   const [currentSlide, setCurrentSlide] = useState(0)
   const [direction, setDirection] = useState(0)

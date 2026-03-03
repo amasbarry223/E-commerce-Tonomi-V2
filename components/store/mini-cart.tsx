@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { useCartStore, useNavigationStore } from "@/lib/store-context"
 import { PAGES } from "@/lib/routes"
 import { formatPrice, pluralize } from "@/lib/formatters"
@@ -18,9 +18,15 @@ import { useCartToast } from "@/hooks/use-cart-toast"
  */
 export const MiniCart = React.memo(function MiniCart() {
   const [open, setOpen] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
   const { cart, cartCount, cartTotal, removeFromCart, promoDiscount, appliedPromo, isRestoringCart } = useCartStore()
   const { navigate } = useNavigationStore()
   const { showRemoveFromCartToast } = useCartToast()
+
+  // Éviter l'erreur d'hydratation en ne rendant le contenu dynamique qu'après le montage
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   const handleRemove = (item: typeof cart[0]) => {
     removeFromCart(item.productId, item.color, item.size)
@@ -37,10 +43,10 @@ export const MiniCart = React.memo(function MiniCart() {
           variant="ghost" 
           size="icon" 
           className="relative"
-          aria-label={`Voir mon panier${cartCount > 0 ? ` (${cartCount} ${pluralize(cartCount, "article")})` : ' (vide)'}`}
+          aria-label={isMounted ? `Voir mon panier${cartCount > 0 ? ` (${cartCount} ${pluralize(cartCount, "article")})` : ' (vide)'}` : "Voir mon panier"}
         >
           <ShoppingBag className="h-5 w-5" />
-          {cartCount > 0 && (
+          {isMounted && cartCount > 0 && (
             <motion.span
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
@@ -106,13 +112,19 @@ export const MiniCart = React.memo(function MiniCart() {
                       className="flex gap-3 p-3 rounded-lg hover:bg-secondary transition-colors group"
                     >
                       <div className="relative h-16 w-16 rounded-md overflow-hidden shrink-0 bg-secondary">
-                        <Image
-                          src={item.image}
-                          alt={item.name}
-                          fill
-                          className="object-cover"
-                          sizes="64px"
-                        />
+                        {item.image && item.image.trim() !== "" ? (
+                          <Image
+                            src={item.image}
+                            alt={item.name}
+                            fill
+                            className="object-cover"
+                            sizes="64px"
+                          />
+                        ) : (
+                          <div className="flex items-center justify-center h-full text-muted-foreground text-xs">
+                            {item.name.charAt(0)}
+                          </div>
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <h4 className="font-medium text-sm truncate">{item.name}</h4>

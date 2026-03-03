@@ -39,9 +39,8 @@ export function useResponsiveItems(itemsPerView: ItemsPerViewConfig): number {
     return itemsPerView.desktop
   }, [itemsPerView.mobile, itemsPerView.tablet, itemsPerView.desktop])
 
-  const [currentItemsPerView, setCurrentItemsPerView] = useState(() =>
-    getItemsPerView()
-  )
+  // Toujours utiliser desktop pour l'état initial (SSR) pour éviter l'hydratation mismatch
+  const [currentItemsPerView, setCurrentItemsPerView] = useState(itemsPerView.desktop)
 
   const handlerRef = useRef<() => void>(() => {})
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -51,6 +50,11 @@ export function useResponsiveItems(itemsPerView: ItemsPerViewConfig): number {
   }, [getItemsPerView])
 
   useEffect(() => {
+    // Initialiser avec la bonne valeur côté client uniquement
+    if (typeof window !== "undefined") {
+      setCurrentItemsPerView(getItemsPerView())
+    }
+
     const handleResize = () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current)
@@ -68,11 +72,13 @@ export function useResponsiveItems(itemsPerView: ItemsPerViewConfig): number {
         clearTimeout(timeoutRef.current)
       }
     }
-  }, []) // Pas de dépendances - handler via ref
+  }, [getItemsPerView]) // Ajouter getItemsPerView comme dépendance
 
   // Recalculer si itemsPerView change (comparaison profonde)
   useEffect(() => {
-    queueMicrotask(() => setCurrentItemsPerView(getItemsPerView()))
+    if (typeof window !== "undefined") {
+      queueMicrotask(() => setCurrentItemsPerView(getItemsPerView()))
+    }
   }, [itemsPerViewKey, getItemsPerView])
 
   return currentItemsPerView

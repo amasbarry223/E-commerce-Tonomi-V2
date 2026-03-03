@@ -7,45 +7,73 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
-
-import { useSettingsStore } from "@/lib/stores/settings-store"
-import { useState, useCallback } from "react"
+import { useSettings } from "@/hooks"
+import { useState, useCallback, useEffect } from "react"
 
 export function AdminSettingsGeneral() {
-  const updateSettings = useSettingsStore((s) => s.updateSettings)
-  const shopName = useSettingsStore((s) => s.shopName)
-  const shopDescription = useSettingsStore((s) => s.shopDescription)
-  const contactEmail = useSettingsStore((s) => s.contactEmail)
-  const contactPhone = useSettingsStore((s) => s.contactPhone)
-  const address = useSettingsStore((s) => s.address)
-  const currency = useSettingsStore((s) => s.currency)
-  const language = useSettingsStore((s) => s.language)
-  const promoBannerText = useSettingsStore((s) => s.promoBannerText)
+  const { settings, isLoading } = useSettings()
 
   const [formData, setFormData] = useState({
-    shopName,
-    shopDescription,
-    contactEmail,
-    contactPhone,
-    address,
-    currency,
-    language,
-    promoBannerText,
+    shopName: "",
+    shopDescription: "",
+    contactEmail: "",
+    contactPhone: "",
+    address: "",
+    currency: "EUR",
+    language: "fr",
+    promoBannerText: "",
+    lowStockThreshold: 10,
   })
 
-  // On n'utilise plus useEffect pour synchroniser le formData avec le store
-  // car cela provoque des rendus en cascade à chaque petite modification.
-  // Le formData est initialisé une fois avec les valeurs du store.
+  // Charger les paramètres depuis l'API
+  useEffect(() => {
+    if (!isLoading && settings) {
+      setFormData({
+        shopName: (settings.shopName as string) || "",
+        shopDescription: (settings.shopDescription as string) || "",
+        contactEmail: (settings.contactEmail as string) || "",
+        contactPhone: (settings.contactPhone as string) || "",
+        address: (settings.address as string) || "",
+        currency: (settings.currency as string) || "EUR",
+        language: (settings.language as string) || "fr",
+        promoBannerText: (settings.promoBannerText as string) || "",
+        lowStockThreshold: typeof settings.lowStockThreshold === "number" ? settings.lowStockThreshold : 10,
+      })
+    }
+  }, [settings, isLoading])
 
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSave = useCallback(async () => {
     setIsSubmitting(true)
-    await new Promise(r => setTimeout(r, 400))
-    updateSettings(formData)
-    toast.success("Paramètres enregistrés avec succès")
-    setIsSubmitting(false)
-  }, [updateSettings, formData])
+    try {
+      const response = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          settings: [
+            { key: "shopName", value: formData.shopName, description: "Nom de la boutique" },
+            { key: "shopDescription", value: formData.shopDescription, description: "Description de la boutique" },
+            { key: "contactEmail", value: formData.contactEmail, description: "Email de contact" },
+            { key: "contactPhone", value: formData.contactPhone, description: "Téléphone de contact" },
+            { key: "address", value: formData.address, description: "Adresse de la boutique" },
+            { key: "currency", value: formData.currency, description: "Devise" },
+            { key: "language", value: formData.language, description: "Langue" },
+            { key: "promoBannerText", value: formData.promoBannerText, description: "Bandeau promotionnel" },
+            { key: "lowStockThreshold", value: formData.lowStockThreshold, description: "Seuil d'alerte pour stock faible" },
+          ],
+        }),
+      })
+      if (!response.ok) {
+        throw new Error("Failed to save settings")
+      }
+      toast.success("Paramètres enregistrés avec succès")
+    } catch (error) {
+      toast.error("Erreur lors de l'enregistrement des paramètres")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }, [formData])
 
   return (
     <div className="flex flex-col gap-6">
@@ -144,6 +172,18 @@ export function AdminSettingsGeneral() {
                 </Select>
               </div>
             </div>
+            <div>
+              <Label className="text-base font-medium" htmlFor="lowStockThreshold">Seuil d'alerte stock faible</Label>
+              <Input
+                id="lowStockThreshold"
+                type="number"
+                min="0"
+                value={formData.lowStockThreshold}
+                onChange={(e) => setFormData({ ...formData, lowStockThreshold: parseInt(e.target.value, 10) || 0 })}
+                className="mt-2 h-11 text-base"
+              />
+              <p className="text-xs text-muted-foreground mt-1.5">Les produits avec un stock inférieur ou égal à ce nombre seront signalés comme stock faible.</p>
+            </div>
           </CardContent>
         </Card>
 
@@ -174,7 +214,7 @@ export function AdminSettingsGeneral() {
       </div>
 
       <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={isSubmitting}>
+        <Button onClick={handleSave} disabled={isSubmitting || isLoading}>
           {isSubmitting ? "Sauvegarde..." : "Sauvegarder"}
         </Button>
       </div>

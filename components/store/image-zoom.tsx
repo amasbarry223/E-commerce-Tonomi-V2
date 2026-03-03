@@ -119,14 +119,20 @@ export function ImageZoom({
           }}
           aria-label={enableClickZoom ? "Zoomer l'image" : undefined}
         >
-          <Image
-            src={src}
-            alt={alt}
-            fill
-            className="object-cover"
-            sizes="(max-width: 1024px) 100vw, 50vw"
-            priority
-          />
+          {src && src.trim() !== "" ? (
+            <Image
+              src={src}
+              alt={alt}
+              fill
+              className="object-cover"
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              priority
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full bg-secondary text-muted-foreground">
+              Image non disponible
+            </div>
+          )}
         </div>
 
         {/* Loupe au survol (mode hover zoom) - Desktop uniquement */}
@@ -143,7 +149,7 @@ export function ImageZoom({
               borderRadius: "50%",
               border: "3px solid rgba(255, 255, 255, 0.8)",
               boxShadow: "0 0 20px rgba(0, 0, 0, 0.3)",
-              backgroundImage: `url(${src})`,
+              backgroundImage: src && src.trim() !== "" ? `url(${src})` : "none",
               backgroundSize: `${zoomLevel * 100}%`,
               backgroundPosition: `${mousePosition.x}% ${mousePosition.y}%`,
               backgroundRepeat: "no-repeat",
@@ -193,14 +199,20 @@ export function ImageZoom({
               onClick={(e) => e.stopPropagation()}
             >
               <div className="relative w-full h-full max-h-[90vh]">
-                <Image
-                  src={src}
-                  alt={alt}
-                  fill
-                  className="object-contain"
-                  sizes="100vw"
-                  priority
-                />
+                {src && src.trim() !== "" ? (
+                  <Image
+                    src={src}
+                    alt={alt}
+                    fill
+                    className="object-contain"
+                    sizes="100vw"
+                    priority
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full bg-secondary text-muted-foreground text-lg">
+                    Image non disponible
+                  </div>
+                )}
               </div>
 
               {/* Bouton fermer */}

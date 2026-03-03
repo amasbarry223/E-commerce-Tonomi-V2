@@ -5,9 +5,12 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import type { Review } from "@/lib/types"
-import { getDefaultReviews } from "@/lib/services"
+// getDefaultReviews n'existe plus, les reviews seront chargées depuis Supabase
 
 const STORAGE_KEY = "tonomi_reviews"
+
+// Reviews par défaut (vide, sera rempli depuis Supabase)
+const DEFAULT_REVIEWS: Review[] = []
 
 export type ReviewInput = Omit<Review, "id" | "createdAt" | "status">
 
@@ -25,7 +28,7 @@ function generateId(): string {
 export const useReviewsStore = create<ReviewsState>()(
   persist(
     (set, get) => ({
-      reviews: getDefaultReviews(),
+      reviews: DEFAULT_REVIEWS,
 
       addReview: (review) => {
         const newReview: Review = {
@@ -59,7 +62,7 @@ export const useReviewsStore = create<ReviewsState>()(
       onRehydrateStorage: () => (persistedState) => {
         const state = persistedState as { reviews?: Review[] } | undefined
         if (!state?.reviews?.length) {
-          useReviewsStore.setState({ reviews: getDefaultReviews() })
+          useReviewsStore.setState({ reviews: DEFAULT_REVIEWS })
         }
       },
     }

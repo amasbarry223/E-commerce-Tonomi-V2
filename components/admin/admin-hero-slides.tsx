@@ -229,7 +229,8 @@ export function AdminHeroSlides() {
               <Plus className="h-3.5 w-3.5" /> Nouvelle bannière
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          {/* Modal plus responsive : pleine largeur sur mobile, largeur limitée sur desktop */}
+          <DialogContent className="w-[95vw] max-w-2xl sm:max-w-xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <LayoutPanelTop className="h-5 w-5" />

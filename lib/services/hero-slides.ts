@@ -1,11 +1,23 @@
 /**
- * Service hero slides (bannières).
- * À terme : appels API. Pour l'instant : accès via lib/data.
+ * Service hero slides
  */
 
-import { defaultHeroSlides } from "@/lib/data"
+import { heroSlideRepository } from "@/lib/repositories"
 import type { HeroSlide } from "@/lib/types"
 
-export function getDefaultHeroSlides(): HeroSlide[] {
-  return defaultHeroSlides
+/**
+ * Récupère tous les slides hero actifs
+ */
+export async function getHeroSlides(): Promise<HeroSlide[]> {
+  const slides = await heroSlideRepository.findActive()
+  return slides.map((slide) => ({
+    id: slide.id,
+    image: slide.image,
+    title: slide.title,
+    subtitle: slide.subtitle,
+    ctaText: slide.ctaText,
+    ctaLink: slide.ctaLink || undefined,
+    order: slide.order,
+    active: slide.active,
+  }))
 }

@@ -1,7 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react"
-import { getProducts, getPromoCodes } from "@/lib/services"
+// Les produits et codes promo seront chargés via les hooks ou API routes
 import type { CartItem, WishlistItem } from "@/lib/types"
 import { PAGES } from "@/lib/routes"
 import { promoCodeInputSchema } from "@/lib/utils/validation"
@@ -60,9 +60,40 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const hasRestoredRef = useRef(false)
   const [isRestoringCart, setIsRestoringCart] = useState(true)
-  const productsRef = useRef(getProducts())
-  const promoCodesRef = useRef(getPromoCodes())
+  const productsRef = useRef<Product[]>([])
+  const promoCodesRef = useRef<any[]>([])
   const cartRef = useRef(cartState.cart)
+
+  // Charger les produits et codes promo de manière asynchrone via API
+  useEffect(() => {
+    let cancelled = false
+    async function loadData() {
+      try {
+        const [productsRes, promosRes] = await Promise.all([
+          fetch("/api/products"),
+          fetch("/api/promos").catch(() => ({ ok: false })) // Promos pas encore implémenté
+        ])
+        if (!cancelled) {
+          if (productsRes.ok) {
+            const products = await productsRes.json()
+            productsRef.current = products
+          }
+          if (promosRes.ok) {
+            const promos = await promosRes.json()
+            promoCodesRef.current = promos
+          } else {
+            promoCodesRef.current = [] // Pas encore implémenté
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load products or promos:", error)
+      }
+    }
+    loadData()
+    return () => {
+      cancelled = true
+    }
+  }, [])
   useEffect(() => {
     cartRef.current = cartState.cart
   }, [cartState.cart])

@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import Image from "next/image"
-import { getCategories } from "@/lib/services"
+import { useCategories } from "@/hooks"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -41,8 +41,8 @@ interface Category {
 }
 
 export function AdminCategories() {
-  const initialCategories = getCategories()
-  const [allCategories, setAllCategories] = useState<Category[]>(initialCategories)
+  const { categories, isLoading } = useCategories()
+  const [allCategories, setAllCategories] = useState<Category[]>(categories)
   const [showAddEditDialog, setShowAddEditDialog] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [categoryName, setCategoryName] = useState("")
@@ -60,6 +60,10 @@ export function AdminCategories() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [loading, _setLoading] = useSimulatedLoading(AUTH_DELAYS_MS.ADMIN_LOADING)
   const [categoryFieldErrors, setCategoryFieldErrors] = useState<Record<string, string>>({})
+  
+  useEffect(() => {
+    setAllCategories(categories)
+  }, [categories])
 
   const filteredCategories = useMemo(() => {
     if (!searchQuery) return allCategories
@@ -79,6 +83,11 @@ export function AdminCategories() {
     itemsPerPage,
     goToPage,
   } = usePagination(filteredCategories, { itemsPerPage: 10 })
+  
+  // Vérifier le chargement APRÈS tous les hooks
+  if (isLoading) {
+    return <div>Chargement des catégories...</div>
+  }
 
   const resetForm = () => {
     setEditingCategory(null)
@@ -93,7 +102,7 @@ export function AdminCategories() {
     setCategoryFieldErrors({})
   }
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -109,14 +118,39 @@ export function AdminCategories() {
       return
     }
 
-    // Créer un aperçu local
+    // Créer un aperçu local immédiatement
     const reader = new FileReader()
     reader.onloadend = () => {
       const result = reader.result as string
       setImagePreview(result)
-      setCategoryImage(result) // Stocker l'URL de données pour l'instant
     }
     reader.readAsDataURL(file)
+
+    // Upload vers Supabase Storage via l'API
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("folder", "categories")
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to upload image")
+      }
+
+      const result = await response.json()
+      setCategoryImage(result.url)
+      toast.success("Image uploadée avec succès")
+    } catch (error) {
+      console.error("Error uploading image:", error)
+      toast.error(`Erreur lors de l'upload: ${error instanceof Error ? error.message : "Erreur inconnue"}`)
+      setImagePreview(null)
+      setCategoryImage("")
+    }
   }
 
   const handleRemoveImage = () => {
@@ -165,51 +199,78 @@ export function AdminCategories() {
     }
     setCategoryFieldErrors({})
     setIsSubmitting(true)
-    await new Promise(r => setTimeout(r, 500))
-    if (editingCategory) {
-      // Edit existing category
-      setAllCategories(prev =>
-        prev.map(cat =>
-          cat.id === editingCategory.id
-            ? {
-              ...cat,
-              name: categoryName,
-              slug: categorySlug,
-              description: categoryDescription,
-              image: categoryImage,
-              metaTitle: categoryMetaTitle || undefined,
-              metaDescription: categoryMetaDescription || undefined,
-              parentId: categoryParentId || undefined,
-            }
-            : cat
-        )
-      )
-      toast.success("Catégorie modifiée avec succès.")
-    } else {
-      // Add new category - Generate unique ID by finding max existing ID
-      const existingIds = allCategories.map(cat => {
-        const match = cat.id.match(/^cat-(\d+)$/)
-        return match ? parseInt(match[1], 10) : 0
-      })
-      const maxId = existingIds.length > 0 ? Math.max(...existingIds) : 0
-      const newId = `cat-${maxId + 1}`
-      const newCategory: Category = {
-        id: newId,
-        name: categoryName,
-        slug: categorySlug,
-        description: categoryDescription,
-        image: categoryImage,
-        productCount: 0,
-        metaTitle: categoryMetaTitle || undefined,
-        metaDescription: categoryMetaDescription || undefined,
-        parentId: categoryParentId || undefined,
+    
+    try {
+      if (editingCategory) {
+        // Update existing category
+        const response = await fetch(`/api/categories?id=${editingCategory.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: categoryName,
+            slug: categorySlug,
+            description: categoryDescription,
+            image: categoryImage,
+            metaTitle: categoryMetaTitle || undefined,
+            metaDescription: categoryMetaDescription || undefined,
+            parentId: categoryParentId || undefined,
+          }),
+        })
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || "Failed to update category")
+        }
+        const updatedCategory = await response.json()
+        // Recharger les catégories depuis l'API pour avoir les données à jour
+        const refreshResponse = await fetch("/api/categories")
+        if (refreshResponse.ok) {
+          const refreshedCategories = await refreshResponse.json()
+          setAllCategories(refreshedCategories)
+        } else {
+          // Fallback: mettre à jour l'état local
+          setAllCategories(prev =>
+            prev.map(cat => cat.id === editingCategory.id ? updatedCategory : cat)
+          )
+        }
+        toast.success("Catégorie modifiée avec succès.")
+      } else {
+        // Create new category
+        const response = await fetch("/api/categories", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: categoryName,
+            slug: categorySlug,
+            description: categoryDescription,
+            image: categoryImage,
+            metaTitle: categoryMetaTitle || undefined,
+            metaDescription: categoryMetaDescription || undefined,
+            parentId: categoryParentId || undefined,
+          }),
+        })
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || "Failed to create category")
+        }
+        // Recharger les catégories depuis l'API pour avoir les données à jour
+        const refreshResponse = await fetch("/api/categories")
+        if (refreshResponse.ok) {
+          const refreshedCategories = await refreshResponse.json()
+          setAllCategories(refreshedCategories)
+        } else {
+          // Fallback: ajouter la nouvelle catégorie à l'état local
+          const newCategory = await response.json()
+          setAllCategories(prev => [...prev, newCategory])
+        }
+        toast.success("Catégorie ajoutée avec succès.")
       }
-      setAllCategories(prev => [...prev, newCategory])
-      toast.success("Catégorie ajoutée avec succès.")
+      setShowAddEditDialog(false)
+      resetForm()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Une erreur s'est produite")
+    } finally {
+      setIsSubmitting(false)
     }
-    setShowAddEditDialog(false)
-    resetForm()
-    setIsSubmitting(false)
   }
 
   // Générer le slug automatiquement depuis le nom
@@ -235,11 +296,30 @@ export function AdminCategories() {
   const confirmDeleteCategory = async () => {
     if (!categoryToDelete) return
     setIsDeleting(true)
-    await new Promise(r => setTimeout(r, 500))
-    setAllCategories(prev => prev.filter(cat => cat.id !== categoryToDelete))
-    toast.success("Catégorie supprimée avec succès.")
-    setCategoryToDelete(null)
-    setIsDeleting(false)
+    try {
+      const response = await fetch(`/api/categories?id=${categoryToDelete}`, {
+        method: "DELETE",
+      })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to delete category")
+      }
+      // Recharger les catégories depuis l'API pour avoir les données à jour
+      const refreshResponse = await fetch("/api/categories")
+      if (refreshResponse.ok) {
+        const refreshedCategories = await refreshResponse.json()
+        setAllCategories(refreshedCategories)
+      } else {
+        // Fallback: supprimer de l'état local
+        setAllCategories(prev => prev.filter(cat => cat.id !== categoryToDelete))
+      }
+      toast.success("Catégorie supprimée avec succès.")
+      setCategoryToDelete(null)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Une erreur s'est produite")
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   return (

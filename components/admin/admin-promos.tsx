@@ -1,6 +1,5 @@
 "use client"
 
-import { getPromoCodes } from "@/lib/services"
 import { formatPrice, formatDate } from "@/lib/formatters"
 import { LAYOUT_CONSTANTS } from "@/lib/constants"
 import { Button } from "@/components/ui/button"
@@ -14,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Plus, Tag, Copy, Trash2, MoreHorizontal, Percent, Calendar, Settings, Eye } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { toast } from "sonner"
 import { PaginationSimple as Pagination } from "@/components/ui/pagination"
 import { usePagination } from "@/hooks/use-pagination"
@@ -23,15 +22,46 @@ import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog"
 import { promoCodeSchema, getZodErrorMessage } from "@/lib/utils/validation"
 import { TOAST_MESSAGES } from "@/lib/constants"
 import { AdminSectionHeader } from "@/components/admin/admin-section-header"
+import type { PromoCode } from "@/lib/types"
 
 export function AdminPromos() {
-  const promoCodes = getPromoCodes()
+  const [promoCodes, setPromoCodes] = useState<PromoCode[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
   const [promoToDelete, setPromoToDelete] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const { isSubmitting, submit } = useSubmitState()
   const [isDeleting, setIsDeleting] = useState(false)
   const [promoFieldErrors, setPromoFieldErrors] = useState<Record<string, string>>({})
+
+  // Charger les codes promo depuis l'API
+  useEffect(() => {
+    let cancelled = false
+    async function loadPromos() {
+      try {
+        setIsLoading(true)
+        const response = await fetch("/api/promos")
+        if (!response.ok) {
+          throw new Error("Failed to fetch promo codes")
+        }
+        const data = await response.json()
+        if (!cancelled) {
+          setPromoCodes(data)
+        }
+      } catch (error) {
+        console.error("Error loading promo codes:", error)
+        toast.error("Impossible de charger les codes promo")
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false)
+        }
+      }
+    }
+    loadPromos()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const filtered = useMemo(() => promoCodes, [promoCodes])
   const activeCount = filtered.filter(p => p.active && new Date(p.endDate) > new Date()).length
@@ -58,13 +88,23 @@ export function AdminPromos() {
   const confirmDeletePromo = async () => {
     if (!promoToDelete) return
     setIsDeleting(true)
-    await new Promise(r => setTimeout(r, 400))
-    const promo = promoCodes.find(p => p.id === promoToDelete)
-    if (promo) {
-      toast.success(`Code promo "${promo.code}" supprimé avec succès`)
+    try {
+      const response = await fetch(`/api/promos?id=${promoToDelete}`, {
+        method: "DELETE",
+      })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to delete promo code")
+      }
+      setPromoCodes(prev => prev.filter(p => p.id !== promoToDelete))
+      toast.success("Code promo supprimé avec succès")
+      setPromoToDelete(null)
+    } catch (error) {
+      console.error("Error deleting promo:", error)
+      toast.error(error instanceof Error ? error.message : "Erreur lors de la suppression")
+    } finally {
+      setIsDeleting(false)
     }
-    setPromoToDelete(null)
-    setIsDeleting(false)
   }
 
   const handleCreatePromo = (formValues: {
@@ -94,8 +134,24 @@ export function AdminPromos() {
     }
     setPromoFieldErrors({})
     submit(async () => {
-      toast.success("Code promo créé avec succès")
-      setShowAdd(false)
+      try {
+        const response = await fetch("/api/promos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formValues),
+        })
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || "Failed to create promo code")
+        }
+        const created = await response.json()
+        setPromoCodes(prev => [created, ...prev])
+        toast.success("Code promo créé avec succès")
+        setShowAdd(false)
+      } catch (error) {
+        console.error("Error creating promo:", error)
+        toast.error(error instanceof Error ? error.message : "Erreur lors de la création du code promo")
+      }
     })
   }
 
@@ -126,6 +182,9 @@ export function AdminPromos() {
         </Dialog>
       </AdminSectionHeader>
 
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">Chargement des codes promo...</p>
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {paginatedData.map(promo => {
           const isExpired = new Date(promo.endDate) < new Date()
@@ -180,6 +239,7 @@ export function AdminPromos() {
           )
         })}
       </div>
+      )}
 
       {/* Pagination : barre visible sous la grille */}
       {filtered.length > 0 && (

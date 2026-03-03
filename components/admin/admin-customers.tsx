@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react"
 import dynamic from "next/dynamic"
 import Image from "next/image"
-import { getCustomers, getOrders } from "@/lib/services"
+import { useCustomers, useOrders } from "@/hooks"
 import { formatPrice, formatDate, getSegmentLabel, getSegmentColor } from "@/lib/formatters"
 import { Button } from "@/components/ui/button"
 import { SearchField } from "@/components/ui/search-field"
@@ -29,13 +29,15 @@ const AdminCustomersCharts = dynamic(
 )
 
 export function AdminCustomers() {
-  const customers = getCustomers()
-  const orders = getOrders()
+  // Données dynamiques depuis l'API
+  const { customers, isLoading: isLoadingCustomers } = useCustomers()
+  const { orders, isLoading: isLoadingOrders } = useOrders()
   const [search, setSearch] = useState("")
   const [segmentFilter, setSegmentFilter] = useState("all")
   const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null)
   const [isViewing, setIsViewing] = useState(false)
-  const [loading] = useSimulatedLoading(400)
+  const [simulatedLoading] = useSimulatedLoading(400)
+  const loading = simulatedLoading || isLoadingCustomers || isLoadingOrders
 
   const filtered = useMemo(() => {
     let result = [...customers]
@@ -186,13 +188,19 @@ export function AdminCustomers() {
                   <tr key={customer.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
-                        <Image
-                          src={customer.avatar}
-                          alt={`Photo de profil de ${customer.firstName} ${customer.lastName}`}
-                          width={36}
-                          height={36}
-                          className="h-9 w-9 rounded-full object-cover"
-                        />
+                        {customer.avatar && customer.avatar.trim() !== "" ? (
+                          <Image
+                            src={customer.avatar}
+                            alt={`Photo de profil de ${customer.firstName} ${customer.lastName}`}
+                            width={36}
+                            height={36}
+                            className="h-9 w-9 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="h-9 w-9 rounded-full bg-secondary flex items-center justify-center text-xs font-medium">
+                            {customer.firstName.charAt(0)}{customer.lastName.charAt(0)}
+                          </div>
+                        )}
                         <div>
                           <p className="font-medium">{customer.firstName} {customer.lastName}</p>
                           <p className="text-xs text-muted-foreground">{customer.email}</p>
@@ -265,13 +273,19 @@ export function AdminCustomers() {
           {viewCustomer && (
             <div className="flex flex-col gap-6">
               <div className="flex items-center gap-4">
-                <Image
-                  src={viewCustomer.avatar}
-                  alt={`Photo de profil de ${viewCustomer.firstName} ${viewCustomer.lastName}`}
-                  width={64}
-                  height={64}
-                  className="h-16 w-16 rounded-full object-cover"
-                />
+                {viewCustomer.avatar && viewCustomer.avatar.trim() !== "" ? (
+                  <Image
+                    src={viewCustomer.avatar}
+                    alt={`Photo de profil de ${viewCustomer.firstName} ${viewCustomer.lastName}`}
+                    width={64}
+                    height={64}
+                    className="h-16 w-16 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="h-16 w-16 rounded-full bg-secondary flex items-center justify-center text-lg font-medium">
+                    {viewCustomer.firstName.charAt(0)}{viewCustomer.lastName.charAt(0)}
+                  </div>
+                )}
                 <div>
                   <h3 className="font-bold text-lg">{viewCustomer.firstName} {viewCustomer.lastName}</h3>
                   <p className="text-sm text-muted-foreground">{viewCustomer.email}</p>

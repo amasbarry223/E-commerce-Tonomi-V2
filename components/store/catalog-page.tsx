@@ -12,7 +12,7 @@ import React, { useState, useMemo, useEffect, useCallback } from "react"
 import { useNavigationStore } from "@/lib/store-context"
 import { useSimulatedLoading } from "@/hooks/use-simulated-loading"
 import { PAGES } from "@/lib/routes"
-import { getProducts, getCategories } from "@/lib/services"
+import { useProducts, useCategories } from "@/hooks"
 import { formatPrice, pluralize } from "@/lib/formatters"
 import { SECTION_CONTAINER } from "@/lib/layout"
 import { ProductCard } from "./product-card"
@@ -32,8 +32,7 @@ const BRANDS = ["Maison Élégance", "Bohème Paris", "Cristal de Paris", "Urban
 const PRICE_RANGE_DEFAULT: [number, number] = [0, 300]
 const PRODUCTS_PER_PAGE = 12
 
-const products = getProducts()
-const categories = getCategories()
+// Les produits et catégories seront chargés via les hooks dans le composant
 
 type CatalogFilterContentProps = {
   selectedCategory: string
@@ -59,7 +58,9 @@ function CatalogFilterContentInner({
   toggleMaterial,
   clearFilters,
   activeFilterCount,
-}: CatalogFilterContentProps) {
+  products,
+  categories,
+}: CatalogFilterContentProps & { products: any[]; categories: any[] }) {
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -144,6 +145,8 @@ const CatalogFilterContent = React.memo(CatalogFilterContentInner)
 
 export function CatalogPage() {
   const { searchQuery, setSearchQuery, selectedCategoryId, selectCategory, navigate } = useNavigationStore()
+  const { products, isLoading: isLoadingProducts } = useProducts()
+  const { categories, isLoading: isLoadingCategories } = useCategories()
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
   const [priceRange, setPriceRange] = useState<number[]>([...PRICE_RANGE_DEFAULT])
   const [selectedBrands, setSelectedBrands] = useState<string[]>([])
@@ -153,6 +156,8 @@ export function CatalogPage() {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [isLoading] = useSimulatedLoading(500)
   const [currentPage, setCurrentPage] = useState(1)
+  
+  const isLoadingData = isLoadingProducts || isLoadingCategories || isLoading
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -183,6 +188,7 @@ export function CatalogPage() {
   }, [selectCategory])
 
   const filteredProducts = useMemo(() => {
+    if (!products || products.length === 0) return []
     let result = products.filter(p => p.status === "published")
 
     if (searchQuery) {
@@ -217,7 +223,7 @@ export function CatalogPage() {
       case "rating": return [...result].sort((a, b) => b.rating - a.rating)
       default: return result
     }
-  }, [searchQuery, selectedCategory, priceRange, selectedBrands, selectedMaterials, sortBy])
+  }, [products, searchQuery, selectedCategory, priceRange, selectedBrands, selectedMaterials, sortBy])
 
   // Calcul de la pagination
   const totalPages = Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE)
@@ -240,7 +246,7 @@ export function CatalogPage() {
     [selectedCategory, selectedBrands.length, selectedMaterials.length, priceRange]
   )
 
-  const filterContentProps: CatalogFilterContentProps = {
+  const filterContentProps: CatalogFilterContentProps & { products: any[]; categories: any[] } = {
     selectedCategory,
     setSelectedCategory,
     priceRange,
@@ -251,6 +257,8 @@ export function CatalogPage() {
     toggleMaterial,
     clearFilters,
     activeFilterCount,
+    products: products || [],
+    categories: categories || [],
   }
 
   return (
@@ -335,7 +343,7 @@ export function CatalogPage() {
           </div>
 
           {/* Products Grid */}
-          {isLoading ? (
+          {isLoadingData ? (
             <ProductCardSkeletonGrid count={8} />
           ) : filteredProducts.length === 0 ? (
             <Empty className="py-20 px-4 border-0">

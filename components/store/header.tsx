@@ -5,7 +5,7 @@ import Image from "next/image"
 import { useNavigationStore, useUIStore } from "@/lib/store-context"
 import { useSettingsStore } from "@/lib/stores/settings-store"
 import { PAGES } from "@/lib/routes"
-import { getCategories } from "@/lib/services"
+import { useCategories } from "@/hooks"
 import { SECTION_PADDING, EXCLUDED_CATEGORY_IDS } from "@/lib/layout"
 import { Heart, Sun, Moon, Menu, User, ShoppingBag } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -19,9 +19,10 @@ export const StoreHeader = React.memo(function StoreHeader() {
   const { wishlist, darkMode, toggleDarkMode } = useUIStore()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
+  const { categories } = useCategories()
   const mainCategories = useMemo(
-    () => getCategories().filter((c) => !EXCLUDED_CATEGORY_IDS.includes(c.id)),
-    []
+    () => categories.filter((c) => !EXCLUDED_CATEGORY_IDS.includes(c.id)),
+    [categories]
   )
 
   const promoBannerText = useSettingsStore((s) => s.promoBannerText)

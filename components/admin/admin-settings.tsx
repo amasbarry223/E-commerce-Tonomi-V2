@@ -10,7 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Store, Truck, CreditCard, Bell, Shield, FileText, Trash2, Filter } from "lucide-react"
-import { useLogsStore, type LogAction } from "@/lib/stores/logs-store"
+import { useLogs } from "@/hooks"
+import { formatDate } from "@/lib/formatters"
 import { toast } from "sonner"
 import { AdminEmptyState } from "@/components/admin/admin-empty-state"
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog"
@@ -145,30 +146,41 @@ export function AdminSettings() {
 
 // Composant pour la gestion des logs
 function LogsManagement() {
-  const { getLogs, clearLogs, deleteLog } = useLogsStore()
-  const [filterAction, setFilterAction] = useState<LogAction | "all">("all")
+  const [filterAction, setFilterAction] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [clearLogsDialogOpen, setClearLogsDialogOpen] = useState(false)
 
-  const filteredLogs = getLogs(filterAction !== "all" ? { action: filterAction } : {}).filter(
+  const { logs, isLoading } = useLogs({
+    action: filterAction !== "all" ? filterAction : undefined,
+    take: 100,
+  })
+
+  const filteredLogs = logs.filter(
     (log) =>
       log.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.userEmail.toLowerCase().includes(searchQuery.toLowerCase())
+      (log.userId && log.userId.toLowerCase().includes(searchQuery.toLowerCase()))
   )
 
-  const actionLabels: Record<LogAction, string> = {
+  const actionLabels: Record<string, string> = {
     login: "Connexion",
     logout: "Déconnexion",
-    create_product: "Création produit",
-    update_product: "Modification produit",
-    delete_product: "Suppression produit",
-    create_order: "Création commande",
-    update_order: "Modification commande",
-    create_user: "Création utilisateur",
-    update_user: "Modification utilisateur",
-    delete_user: "Suppression utilisateur",
-    update_settings: "Modification paramètres",
-    other: "Autre",
+    product_created: "Création produit",
+    product_updated: "Modification produit",
+    product_deleted: "Suppression produit",
+    order_created: "Création commande",
+    order_updated: "Modification commande",
+    customer_created: "Création client",
+    customer_updated: "Modification client",
+    review_created: "Création avis",
+    review_approved: "Avis approuvé",
+    review_rejected: "Avis rejeté",
+    settings_updated: "Modification paramètres",
+    category_created: "Création catégorie",
+    category_updated: "Modification catégorie",
+    category_deleted: "Suppression catégorie",
+    promo_created: "Création code promo",
+    promo_updated: "Modification code promo",
+    promo_deleted: "Suppression code promo",
   }
 
   return (
@@ -201,9 +213,10 @@ function LogsManagement() {
                   ))}
                 </SelectContent>
               </Select>
-              <Button variant="outline" onClick={() => setClearLogsDialogOpen(true)}>
+              {/* Note: La suppression de logs nécessiterait une route DELETE dans l'API */}
+              {/* <Button variant="outline" onClick={() => setClearLogsDialogOpen(true)}>
                 Effacer les logs
-              </Button>
+              </Button> */}
             </div>
 
             <div className="border rounded-lg overflow-hidden">
@@ -215,11 +228,17 @@ function LogsManagement() {
                       <TableHead>Action</TableHead>
                       <TableHead>Utilisateur</TableHead>
                       <TableHead>Description</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead className="text-right">Type</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredLogs.length === 0 ? (
+                    {isLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                          Chargement des logs...
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredLogs.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={5} className="py-0 border-0">
                           <AdminEmptyState
@@ -233,26 +252,38 @@ function LogsManagement() {
                       filteredLogs.map((log, index) => (
                         <TableRow key={log.id} index={index}>
                           <TableCell className="text-sm">
-                            {new Date(log.timestamp).toLocaleString("fr-FR")}
+                            {formatDate(log.createdAt)}
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline">{actionLabels[log.action] || log.action}</Badge>
                           </TableCell>
-                          <TableCell>{log.userEmail}</TableCell>
+                          <TableCell>
+                            {(() => {
+                              // Extraire un nom lisible depuis metadata si possible
+                              try {
+                                const rawMeta: any = (log as any).metadata
+                                const meta =
+                                  typeof rawMeta === "string"
+                                    ? JSON.parse(rawMeta)
+                                    : rawMeta || {}
+                                const customerName: string | undefined =
+                                  meta.customerName || meta.userName || meta.customerFullName
+                                const email: string | undefined =
+                                  meta.email || meta.customerEmail
+                                if (customerName && email) return `${customerName} (${email})`
+                                if (customerName) return customerName
+                                if (email) return email
+                              } catch {
+                                // ignore JSON parse errors
+                              }
+                              return log.userId || "Système"
+                            })()}
+                          </TableCell>
                           <TableCell className="max-w-md truncate">{log.description}</TableCell>
                           <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-11 w-11 sm:h-8 sm:w-8"
-                              onClick={() => {
-                                deleteLog(log.id)
-                                toast.success("Log supprimé avec succès")
-                              }}
-                              aria-label="Supprimer le log"
-                            >
-                              <Trash2 className="h-4 w-4" aria-hidden />
-                            </Button>
+                            <Badge variant="secondary" className="text-xs">
+                              {log.entityType}
+                            </Badge>
                           </TableCell>
                         </TableRow>
                       ))
@@ -265,18 +296,18 @@ function LogsManagement() {
         </CardContent>
       </Card>
 
-      {/* Clear Logs Confirmation Dialog */}
-      <ConfirmDeleteDialog
+      {/* Clear Logs Confirmation Dialog - Désactivé pour l'instant */}
+      {/* <ConfirmDeleteDialog
         open={clearLogsDialogOpen}
         onOpenChange={setClearLogsDialogOpen}
         title="Supprimer tous les logs"
         description="Êtes-vous sûr de vouloir supprimer tous les logs ? Cette action est irréversible et supprimera toute l'historique des actions."
         onConfirm={() => {
-          clearLogs()
+          // TODO: Implémenter la suppression via API
           toast.success("Tous les logs ont été supprimés")
         }}
         confirmLabel="Supprimer tous les logs"
-      />
+      /> */}
     </div>
   )
 }

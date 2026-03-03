@@ -62,9 +62,11 @@ export const categorySchema = z.object({
     .optional(),
   
   image: z
-    .string()
-    .url('L\'URL de l\'image doit être valide')
-    .min(1, 'L\'URL de l\'image est requise'),
+    .union([
+      z.string().url('L\'URL de l\'image doit être valide'),
+      z.literal(""),
+    ])
+    .optional(),
   
   metaTitle: z
     .string()

@@ -2,7 +2,7 @@
 
 import { useNavigationStore, useUIStore } from "@/lib/store-context"
 import { PAGES } from "@/lib/routes"
-import { getProducts } from "@/lib/services"
+import { useProducts } from "@/hooks"
 import { pluralize } from "@/lib/formatters"
 import { SECTION_CONTAINER } from "@/lib/layout"
 import { ProductCard } from "./product-card"
@@ -13,8 +13,12 @@ import { PageEmptyState } from "@/components/ui/page-empty-state"
 export function WishlistPage() {
   const { navigate } = useNavigationStore()
   const { wishlist } = useUIStore()
-  const products = getProducts()
+  const { products, isLoading } = useProducts()
   const wishlistProducts = products.filter((p) => wishlist.some((w) => w.productId === p.id))
+  
+  if (isLoading) {
+    return <div className={`${SECTION_CONTAINER} py-8`}>Chargement...</div>
+  }
 
   return (
     <div className={`${SECTION_CONTAINER} py-8`}>

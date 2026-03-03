@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react"
 import Image from "next/image"
-import { getOrders, getCustomers } from "@/lib/services"
+import { useOrders, useCustomers } from "@/hooks"
 import type { Order } from "@/lib/types"
 import { formatPrice, formatDate, getStatusColor, getStatusLabel, pluralize } from "@/lib/formatters"
 import { Button } from "@/components/ui/button"
@@ -24,8 +24,11 @@ import { AdminEmptyState } from "@/components/admin/admin-empty-state"
 const ADMIN_ORDER_STATUS_OPTIONS: Order["status"][] = ["pending", "confirmed", "shipped", "delivered", "cancelled", "refunded"]
 
 export function AdminOrders() {
-  const orders = getOrders()
-  const customers = getCustomers()
+  // Données dynamiques depuis l'API
+  const { orders, isLoading: isLoadingOrders } = useOrders()
+  const { customers, isLoading: isLoadingCustomers } = useCustomers()
+  const isLoading = isLoadingOrders || isLoadingCustomers
+
   const customersMap = useMemo(() => new Map(customers.map(c => [c.id, c])), [customers])
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -72,24 +75,60 @@ export function AdminOrders() {
 
   const handleStatusUpdate = async (orderId: string, newStatus: Order["status"]) => {
     setIsUpdating(true)
-    await new Promise(r => setTimeout(r, 600))
-    setOrderUpdates(prev => ({
-      ...prev,
-      [orderId]: { ...prev[orderId], status: newStatus }
-    }))
-    toast.success("Statut de la commande mis à jour")
-    setIsUpdating(false)
+    try {
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: newStatus }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Erreur inconnue" }))
+        throw new Error(errorData.error || "Erreur lors de la mise à jour du statut")
+      }
+
+      setOrderUpdates(prev => ({
+        ...prev,
+        [orderId]: { ...prev[orderId], status: newStatus }
+      }))
+      toast.success("Statut de la commande mis à jour")
+    } catch (error) {
+      console.error("Error updating order status:", error)
+      toast.error(error instanceof Error ? error.message : "Erreur lors de la mise à jour")
+    } finally {
+      setIsUpdating(false)
+    }
   }
 
   const handleTrackingUpdate = async (orderId: string, trackingNumber: string) => {
     setIsUpdating(true)
-    await new Promise(r => setTimeout(r, 600))
-    setOrderUpdates(prev => ({
-      ...prev,
-      [orderId]: { ...prev[orderId], trackingNumber: trackingNumber || undefined }
-    }))
-    toast.success(trackingNumber ? "Numéro de suivi ajouté" : "Numéro de suivi supprimé")
-    setIsUpdating(false)
+    try {
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ trackingNumber: trackingNumber || null }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Erreur inconnue" }))
+        throw new Error(errorData.error || "Erreur lors de la mise à jour du numéro de suivi")
+      }
+
+      setOrderUpdates(prev => ({
+        ...prev,
+        [orderId]: { ...prev[orderId], trackingNumber: trackingNumber || undefined }
+      }))
+      toast.success(trackingNumber ? "Numéro de suivi ajouté" : "Numéro de suivi supprimé")
+    } catch (error) {
+      console.error("Error updating tracking number:", error)
+      toast.error(error instanceof Error ? error.message : "Erreur lors de la mise à jour")
+    } finally {
+      setIsUpdating(false)
+    }
   }
 
   const handleExport = () => {
@@ -115,7 +154,11 @@ export function AdminOrders() {
     <div className="flex flex-col gap-6">
       <AdminSectionHeader
         title="Gestion des commandes"
-        description={`${orders.length} commandes`}
+        description={
+          isLoading
+            ? "Chargement des commandes..."
+            : `${orders.length} commande${orders.length > 1 ? "s" : ""}`
+        }
       >
         <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExport}>
           <Download className="h-3.5 w-3.5" /> Exporter
@@ -155,7 +198,13 @@ export function AdminOrders() {
               </tr>
             </thead>
             <tbody>
-              {paginatedData.map(order => {
+              {isLoading && orders.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                    Chargement des commandes...
+                  </td>
+                </tr>
+              ) : paginatedData.map(order => {
                 const customer = customersMap.get(order.customerId)
                 const orderStatus = orderUpdates[order.id]?.status ?? order.status
                 return (
@@ -166,7 +215,7 @@ export function AdminOrders() {
                     </td>
                     <td className="py-3 px-4 hidden md:table-cell">
                       <div className="flex items-center gap-2">
-                        {customer && (
+                        {customer && customer.avatar && customer.avatar.trim() !== "" ? (
                           <Image
                             src={customer.avatar}
                             alt={`Avatar de ${customer.firstName} ${customer.lastName}`}
@@ -174,7 +223,11 @@ export function AdminOrders() {
                             height={24}
                             className="h-6 w-6 rounded-full object-cover"
                           />
-                        )}
+                        ) : customer ? (
+                          <div className="h-6 w-6 rounded-full bg-secondary flex items-center justify-center text-xs font-medium">
+                            {customer.firstName.charAt(0)}{customer.lastName.charAt(0)}
+                          </div>
+                        ) : null}
                         <span>{customer?.firstName} {customer?.lastName}</span>
                       </div>
                     </td>
@@ -234,13 +287,19 @@ export function AdminOrders() {
               {/* Client info */}
               <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
                 {viewCustomer && (
-                  <Image
-                    src={viewCustomer.avatar}
-                    alt={`Avatar de ${viewCustomer.firstName} ${viewCustomer.lastName}`}
-                    width={40}
-                    height={40}
-                    className="h-10 w-10 rounded-full object-cover"
-                  />
+                  viewCustomer.avatar && viewCustomer.avatar.trim() !== "" ? (
+                    <Image
+                      src={viewCustomer.avatar}
+                      alt={`Avatar de ${viewCustomer.firstName} ${viewCustomer.lastName}`}
+                      width={40}
+                      height={40}
+                      className="h-10 w-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center text-sm font-medium">
+                      {viewCustomer.firstName.charAt(0)}{viewCustomer.lastName.charAt(0)}
+                    </div>
+                  )
                 )}
                 <div>
                   <p className="font-medium">{viewCustomer?.firstName} {viewCustomer?.lastName}</p>
@@ -254,7 +313,13 @@ export function AdminOrders() {
                 <div className="flex flex-col gap-3">
                   {viewOrder.items.map((item, i) => (
                     <div key={`${item.productId}-${item.name}-${i}`} className="flex gap-3 items-center">
-                      <Image src={item.image} alt={item.name} width={48} height={48} className="h-12 w-12 rounded object-cover" />
+                      {item.image && item.image.trim() !== "" ? (
+                        <Image src={item.image} alt={item.name} width={48} height={48} className="h-12 w-12 rounded object-cover" />
+                      ) : (
+                        <div className="h-12 w-12 rounded bg-secondary flex items-center justify-center text-xs font-medium">
+                          {item.name.charAt(0)}
+                        </div>
+                      )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{item.name}</p>
                         <p className="text-xs text-muted-foreground">{item.color} {item.size ? `| ${item.size}` : ""} | x{item.quantity}</p>
@@ -310,7 +375,18 @@ export function AdminOrders() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="sm" className="gap-1.5"><Printer className="h-3.5 w-3.5" /> Facture</Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-1.5"
+                  onClick={() => {
+                    if (viewOrder) {
+                      window.open(`/api/orders/${viewOrder.id}/invoice`, "_blank")
+                    }
+                  }}
+                >
+                  <Printer className="h-3.5 w-3.5" /> Facture
+                </Button>
               </div>
             </div>
           )}

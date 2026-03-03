@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic"
 import Image from "next/image"
-import { getOrders, getProducts, getCustomers } from "@/lib/services"
+import { useProducts, useOrders, useCustomers, useSettings } from "@/hooks"
 import { formatPrice, getStatusColor, getStatusLabel } from "@/lib/formatters"
 import { useReviewsStore } from "@/lib/stores/reviews-store"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -18,16 +18,21 @@ const AdminDashboardCharts = dynamic(
 )
 
 export function AdminDashboard() {
-  const orders = getOrders()
-  const products = getProducts()
-  const customers = getCustomers()
+  const { orders } = useOrders()
+  const { products } = useProducts()
+  const { customers } = useCustomers()
+  const { settings } = useSettings()
+  
   const totalRevenue = orders.filter(o => o.status !== "cancelled").reduce((s, o) => s + o.total, 0)
   const pendingOrders = orders.filter(o => o.status === "pending").length
   const totalCustomers = customers.length
   const averageOrder = orders.filter(o => o.status !== "cancelled").length > 0
     ? totalRevenue / orders.filter(o => o.status !== "cancelled").length
     : 0
-  const lowStockProducts = products.filter(p => p.stock <= 10)
+  
+  // Seuil de stock faible depuis les paramètres (défaut: 10)
+  const lowStockThreshold = typeof settings.lowStockThreshold === "number" ? settings.lowStockThreshold : 10
+  const lowStockProducts = products.filter(p => p.stock <= lowStockThreshold)
   const reviews = useReviewsStore((s) => s.reviews)
   const pendingReviews = reviews.filter((r) => r.status === "pending")
 
@@ -42,7 +47,7 @@ export function AdminDashboard() {
                 <p className="text-sm text-muted-foreground">Revenus totaux</p>
                 <p className="text-2xl font-bold mt-1">{formatPrice(totalRevenue)}</p>
                 <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
-                  <TrendingUp className="h-3 w-3" /> Données démo
+                  <TrendingUp className="h-3 w-3" /> Total
                 </p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
@@ -74,7 +79,7 @@ export function AdminDashboard() {
                 <p className="text-sm text-muted-foreground">Clients</p>
                 <p className="text-2xl font-bold mt-1">{totalCustomers}</p>
                 <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
-                  <TrendingUp className="h-3 w-3" /> Données démo
+                  <TrendingUp className="h-3 w-3" /> Total
                 </p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
@@ -91,7 +96,7 @@ export function AdminDashboard() {
                 <p className="text-sm text-muted-foreground">Panier moyen</p>
                 <p className="text-2xl font-bold mt-1">{formatPrice(averageOrder)}</p>
                 <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
-                  <TrendingUp className="h-3 w-3" /> Données démo
+                  <TrendingUp className="h-3 w-3" /> Total
                 </p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">

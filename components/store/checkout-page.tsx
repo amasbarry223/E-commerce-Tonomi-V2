@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Image from "next/image"
 import { useCartStore, useNavigationStore } from "@/lib/store-context"
+import { useCustomerAuthStore } from "@/lib/stores/customer-auth-store"
 import { PAGES } from "@/lib/routes"
 import type { CartItem } from "@/lib/store-context"
 import { formatPrice } from "@/lib/formatters"
@@ -22,8 +23,9 @@ import { OrderSummary } from "./order-summary"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export function CheckoutPage() {
-  const { cart, cartTotal, promoDiscount, clearCart } = useCartStore()
+  const { cart, cartTotal, promoDiscount, clearCart, appliedPromo } = useCartStore()
   const { navigate } = useNavigationStore()
+  const currentCustomer = useCustomerAuthStore((s) => s.currentCustomer)
   const [step, setStep] = useState(1)
   const [orderPlaced, setOrderPlaced] = useState(false)
   const [placedOrderNumber, setPlacedOrderNumber] = useState<string | null>(null)
@@ -45,19 +47,108 @@ export function CheckoutPage() {
 
   const { form, handleSubmit, isSubmitting, errors, trigger } = useCheckoutForm({
     onSubmit: async (data) => {
-      await new Promise(resolve => setTimeout(resolve, ANIMATION_DELAYS.CHECKOUT_PROCESSING_DELAY))
-      const cost = shipping === "express" ? LAYOUT_CONSTANTS.EXPRESS_SHIPPING_COST : cartTotal >= LAYOUT_CONSTANTS.FREE_SHIPPING_THRESHOLD ? 0 : LAYOUT_CONSTANTS.STANDARD_SHIPPING_COST
-      const orderTotal = cartTotal - promoDiscount + cost
-      setOrderRecap({
-        data: data,
-        shipping: shipping === "express" ? SHIPPING_LABELS.EXPRESS : SHIPPING_LABELS.STANDARD,
-        shippingCost: cost,
-        total: orderTotal,
-        lines: [...cart],
-      })
-      setPlacedOrderNumber(ORDER_CONSTANTS.ORDER_NUMBER_PREFIX + Date.now().toString(36).toUpperCase().slice(-6))
-      setOrderPlaced(true)
-      clearCart()
+      try {
+        setSubmitError(null)
+        
+        // Calculer les coûts
+        const cost = shipping === "express" ? LAYOUT_CONSTANTS.EXPRESS_SHIPPING_COST : cartTotal >= LAYOUT_CONSTANTS.FREE_SHIPPING_THRESHOLD ? 0 : LAYOUT_CONSTANTS.STANDARD_SHIPPING_COST
+        const orderTotal = cartTotal - promoDiscount + cost
+        const tax = Math.round(orderTotal * 0.2 * 100) / 100 // TVA 20%
+        const subtotal = cartTotal
+
+        // Préparer les items pour l'API
+        const items = cart.map((item) => ({
+          productId: item.productId,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          color: item.color,
+          size: item.size,
+          image: item.image,
+        }))
+
+        // Récupérer le promoCodeId si un code promo est appliqué
+        let promoCodeId: string | undefined
+        if (appliedPromo) {
+          try {
+            const promosRes = await fetch("/api/promos")
+            if (promosRes.ok) {
+              const promos = await promosRes.json()
+              const promo = promos.find((p: any) => p.code === appliedPromo)
+              if (promo) {
+                promoCodeId = promo.id
+              }
+            }
+          } catch (error) {
+            console.error("Error fetching promo code:", error)
+          }
+        }
+
+        // Appeler l'API pour créer la commande
+        const response = await fetch("/api/orders", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: data.email,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            phone: data.phone,
+            shippingAddress: {
+              address: data.address,
+              city: data.city,
+              zip: data.zip,
+              country: data.country,
+            },
+            billingAddress: {
+              address: data.address, // Pour l'instant, même adresse
+              city: data.city,
+              zip: data.zip,
+              country: data.country,
+            },
+            items,
+            subtotal,
+            shipping: cost,
+            discount: promoDiscount,
+            tax,
+            total: orderTotal,
+            paymentMethod: "card", // Pour l'instant, toujours carte
+            promoCodeId,
+            notes: undefined,
+          }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: "Erreur inconnue" }))
+          throw new Error(errorData.error || "Erreur lors de la création de la commande")
+        }
+
+        const order = await response.json()
+
+        // Sauvegarder le récapitulatif
+        setOrderRecap({
+          data: data,
+          shipping: shipping === "express" ? SHIPPING_LABELS.EXPRESS : SHIPPING_LABELS.STANDARD,
+          shippingCost: cost,
+          total: orderTotal,
+          lines: [...cart],
+        })
+        setPlacedOrderNumber(order.orderNumber)
+        setOrderPlaced(true)
+        clearCart()
+        toast.success("Commande créée avec succès !")
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Une erreur s'est produite"
+        setSubmitError(errorMessage)
+        toast.error(errorMessage)
+        logger.logError(error instanceof Error ? error : new Error(String(error)), "CheckoutPage", {
+          step,
+          cartTotal,
+          promoDiscount,
+        })
+        throw error
+      }
     },
     onError: (error) => {
       setSubmitError(error?.message ?? "Une erreur s'est produite")
@@ -546,13 +637,19 @@ export function CheckoutPage() {
               {cart.map(item => (
                 <div key={`${item.productId}-${item.color}-${item.size}`} className="flex gap-3">
                   <div className="relative h-12 w-12 rounded overflow-hidden shrink-0">
-                    <Image 
-                      src={item.image} 
-                      alt={item.name} 
-                      fill
-                      className="object-cover"
-                      sizes="48px"
-                    />
+                    {item.image && item.image.trim() !== "" ? (
+                      <Image 
+                        src={item.image} 
+                        alt={item.name} 
+                        fill
+                        className="object-cover"
+                        sizes="48px"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full bg-secondary text-muted-foreground text-xs">
+                        {item.name.charAt(0)}
+                      </div>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm truncate">{item.name}</p>

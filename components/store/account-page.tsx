@@ -1,13 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import { useNavigationStore, useUIStore } from "@/lib/store-context"
 import { PAGES } from "@/lib/routes"
-import { getOrders, getProducts } from "@/lib/services"
+import { useProducts, useOrders } from "@/hooks"
 import { formatPrice, formatDate, getStatusColor, getStatusLabel } from "@/lib/formatters"
 import { useCustomerAuthStore } from "@/lib/stores/customer-auth-store"
 import { clientRegisterSchema, clientLoginSchema, emailFieldSchema, getZodErrorMessage } from "@/lib/utils/validation"
+import { resetPassword } from "@/lib/services/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -32,11 +33,16 @@ function AccountSignupForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => vo
   const [loading, setLoading] = useState(false)
   const register = useCustomerAuthStore((s) => s.register)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    setFieldErrors({})
+    
+    console.log("📝 Tentative d'inscription...", { firstName, lastName, email: email.substring(0, 5) + "***" })
+    
     const result = clientRegisterSchema.safeParse({ firstName, lastName, email, password })
     if (!result.success) {
+      console.log("❌ Erreur de validation:", result.error.issues)
       const errs: Record<string, string> = {}
       result.error.issues.forEach((e) => {
         const p = e.path[0] as string
@@ -46,14 +52,26 @@ function AccountSignupForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => vo
       setError(getZodErrorMessage(result.error))
       return
     }
-    setFieldErrors({})
+    
     setLoading(true)
+    setError("")
+    
     try {
-      register(result.data.firstName, result.data.lastName, result.data.email, result.data.password)
-      toast.success("Compte créé. Vous êtes connecté.")
-      onSuccess()
+      console.log("🔄 Appel de register()...")
+      const success = await register(result.data.firstName, result.data.lastName, result.data.email, result.data.password)
+      console.log("✅ Register retourné:", success)
+      
+      if (success) {
+        toast.success("Compte créé. Vous êtes connecté.")
+        onSuccess()
+      } else {
+        setError("L'inscription a échoué. Veuillez réessayer.")
+      }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Une erreur est survenue.")
+      console.error("❌ Erreur lors de l'inscription:", err)
+      const errorMessage = err instanceof Error ? err.message : "Une erreur est survenue."
+      setError(errorMessage)
+      toast.error("Erreur lors de l'inscription", { description: errorMessage })
     } finally {
       setLoading(false)
     }
@@ -167,11 +185,16 @@ function AccountLoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => vo
   const [forgotLoading, setForgotLoading] = useState(false)
   const login = useCustomerAuthStore((s) => s.login)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    setFieldErrors({})
+    
+    console.log("🔐 Tentative de connexion...", { email: email.substring(0, 5) + "***" })
+    
     const result = clientLoginSchema.safeParse({ email, password })
     if (!result.success) {
+      console.log("❌ Erreur de validation:", result.error.issues)
       const errs: Record<string, string> = {}
       result.error.issues.forEach((e) => {
         const p = e.path[0] as string
@@ -181,19 +204,32 @@ function AccountLoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => vo
       setError(getZodErrorMessage(result.error))
       return
     }
-    setFieldErrors({})
+    
     setLoading(true)
-    const ok = login(result.data.email, result.data.password)
-    setLoading(false)
-    if (ok) {
-      toast.success("Vous êtes connecté.")
-      onSuccess()
-    } else {
-      setError("Email ou mot de passe incorrect.")
+    setError("")
+    
+    try {
+      console.log("🔄 Appel de login()...")
+      const ok = await login(result.data.email, result.data.password)
+      console.log("✅ Login retourné:", ok)
+      
+      if (ok) {
+        toast.success("Vous êtes connecté.")
+        onSuccess()
+      } else {
+        setError("Email ou mot de passe incorrect.")
+      }
+    } catch (err: unknown) {
+      console.error("❌ Erreur lors de la connexion:", err)
+      const errorMessage = err instanceof Error ? err.message : "Une erreur est survenue."
+      setError(errorMessage)
+      toast.error("Erreur lors de la connexion", { description: errorMessage })
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleForgotSubmit = (e: React.FormEvent) => {
+  const handleForgotSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setForgotEmailError("")
     const result = emailFieldSchema.safeParse(forgotEmail.trim())
@@ -202,12 +238,16 @@ function AccountLoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => vo
       return
     }
     setForgotLoading(true)
-    setTimeout(() => {
-      setForgotLoading(false)
-      toast.info("En production, un email de réinitialisation vous serait envoyé. Mode démo : réinitialisation non envoyée.")
+    try {
+      await resetPassword(result.data)
+      toast.success("Un email de réinitialisation vous a été envoyé.")
       setShowForgotPassword(false)
       setForgotEmail("")
-    }, 500)
+    } catch (err: unknown) {
+      setForgotEmailError(err instanceof Error ? err.message : "Erreur lors de l'envoi de l'email")
+    } finally {
+      setForgotLoading(false)
+    }
   }
 
   if (showForgotPassword) {
@@ -366,15 +406,20 @@ function AccountAuthenticatedView() {
   const { navigate } = useNavigationStore()
   const { wishlist } = useUIStore()
   const currentCustomerId = useCustomerAuthStore((s) => s.currentCustomerId)
-  const getCustomerById = useCustomerAuthStore((s) => s.getCustomerById)
+  const currentCustomer = useCustomerAuthStore((s) => s.currentCustomer)
   const logout = useCustomerAuthStore((s) => s.logout)
+  const { orders, isLoading: isLoadingOrders } = useOrders()
+  const { products, isLoading: isLoadingProducts } = useProducts()
 
-  const orders = getOrders()
-  const products = getProducts()
-  const customer = currentCustomerId ? getCustomerById(currentCustomerId) : null
-  if (!customer) return null
+  if (!currentCustomer || !currentCustomerId) {
+    return (
+      <div className="mx-auto max-w-5xl px-4 py-8 text-center">
+        <p className="text-muted-foreground">Chargement...</p>
+      </div>
+    )
+  }
 
-  const customerOrders = orders.filter((o) => o.customerId === customer.id)
+  const customerOrders = orders.filter((o) => o.customerId === currentCustomer.id)
   const wishlistProducts = products.filter((p) => wishlist.some((w) => w.productId === p.id))
 
   return (
@@ -383,8 +428,8 @@ function AccountAuthenticatedView() {
         <div className="flex items-center gap-4">
           <div className="relative h-16 w-16 rounded-full overflow-hidden shrink-0">
             <Image
-              src={customer.avatar}
-              alt={`${customer.firstName} ${customer.lastName}`}
+              src={currentCustomer.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentCustomer.firstName + "+" + currentCustomer.lastName)}&background=random`}
+              alt={`${currentCustomer.firstName} ${currentCustomer.lastName}`}
               fill
               className="object-cover"
               sizes="64px"
@@ -392,12 +437,12 @@ function AccountAuthenticatedView() {
           </div>
           <div>
             <h1 className="font-serif text-2xl font-bold">
-              {customer.firstName} {customer.lastName}
+              {currentCustomer.firstName} {currentCustomer.lastName}
             </h1>
-            <p className="text-sm text-muted-foreground">{customer.email}</p>
+            <p className="text-sm text-muted-foreground">{currentCustomer.email}</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => logout()} className="gap-2">
+        <Button variant="outline" size="sm" onClick={async () => { await logout() }} className="gap-2">
           <LogOut className="h-4 w-4" />
           Se déconnecter
         </Button>
@@ -511,7 +556,7 @@ function AccountAuthenticatedView() {
         </TabsContent>
 
         <TabsContent value="addresses" className="pt-6">
-          {customer.addresses.length === 0 ? (
+          {(currentCustomer.addresses || []).length === 0 ? (
             <Empty className="py-12 border-0">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
@@ -523,7 +568,7 @@ function AccountAuthenticatedView() {
             </Empty>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {customer.addresses.map((addr) => (
+              {(currentCustomer.addresses || []).map((addr) => (
                 <div key={addr.id} className="bg-card border border-border rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-medium text-sm">{addr.label}</span>
@@ -550,31 +595,31 @@ function AccountAuthenticatedView() {
             <div className="flex flex-col gap-3 text-sm">
               <div className="flex justify-between py-2 border-b border-border">
                 <span className="text-muted-foreground">Prénom</span>
-                <span>{customer.firstName}</span>
+                <span>{currentCustomer.firstName}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-border">
                 <span className="text-muted-foreground">Nom</span>
-                <span>{customer.lastName}</span>
+                <span>{currentCustomer.lastName}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-border">
                 <span className="text-muted-foreground">Email</span>
-                <span>{customer.email}</span>
+                <span>{currentCustomer.email}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-border">
                 <span className="text-muted-foreground">Téléphone</span>
-                <span>{customer.phone || "—"}</span>
+                <span>{currentCustomer.phone || "—"}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-border">
                 <span className="text-muted-foreground">Client depuis</span>
-                <span>{formatDate(customer.createdAt)}</span>
+                <span>{formatDate(currentCustomer.createdAt)}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-border">
                 <span className="text-muted-foreground">Total des achats</span>
-                <span className="font-bold">{formatPrice(customer.totalSpent)}</span>
+                <span className="font-bold">{formatPrice(currentCustomer.totalSpent)}</span>
               </div>
               <div className="flex justify-between py-2">
                 <span className="text-muted-foreground">Commandes</span>
-                <span>{customer.orderCount}</span>
+                <span>{currentCustomer.orderCount}</span>
               </div>
             </div>
           </div>
@@ -586,7 +631,21 @@ function AccountAuthenticatedView() {
 
 export function AccountPage() {
   const currentCustomerId = useCustomerAuthStore((s) => s.currentCustomerId)
+  const initialize = useCustomerAuthStore((s) => s.initialize)
+  const isLoading = useCustomerAuthStore((s) => s.isLoading)
   const [guestMode, setGuestMode] = useState<GuestMode>("guest")
+
+  useEffect(() => {
+    initialize()
+  }, [initialize])
+
+  if (isLoading) {
+    return (
+      <div className="mx-auto max-w-5xl px-4 py-8 text-center">
+        <p className="text-muted-foreground">Chargement...</p>
+      </div>
+    )
+  }
 
   if (currentCustomerId) {
     return <AccountAuthenticatedView />
